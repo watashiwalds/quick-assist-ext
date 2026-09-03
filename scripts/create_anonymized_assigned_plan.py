@@ -4,7 +4,7 @@ from openpyxl import load_workbook
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "QuickAssist_KeHoach_PhanCong_4Nguoi.xlsx"
-OUTPUT = ROOT / "QuickAssist_KeHoach_PhanCong_AnDanh_A_B_C_D.xlsx"
+OUTPUT = ROOT / "QuickAssist_KeHoach_PhanCong_AnDanh_GoogleOAuth.xlsx"
 
 # Only identities are replaced. Roles, task ownership, collaboration, estimates,
 # timeline, risks, formulas, and all allocation data remain unchanged.

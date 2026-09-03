@@ -19,7 +19,7 @@ members = [
 
 tasks = [
     ("P01", "Khởi động", "Kiến trúc", "Chốt kiến trúc, module, luồng dữ liệu và ADR", members[0][0], members[1][0], 1, 1, 6, "P0", "", "Sơ đồ kiến trúc + ADR", "Nhóm duyệt; thể hiện extension/server/AI/DB và ranh giới dữ liệu"),
-    ("P02", "Khởi động", "API & dữ liệu", "Chuẩn hoá endpoint và data contract; xử lý xung đột /notes/quick, /notes, /notes/ragged", members[1][0], members[0][0], 1, 1, 8, "P0", "P01", "OpenAPI draft + schema", "Không còn endpoint mâu thuẫn; có request/response/error mẫu"),
+    ("P02", "Khởi động", "API & dữ liệu", "Chuẩn hoá endpoint, Google OAuth callback/session và data contract; xử lý xung đột /notes/quick, /notes, /notes/ragged", members[1][0], members[0][0], 1, 1, 8, "P0", "P01", "OpenAPI draft + schema", "Không còn endpoint mâu thuẫn; có OAuth flow, request/response/error mẫu"),
     ("P03", "Khởi động", "AI", "Spike lựa chọn AI Provider: Dify hay service riêng; đo khả năng chunk/embed/rerank", members[2][0], members[1][0], 1, 1, 8, "P0", "P01", "Báo cáo spike + quyết định", "Có tiêu chí latency, chi phí/quota, khả năng chạy local"),
     ("P04", "Khởi động", "UX", "Vẽ user flow và wireframe cho 5 chức năng trong kịch bản", members[3][0], members[0][0], 1, 1, 8, "P0", "P01", "Wireframe + user flow", "Bao phủ happy path, loading, empty, error, undo"),
     ("P05", "Nền tảng", "Extension", "Khởi tạo TypeScript + Manifest V3, build/lint/test và cấu trúc module", members[0][0], members[3][0], 1, 2, 8, "P0", "P01", "Extension skeleton", "Cài được ở developer mode; build và lint pass"),
@@ -27,8 +27,8 @@ tasks = [
     ("P07", "Nền tảng", "AI", "Khởi tạo AI service/adapter cho local provider và mock provider", members[2][0], members[1][0], 1, 2, 8, "P0", "P03,P06", "AI adapter skeleton", "Đổi provider qua config; có mock deterministic cho test"),
     ("P08", "Nền tảng", "QA", "Lập test strategy, traceability matrix từ kịch bản và Definition of Done", members[3][0], members[0][0], 1, 2, 6, "P0", "P04", "Test plan + RTM", "Mỗi nhánh chính có test case và người chịu trách nhiệm"),
     ("A01", "Nền tảng", "Tài khoản", "Thiết kế schema user/note/chunk/category/quota và migration", members[1][0], members[2][0], 2, 2, 8, "P0", "P02,P06", "Migration + ERD", "Có UUID, ownership, timestamp, index và ràng buộc dữ liệu"),
-    ("A02", "Nền tảng", "Tài khoản", "Xây dựng đăng ký/đăng nhập, hash mật khẩu và token/session", members[1][0], members[0][0], 2, 3, 10, "P0", "A01", "Auth API", "Không lưu mật khẩu thô; test success/failure/expiry pass"),
-    ("A03", "Nền tảng", "Tài khoản", "Tích hợp đăng nhập và lưu token an toàn trong extension", members[0][0], members[1][0], 2, 3, 8, "P0", "A02,P05", "Auth UI + client", "Login/logout hoạt động; không log token; xử lý token hết hạn"),
+    ("A02", "Nền tảng", "Tài khoản", "Xây Google OAuth 2.0 Authorization Code + PKCE: callback, verify ID token và phát hành app session", members[1][0], members[0][0], 2, 3, 10, "P0", "A01", "Google OAuth API", "Chỉ dùng scope openid/email/profile; validate state, nonce, issuer, audience và expiry"),
+    ("A03", "Nền tảng", "Tài khoản", "Tích hợp Google OAuth trong extension qua browser identity flow/PKCE và quản lý app session", members[0][0], members[1][0], 2, 3, 8, "P0", "A02,P05", "Google OAuth UI + client", "Login/logout hoạt động; không log token; xử lý session hết hạn; không có form mật khẩu"),
     ("A04", "Nền tảng", "Quota", "Xây dựng quota middleware và nhật ký tiêu hao AI", members[1][0], members[2][0], 3, 3, 8, "P0", "A01,A02", "Quota service", "Chặn đúng khi hết quota; cập nhật nguyên tử; có audit"),
     ("A05", "Nền tảng", "UI", "Xây design system và app shell: loading/empty/error/toast/modal", members[3][0], members[0][0], 2, 3, 8, "P0", "P04,P05", "UI component set", "Các màn hình dùng chung component; keyboard usable"),
     ("N01", "MVP Ghi chú", "Extension", "Bắt selection, context menu và phím Ctrl-Alt-N", members[0][0], members[3][0], 3, 3, 8, "P0", "P05", "Selection capture", "Lấy text + URL + title; hoạt động trên 3 trang mẫu"),
@@ -54,10 +54,9 @@ tasks = [
     ("S04", "Skim trang", "UI", "UI prompt, hint chuẩn bị/tìm kiếm, preview và chọn đoạn để lưu", members[3][0], members[0][0], 6, 7, 8, "P1", "A05,S01,S02", "Skim UI", "Đúng trạng thái Ready/chưa Ready; chọn nhiều đoạn được"),
     ("S05", "Skim trang", "Backend", "Cài lưu các chunk đã chọn qua contract note thống nhất", members[1][0], members[0][0], 7, 7, 6, "P1", "S02,S03,P02", "Save selected chunks", "Lưu note+vector đúng ownership; không tạo trùng"),
     ("S06", "Skim trang", "QA", "E2E skim: trang dài, chưa ready, hết quota, session hết hạn", members[3][0], members[2][0], 7, 7, 6, "P1", "S02,S03,S04,S05", "Skim E2E report", "Happy path và nhánh lỗi trọng yếu pass"),
-    ("G01", "Khoảng trống", "Đặc tả", "Đặc tả riêng chức năng Tóm tắt nội dung đang thiếu trong file kịch bản", members[3][0], members[2][0], 2, 2, 5, "P1", "P04", "Scenario + acceptance", "Chốt đầu vào/đầu ra/lưu trữ/quota/privacy; quyết định MVP hay P2"),
-    ("G02", "Khoảng trống", "Đặc tả", "Chốt lịch trình cá nhân, dữ liệu profile và cơ chế consent", members[0][0], members[3][0], 2, 2, 4, "P2", "G01", "Decision record", "Không thu thập dữ liệu nhạy cảm nếu chưa có consent rõ"),
+    ("G01", "Khoảng trống", "Đặc tả", "Đặc tả riêng chức năng Tóm tắt nội dung đang thiếu trong file kịch bản", members[3][0], members[2][0], 2, 2, 5, "P1", "P04", "Scenario + acceptance", "Chốt đầu vào/đầu ra/lưu trữ/quota/privacy; quyết định nhận vào P1 hoặc hoãn"),
     ("H01", "Hoàn thiện", "Bảo mật", "Rà soát permission MV3, CSP, secret/token và dữ liệu nhạy cảm", members[0][0], members[1][0], 7, 8, 6, "P0", "A03,C02,S01", "Security checklist", "Least privilege; không secret trong bundle/log"),
-    ("H02", "Hoàn thiện", "Bảo mật", "Validation, rate limit, CORS/HTTPS config và kiểm tra ownership API", members[1][0], members[0][0], 7, 8, 8, "P0", "C01,R03,S02", "Backend hardening", "Security tests pass; lỗi không lộ chi tiết nội bộ"),
+    ("H02", "Hoàn thiện", "Bảo mật", "Validation, Google OAuth token/session validation, rate limit, CORS/HTTPS config và kiểm tra ownership API", members[1][0], members[0][0], 7, 8, 8, "P0", "C01,R03,S02,A02", "Backend hardening", "OAuth security tests pass; lỗi không lộ chi tiết nội bộ"),
     ("H03", "Hoàn thiện", "AI", "Tạo bộ dữ liệu đánh giá và benchmark relevance/latency", members[2][0], members[3][0], 7, 8, 8, "P0", "R01,R02,S03", "Evaluation report", "Có Recall@k/nDCG hoặc tiêu chí tương đương và ngưỡng chấp nhận"),
     ("H04", "Hoàn thiện", "AI/Deploy", "Cấu hình self-host/Dify, health/fallback và tài liệu vận hành", members[2][0], members[1][0], 7, 8, 8, "P1", "P03,P07", "AI deployment guide", "Một cấu hình demo chạy được; provider lỗi có cảnh báo"),
     ("H05", "Hoàn thiện", "QA", "Regression E2E, usability, accessibility và kiểm thử demo", members[3][0], members[0][0], 8, 8, 10, "P0", "N07,C05,R05,S06,H01,H02", "Release test report", "Không còn lỗi P0/P1 mở; checklist demo pass"),
@@ -69,25 +68,24 @@ tasks = [
 risks = [
     ("R-01", "Tóm tắt nội dung có trong Word nhưng chưa có kịch bản chi tiết", "Cao", "Cao", "Đặc tả ở G01; chỉ đưa vào MVP sau khi chốt acceptance/quota", members[3][0]),
     ("R-02", "Tên endpoint ghi chú không thống nhất giữa các bước", "Cao", "Trung bình", "Chuẩn hoá OpenAPI ở P02 trước khi code client/server", members[1][0]),
-    ("R-03", "Header chỉ ghi 'định danh user', chưa định nghĩa cơ chế auth", "Cao", "Cao", "Dùng token/session chuẩn, ownership check mọi truy vấn", members[1][0]),
+    ("R-03", "Google OAuth cần xác thực callback, state/nonce và app session rõ ràng", "Cao", "Cao", "Authorization Code + PKCE; validate issuer/audience/expiry; ownership check mọi truy vấn", members[1][0]),
     ("R-04", "Quota và silent skip AI có thể gây trạng thái note khó hiểu", "Trung bình", "Cao", "Tách trạng thái saved/processed; log lý do và hiển thị phù hợp", members[0][0]),
     ("R-05", "Dữ liệu web cá nhân được gửi đến AI provider", "Cao", "Trung bình", "Consent, tối thiểu hoá dữ liệu, retention policy và tùy chọn local", members[0][0]),
     ("R-06", "Hybrid search/rerank có độ trễ cao", "Trung bình", "Cao", "Benchmark sớm, timeout, cache và fallback không rerank", members[2][0]),
     ("R-07", "IndexedDB và server có thể xung đột dữ liệu", "Trung bình", "Cao", "Chốt version/updatedAt và quy tắc conflict trong C02", members[0][0]),
     ("R-08", "Readability không ổn định trên SPA/trang đặc biệt", "Trung bình", "Trung bình", "Bộ trang thử chuẩn, fallback selection/body text và thông báo giới hạn", members[0][0]),
     ("R-09", "Self-host LLM vượt tài nguyên máy demo", "Cao", "Trung bình", "Provider adapter, model nhẹ, mock/demo fallback", members[2][0]),
-    ("R-10", "Phạm vi rộng so với nhóm 4 người", "Cao", "Cao", "Khoá P0; Skim là P1; lịch trình cá nhân là P2", members[0][0]),
+    ("R-10", "Phạm vi rộng so với nhóm 4 người", "Cao", "Cao", "Khoá P0; Skim và tóm tắt chỉ nhận khi P0 ổn định", members[0][0]),
 ]
 
 features = [
-    ("Tài khoản cá nhân", "Word", "Một phần", "P0", "Cần chốt auth/token, quota, profile và quyền riêng tư"),
+    ("Tài khoản cá nhân", "Word", "Một phần", "P0", "Google OAuth 2.0 + app session, quota và quyền riêng tư"),
     ("Ghi chú nhanh", "Word + Excel", "Chi tiết", "P0", "Luồng selection → undo 5s → lưu → AI xử lý → local state"),
     ("Tìm văn bản nổi bật trên trang", "Excel", "Chi tiết", "P1", "Readability + session tạm + hybrid search + chọn đoạn để lưu"),
     ("Duyệt note/cache", "Excel", "Chi tiết", "P0", "Cache-first IndexedDB, sync server và hiển thị thư viện"),
     ("Tra cứu note RAG-like", "Word + Excel", "Chi tiết", "P0", "Filter theo user/category; BM25 + vector + rerank"),
     ("Note CRUD", "Excel", "Chi tiết", "P0", "Sửa/xoá/bulk delete và cập nhật local tương ứng"),
     ("Tóm tắt nội dung", "Word", "Thiếu kịch bản", "P1", "Phải bổ sung scenario, API, UI, quota, lưu trữ và acceptance"),
-    ("Trích xuất lịch trình cá nhân", "Word", "Ý tưởng sơ bộ", "P2", "Rủi ro privacy/consent; nên để sau MVP"),
     ("Tự triển khai/local AI", "Word", "Định hướng", "P1", "Cần adapter và hướng dẫn cấu hình, không khóa vào một provider"),
 ]
 
@@ -140,9 +138,9 @@ ws["B3"] = "Xây extension ghi chú nhanh, quản lý note và tra cứu ngữ n
 ws["A4"] = "Mốc kế hoạch"
 ws["B4"] = "8 tuần — khóa phạm vi P0 trước; P1 chỉ làm sau khi P0 đạt Definition of Done."
 ws["A5"] = "MVP đề xuất"
-ws["B5"] = "Tài khoản/auth + ghi chú nhanh + thư viện/CRUD/cache + RAG cơ bản + bảo mật/kiểm thử."
+ws["B5"] = "Google OAuth + ghi chú nhanh + thư viện/CRUD/cache + RAG cơ bản + bảo mật/kiểm thử."
 ws["A6"] = "Ngoài MVP"
-ws["B6"] = "Skim trang là P1; tóm tắt phải bổ sung kịch bản; lịch trình cá nhân/consent là P2."
+ws["B6"] = "Skim trang là P1; tóm tắt phải bổ sung kịch bản trước khi triển khai."
 ws["A7"] = "Nguồn phân tích"
 ws["B7"] = "Nhóm 1 - Báo cáo ý tưởng đề tài.docx; Kịch bản chức năng QuickAssist_1.xlsx"
 for r in range(3, 8):
@@ -162,7 +160,7 @@ insights = [
     "Kịch bản đã mô tả tốt 5 luồng: ghi chú nhanh, skim trang, duyệt note, RAG và CRUD; nhưng account/auth mới ở mức ý tưởng.",
     "Mấu chốt dữ liệu là ownership theo user, metadata/category, UUID note/chunk, quota và đồng bộ local–server.",
     "Hai contract phải chốt trước code: endpoint ghi chú và quy tắc response/error/idempotency.",
-    "Tóm tắt nội dung và lịch trình cá nhân chưa đủ đặc tả; không nên cam kết trong MVP trước khi làm G01/G02.",
+    "Tóm tắt nội dung chưa đủ đặc tả; không nên cam kết trong MVP trước khi hoàn thành G01.",
     "RAG nên có benchmark chất lượng/độ trễ; luôn có timeout/fallback để demo không phụ thuộc tuyệt đối vào provider.",
 ]
 for i, item in enumerate(insights, 10):
@@ -305,8 +303,8 @@ headers = ["Tuần", "Mục tiêu", "Mốc bàn giao", "Điều kiện qua cổn
 for c, h in enumerate(headers, 1): wk.cell(3, c, h)
 header_row(wk, 3, len(headers))
 weekly = [
-    (1, "Chốt kiến trúc, API, AI và UX", "ADR, OpenAPI draft, wireframe, repo skeleton", "Nhóm thống nhất scope P0/P1/P2", "Vinh + cả nhóm", "Không code lệch contract trước P02"),
-    (2, "Hoàn thiện nền tảng", "Schema, test plan, UI shell, đặc tả summary", "Skeleton chạy và migration pass", "Quang/Dương", "Chốt G01/G02"),
+    (1, "Chốt kiến trúc, API, AI và UX", "ADR, OpenAPI draft, wireframe, repo skeleton", "Nhóm thống nhất scope P0/P1", "Vinh + cả nhóm", "Không code lệch contract trước P02"),
+    (2, "Hoàn thiện nền tảng", "Schema, Google OAuth, test plan, UI shell, đặc tả summary", "Skeleton chạy và migration pass", "Quang/Dương", "Chốt G01"),
     (3, "Auth/quota và ghi chú đầu-cuối", "Auth + selection + popup + API note", "Lưu được note không AI", "Vinh/Quang", "Ưu tiên vertical slice"),
     (4, "MVP ghi chú + vector", "Chunk/embed/vector + queue + E2E", "Luồng N01–N07 pass", "Sơn/Dương", "Mốc MVP-1"),
     (5, "Thư viện note + retrieval", "CRUD/cache/UI + hybrid/rerank", "Offline cơ bản và search backend pass", "Cả nhóm", "Không mở P1 nếu P0 đỏ"),

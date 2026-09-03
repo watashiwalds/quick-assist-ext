@@ -15,7 +15,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "QuickAssist_SDS_DacTaThietKePhanMem.docx"
+OUTPUT = ROOT / "QuickAssist_SDS_GoogleOAuth_KhongLichTrinh.docx"
 
 NAVY = "17365D"
 BLUE = "2F75B5"
@@ -175,7 +175,7 @@ def architecture_image():
     boxes = [
         ((60, 280, 340, 470), "Người dùng\nChrome / Edge", "#D9EAF7"),
         ((430, 220, 790, 540), "Browser Extension\nUI / Content Script\nService Worker\nIndexedDB", "#C6E0B4"),
-        ((900, 220, 1240, 540), "QuickAssist API\nAuth / Notes / Search\nSkim / Quota", "#FFE699"),
+        ((900, 220, 1240, 540), "QuickAssist API\nGoogle OAuth / Notes\nSearch / Skim / Quota", "#FFE699"),
         ((1370, 280, 1720, 470), "AI Provider\nChunk / Embed\nRerank", "#F4B183"),
         ((900, 620, 1240, 790), "PostgreSQL\n+ pgvector", "#D9D2E9"),
         ((1370, 620, 1720, 790), "Skim Session\nTTL Store", "#E2F0D9"),
@@ -361,7 +361,7 @@ add_bullets(doc, [
     "Tìm văn bản nổi bật trên trang bằng Readability và session tạm thời.",
     "Khả năng cấu hình AI Provider để hỗ trợ dịch vụ trực tuyến hoặc tự triển khai.",
 ])
-doc.add_paragraph("Tóm tắt toàn trang là hạng mục P1 cần hoàn thiện đặc tả trước khi cam kết. Trích xuất lịch trình cá nhân là P2 do còn thiếu quy tắc consent, dữ liệu profile và xử lý thông tin nhạy cảm.")
+doc.add_paragraph("Tóm tắt toàn trang là hạng mục P1 cần hoàn thiện đặc tả trước khi cam kết.")
 add_heading(doc, "1.3 Thuật ngữ và viết tắt", 2)
 add_table(doc, ["Thuật ngữ", "Diễn giải"], [
     ("SDS", "Software Design Specification — Đặc tả thiết kế phần mềm"),
@@ -398,9 +398,8 @@ add_table(doc, ["Actor", "Mô tả", "Quyền chính"], [
 ])
 add_heading(doc, "2.3 Ưu tiên phát hành", 2)
 add_table(doc, ["Mức", "Phạm vi", "Tiêu chí"], [
-    ("P0 — MVP", "Auth/quota, ghi chú nhanh, thư viện/CRUD/cache, RAG, bảo mật và regression", "Bắt buộc chạy end-to-end và không còn lỗi P0/P1"),
+    ("P0 — MVP", "Google OAuth/quota, ghi chú nhanh, thư viện/CRUD/cache, RAG, bảo mật và regression", "Bắt buộc chạy end-to-end và không còn lỗi P0/P1"),
     ("P1", "Skim trang, tóm tắt sau khi bổ sung đặc tả, cấu hình self-host", "Chỉ nhận nếu P0 ổn định"),
-    ("P2", "Trích xuất lịch trình cá nhân và tự động xác nhận liên quan", "Cần thiết kế consent/privacy riêng"),
 ])
 
 # 3 Architecture
@@ -425,7 +424,7 @@ add_table(doc, ["Thành phần", "Trách nhiệm", "Không chịu trách nhiệm
     ("Content Script", "Đọc selection, URL, title và nội dung Readability theo quyền", "Không lưu token; không gọi AI trực tiếp"),
     ("Service Worker", "Context menu, shortcut, API client, queue/retry và đồng bộ", "Không lưu dữ liệu dài hạn ngoài local store"),
     ("IndexedDB Store", "Cache note/category, pending queue, sync metadata", "Không thay server làm nguồn chuẩn"),
-    ("Auth Module", "Đăng ký/đăng nhập/refresh/logout và xác thực token", "Không xử lý note/search"),
+    ("Google OAuth Module", "Authorization Code + PKCE, xác minh Google ID token, app session/refresh/logout", "Không xử lý note/search hoặc lưu mật khẩu"),
     ("Notes Module", "CRUD, ownership, metadata, trạng thái xử lý", "Không chứa logic mô hình AI"),
     ("Search Module", "Lập search pool, BM25/vector, điều phối rerank", "Không truy cập note user khác"),
     ("Skim Module", "Session tạm có TTL, prepare/search/save selected", "Không lưu page text lâu dài trước consent"),
@@ -462,7 +461,7 @@ add_table(doc, ["Module", "Interface chính", "Dữ liệu"], [
     ("ui/popup", "showUndo(), showStatus()", "snippet, countdown, action state"),
     ("ui/sidebar", "browseNotes(), search(), skim()", "note DTO, result DTO, pagination"),
     ("storage/indexeddb", "putNote(), queryNotes(), enqueue(), reconcile()", "notes, categories, pending actions, sync metadata"),
-    ("api/client", "auth(), notes(), search(), skim()", "versioned JSON DTO"),
+    ("api/client", "googleOAuth(), session(), notes(), search(), skim()", "versioned JSON DTO"),
 ])
 add_heading(doc, "4.2 Context menu và phím tắt", 2)
 add_table(doc, ["Trigger", "Điều kiện", "Hành vi"], [
@@ -545,8 +544,8 @@ add_bullets(doc, [
 add_heading(doc, "7. Thiết kế dữ liệu", 1)
 add_heading(doc, "7.1 Mô hình thực thể", 2)
 entities = [
-    ("users", "id UUID PK; email CITEXT UNIQUE; password_hash; status; created_at; updated_at", "Tài khoản và trạng thái"),
-    ("user_profiles", "user_id PK/FK; display_name; job_title; company; consent_flags JSONB", "Profile tùy chọn; PII tối thiểu"),
+    ("users", "id UUID PK; google_sub UNIQUE; email CITEXT UNIQUE; email_verified; display_name; avatar_url; status; created_at; updated_at", "Tài khoản Google và trạng thái; không lưu mật khẩu"),
+    ("user_preferences", "user_id PK/FK; auto_process; notification_flags JSONB; updated_at", "Tùy chọn sản phẩm"),
     ("categories", "id UUID PK; user_id FK; name; color; created_at; updated_at; version", "Phân mục note"),
     ("notes", "id UUID PK; user_id FK; category_id FK NULL; source_url; source_title; content; status; version; created_at; updated_at; deleted_at", "Dữ liệu note chuẩn"),
     ("note_chunks", "id UUID PK; note_id FK; user_id FK; ordinal; text; embedding VECTOR; model_version; metadata JSONB", "Chunk và vector"),
@@ -578,7 +577,7 @@ add_heading(doc, "8. Thiết kế API", 1)
 add_heading(doc, "8.1 Quy ước chung", 2)
 add_bullets(doc, [
     "Base path: /api/v1; JSON UTF-8; thời gian ISO-8601 UTC; ID dùng UUID.",
-    "Authorization: Bearer access token; refresh token lưu an toàn theo phương án triển khai.",
+    "Authorization: Bearer app access token do QuickAssist phát hành sau khi đổi Google authorization code; refresh token lưu an toàn theo phương án triển khai.",
     "Request tạo/sửa nhận X-Request-ID; tạo note nhận Idempotency-Key.",
     "Pagination dùng cursor; filter phải được whitelist và giới hạn.",
     "Lỗi theo một schema thống nhất; không trả stack trace cho client.",
@@ -593,10 +592,9 @@ add_code(doc, '''{
 }''')
 add_heading(doc, "8.2 Public API", 2)
 api_rows = [
-    ("POST", "/auth/register", "—", "email, password", "201 User; 409 email tồn tại"),
-    ("POST", "/auth/login", "—", "email, password", "200 tokens/user; 401"),
+    ("POST", "/auth/google/exchange", "OAuth code + PKCE", "code, codeVerifier, redirectUri", "200 app tokens/user; 401 OAuth invalid"),
     ("POST", "/auth/refresh", "Refresh", "refresh token", "200 access token; 401"),
-    ("POST", "/auth/logout", "User", "refresh/session ref", "204"),
+    ("POST", "/auth/logout", "User", "refresh/session ref", "204 local session revoked"),
     ("POST", "/notes/quick", "User", "content, source, categoryId", "202 Note(status=SAVED/PROCESSING)"),
     ("GET", "/notes", "User", "cursor, updatedAfter, categoryId, status", "200 items + nextCursor"),
     ("GET", "/notes/{noteId}", "Owner", "—", "200 Note; 404"),
@@ -679,7 +677,6 @@ add_table(doc, ["Vấn đề cần chốt", "Đề xuất"], [
     ("Đầu ra", "Summary có cấu trúc, source URL/title, model version và thời điểm tạo"),
     ("Lưu trữ", "Mặc định chỉ lưu khi user chọn; không tự đưa vào RAG"),
     ("Quota", "Tính theo operation và kích thước input; hiển thị lỗi rõ"),
-    ("Lịch trình", "Tắt trong MVP; chỉ bật sau consent/profile specification"),
 ])
 
 # 10 Security
@@ -695,10 +692,12 @@ add_table(doc, ["Mối đe dọa", "Kiểm soát thiết kế"], [
     ("Data leakage tới provider", "Data minimization, redact PII, cấu hình local, DPA/consent khi dùng remote"),
     ("Xóa hàng loạt ngoài ý muốn", "Xác nhận số lượng, ownership, audit và soft delete"),
 ])
-add_heading(doc, "10.2 Xác thực và mật khẩu", 2)
+add_heading(doc, "10.2 Google OAuth và app session", 2)
 add_bullets(doc, [
-    "Mật khẩu hash bằng Argon2id hoặc bcrypt với tham số theo môi trường; không tự thiết kế thuật toán hash.",
-    "Access token ngắn hạn; refresh token có rotation/revocation. Logout vô hiệu session/refresh token.",
+    "Dùng Google OAuth 2.0 Authorization Code Flow với PKCE qua browser identity flow; scope tối thiểu: openid, email, profile.",
+    "Bắt buộc kiểm tra state, nonce, issuer, audience, expiry và chữ ký của ID token; google_sub là định danh liên kết tài khoản ổn định.",
+    "QuickAssist không thu thập hoặc lưu mật khẩu Google. Sau khi đổi authorization code thành công, server phát access token ngắn hạn và refresh token có rotation/revocation.",
+    "Logout chỉ vô hiệu local session/refresh token của QuickAssist; không đăng xuất tài khoản Google khỏi trình duyệt.",
     "TLS bắt buộc ngoài localhost. CORS chỉ cho origin extension và web quản trị được cấu hình.",
     "Rate limit cho login, notes, skim và search; quota không thay thế rate limit.",
 ])
@@ -707,7 +706,6 @@ add_bullets(doc, [
     "Chỉ thu thập nội dung sau hành động rõ ràng của user; hiển thị trang/đoạn sắp gửi khi khả thi.",
     "Không gửi email, userId, company/job title sang AI nếu không cần cho use case.",
     "Có chức năng xóa note và dữ liệu vector liên quan; ghi rõ retention cho skim/log/backup.",
-    "Lịch trình cá nhân yêu cầu consent riêng, có thể rút lại và có chế độ xác nhận thủ công.",
 ])
 
 # 11 NFR
@@ -730,7 +728,7 @@ add_heading(doc, "12. Xử lý lỗi và quan sát hệ thống", 1)
 add_heading(doc, "12.1 Phân loại lỗi", 2)
 add_table(doc, ["Loại", "Ví dụ", "Hành vi client", "Hành vi server"], [
     ("Validation", "Selection rỗng, payload quá dài", "Hiển thị ngay; không retry", "400/422 + field details"),
-    ("Auth", "Token hết hạn", "Refresh một lần; thất bại thì login", "401; không lộ tài nguyên"),
+    ("OAuth/session", "Google code/ID token không hợp lệ hoặc app token hết hạn", "Thực hiện lại Google OAuth hoặc refresh một lần", "401; không lộ tài nguyên"),
     ("Quota", "Không đủ embedding/rerank", "Giải thích note vẫn được lưu hoặc search bị chặn", "429/operation code; ledger nhất quán"),
     ("Network/5xx", "Mất mạng/provider lỗi", "Queue/retry hoặc nút thử lại", "Timeout, circuit breaker/fallback"),
     ("Conflict", "Sửa note version cũ", "Yêu cầu reload/lưu bản sao", "409 + currentVersion"),
@@ -748,7 +746,7 @@ add_heading(doc, "13. Cấu hình và triển khai", 1)
 add_heading(doc, "13.1 Biến cấu hình", 2)
 add_table(doc, ["Nhóm", "Ví dụ", "Quy tắc"], [
     ("Database", "DATABASE_URL, VECTOR_DIMENSION", "Secret qua environment/secret store; dimension khớp model"),
-    ("Auth", "TOKEN_TTL, REFRESH_TTL, PASSWORD_HASH_PARAMS", "Không dùng giá trị demo trong production"),
+    ("Google OAuth", "GOOGLE_CLIENT_ID, GOOGLE_ISSUERS, OAUTH_REDIRECT_URI, APP_TOKEN_TTL", "Không nhúng client secret vào extension; client ID/redirect URI tách theo môi trường"),
     ("AI", "AI_PROVIDER, MODEL_NAME, AI_BASE_URL, TIMEOUT", "Provider key chỉ ở server"),
     ("Quota", "DEFAULT_PLAN, OPERATION_COSTS, RESET_POLICY", "Version hóa chính sách"),
     ("Skim", "SESSION_TTL, MAX_PAGE_CHARS", "Giới hạn để bảo vệ bộ nhớ và chi phí"),
@@ -760,7 +758,7 @@ add_numbered(doc, [
     "Chạy migration theo phiên bản; xác minh backup/restore ở môi trường demo.",
     "Khởi động DB → backend → AI adapter/provider; kiểm tra readiness.",
     "Build extension bằng API base URL của môi trường; kiểm tra manifest permission.",
-    "Chạy smoke test auth, quick note, CRUD, RAG và skim nếu bật.",
+    "Chạy smoke test Google OAuth, quick note, CRUD, RAG và skim nếu bật.",
     "Ghi release version, migration version, model version và known issues.",
 ])
 
@@ -781,13 +779,13 @@ add_bullets(doc, [
     "Browse từ cache; cache miss sync server; sửa conflict; xóa một note và xóa hàng loạt.",
     "RAG toàn thư viện và theo category; query không kết quả; provider rerank timeout; kiểm tra chéo user.",
     "Skim chưa READY, trang dài, session hết hạn, hết quota và lưu nhiều đoạn được chọn.",
-    "Token hết hạn, logout, password sai, payload quá lớn, source text chứa HTML/script.",
+    "OAuth state/nonce sai, Google ID token hết hạn, logout local session, payload quá lớn, source text chứa HTML/script.",
 ])
 
 # 15 Traceability
 add_heading(doc, "15. Ma trận truy vết", 1)
 trace_rows = [
-    ("FR-01", "Đăng ký/đăng nhập", "Auth Module, users/quota_accounts", "/auth/*", "AUTH-E2E"),
+    ("FR-01", "Google OAuth login và app session", "Google OAuth Module, users/quota_accounts", "/auth/google/exchange, /auth/refresh, /auth/logout", "OAUTH-E2E"),
     ("FR-02", "Ghi chú nhanh", "Selection/Popup/Queue/Notes/AI", "/notes/quick", "QN-E2E"),
     ("FR-03", "Hoàn tác 5 giây", "Popup + pendingActions", "Không gọi API khi undo", "QN-UNDO"),
     ("FR-04", "Duyệt note/cache", "Sidebar/IndexedDB/Notes", "GET /notes", "CACHE-SYNC"),
@@ -819,7 +817,7 @@ open_items = [
     ("OI-04", "Ngưỡng quota và đơn vị tính", "Quang/Sơn", "Tuần 2"),
     ("OI-05", "Quy tắc sync conflict và retention soft delete", "Vinh/Quang", "Tuần 2"),
     ("OI-06", "Scenario/acceptance cho tóm tắt", "Dương", "Tuần 2"),
-    ("OI-07", "Consent/profile cho lịch trình cá nhân", "Cả nhóm", "Trước khi đưa vào P2"),
+    ("OI-07", "Google OAuth client ID, redirect URI và màn hình consent cho dev/demo", "Quang/Vinh", "Cuối tuần 1"),
     ("OI-08", "Ngưỡng relevance/latency chính thức", "Sơn/Dương", "Sau benchmark tuần 5"),
 ]
 add_table(doc, ["Mã", "Nội dung", "Owner", "Hạn chốt"], open_items, [2.5, 10, 4.5, 4])
@@ -858,10 +856,10 @@ add_code(doc, '''{
 }''')
 add_heading(doc, "Phụ lục B — Checklist review SDS", 1)
 add_bullets(doc, [
-    "Phạm vi P0/P1/P2 đã được cả nhóm xác nhận.",
+    "Phạm vi P0/P1 đã được cả nhóm xác nhận.",
     "API và data model không còn mâu thuẫn với kịch bản chức năng.",
     "Mỗi use case có owner, acceptance criteria và test tương ứng.",
-    "Quyền riêng tư cho page text, profile và AI provider đã được chấp thuận.",
+    "Quyền riêng tư cho page text, thông tin tài khoản Google tối thiểu và AI provider đã được chấp thuận.",
     "Các chỉ tiêu NFR đã được benchmark hoặc ghi rõ là mục tiêu tạm thời.",
     "Các open item OI-01…OI-08 có quyết định/ADR trước khi triển khai phụ thuộc.",
 ])
