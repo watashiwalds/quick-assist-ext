@@ -1,4 +1,6 @@
-# Rà soát SDS (`SDS_Nhomx.pdf`) theo khung System Design Trade-offs
+# Rà soát SDS (`SDS_Nhomx.pdf` → v1.0) theo khung System Design Trade-offs
+
+> **Trạng thái:** tất cả mục dưới đây đã được áp dụng trong **`docs/specs/SDS_Nhom1_v1.1.docx`** (02/10/2026). File này giữ lại làm lịch sử lý do thay đổi.
 
 Đối chiếu theo 5 bước của tài liệu *System Design Trade_Offs.docx*: (1) yêu cầu & ràng buộc → (2) kiến trúc tổng → (3) đi sâu thành phần → (4) mở rộng & điểm nghẽn → (5) tổng kết trade-off.
 

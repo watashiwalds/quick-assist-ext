@@ -2,7 +2,7 @@
 
 Service phát job không cần import service xử lý job → không phụ thuộc vòng.
 Thêm job mới: khai báo ở đây + viết handler trong business/<service>/*_job.py
-+ đăng ký module đó trong worker.py.
++ nạp file đó trong worker.load_job_handlers().
 """
 
 # Xử lý bởi: business/semantic_search. Payload: {"note_id": str}.

@@ -32,27 +32,27 @@ Extension map `code` → câu thông báo tại `apps/extension/src/shared/error
 
 ## 3. Danh mục endpoint (đã hợp nhất các điểm mâu thuẫn trong kịch bản)
 
-| Method & path | Module | Ghi chú |
+| Method & path | Controller (Presentation) → Service (Business) | Ghi chú |
 |---|---|---|
-| `GET /health/live`, `/health/ready` | — | readiness kiểm tra DB |
-| `POST /auth/google/exchange` | auth | `{code, code_verifier, redirect_uri, nonce}` → cặp token |
-| `POST /auth/refresh` · `POST /auth/logout` | auth | refresh xoay vòng |
-| `GET /me` · `DELETE /me` | accounts | xoá tài khoản + toàn bộ dữ liệu |
-| `GET /me/quota` | quota | |
-| `GET/POST /folders` · `PATCH/DELETE /folders/{id}` | notes | xoá thư mục → note về Inbox |
-| `POST /notes` | notes | **thay cho** `/notes/quick` và `/notes/ragged` của kịch bản; 201 + `index_status=PROCESSING` |
-| `GET /notes?folder_id&updated_since&cursor&limit` | notes | `updated_since` → kèm tombstone cho sync |
-| `GET/PATCH/DELETE /notes/{id}` | notes | **thay cho** `PUT /notes` + ID trong body |
-| `POST /notes/bulk-delete` | notes | **thay cho** `DELETE /notes` có body (nhiều proxy bỏ body của DELETE) |
-| `PUT /notes/{id}/summary` | notes | lưu tóm tắt đã xác nhận |
-| `POST /notes/{id}/reindex` | notes | "Thử lại" cho note FAILED/SKIPPED |
-| `POST /search` | search | **thay cho** `/search/ranking` |
-| `POST /ai/summaries` | ai | trả preview, không ghi DB |
-| `POST /ai/chat` | ai | SSE — Nice-to-have (ADR-0009) |
+| `GET /health/live`, `/health/ready` | `health_controller` → `system.HealthService` | readiness kiểm tra DB |
+| `POST /auth/google/exchange` | `auth_controller` → `auth.AuthService` | `{code, code_verifier, redirect_uri, nonce}` → cặp token |
+| `POST /auth/refresh` · `POST /auth/logout` | `auth_controller` → `auth.AuthService` | refresh xoay vòng |
+| `GET /me` · `DELETE /me` | `account_controller` → `auth.AccountService` | xoá tài khoản + toàn bộ dữ liệu (SDS §5.1.5) |
+| `GET /me/quota` | `quota_controller` → `quota.QuotaService` | |
+| `GET/POST /folders` · `PATCH/DELETE /folders/{id}` | `folders_controller` → `notes.FolderService` | xoá thư mục → note về Inbox |
+| `POST /notes` | `notes_controller` → `notes.NotesService` | **thay cho** `/notes/quick` và `/notes/ragged` của kịch bản; 201 + `index_status=PROCESSING` |
+| `GET /notes?folder_id&updated_since&cursor&limit` | `notes_controller` → `notes.NotesService` | `updated_since` → kèm tombstone cho sync |
+| `GET/PATCH/DELETE /notes/{id}` | `notes_controller` → `notes.NotesService` | **thay cho** `PUT /notes` + ID trong body |
+| `POST /notes/bulk-delete` | `notes_controller` → `notes.NotesService` | **thay cho** `DELETE /notes` có body (nhiều proxy bỏ body của DELETE) |
+| `PUT /notes/{id}/summary` | `notes_controller` → `notes.NotesService` | lưu tóm tắt đã xác nhận |
+| `POST /notes/{id}/reindex` | `notes_controller` → `notes.NotesService` | "Thử lại" cho note FAILED/SKIPPED |
+| `POST /search` | `search_controller` → `semantic_search.SemanticSearchService` | **thay cho** `/search/ranking` (SDS §5.1.3) |
+| `POST /ai/summaries` | `summary_controller` → `summary.SummaryService` | trả preview, không ghi DB (SDS §5.1.4) |
+| `POST /ai/chat` | `rag_controller` → `rag.RAGService` | SSE — Nice-to-have (SDS §5.1.6, ADR-0009) |
 
 Vì sao `POST /notes` trả **201** chứ không phải 202 như SDS: bản ghi note đã được tạo xong (đó là tài nguyên client cần); chỉ phần index AI là bất đồng bộ và được phản ánh qua `index_status`.
 
 ## 4. Quy trình đổi contract
-1. Sửa `schemas.py` của module → test backend.
+1. Sửa DTO ở `presentation/schemas/<x>.py` (+ controller) → test backend.
 2. `npm run gen:api` trong `apps/extension` (API đang chạy) → commit `schema.d.ts`.
 3. PR phải có duyệt của owner backend **và** owner extension (CODEOWNERS đã cấu hình cho `shared/api/`).

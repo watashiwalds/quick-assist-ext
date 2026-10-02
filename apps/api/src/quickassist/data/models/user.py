@@ -11,7 +11,7 @@ from quickassist.data.database import Base
 
 
 class User(Base):
-    """Bảng gốc của mọi dữ liệu người dùng. Bảng của module khác tham chiếu
+    """Bảng gốc của mọi dữ liệu người dùng. Bảng của service khác tham chiếu
     users.id với ON DELETE CASCADE → xoá user = xoá sạch dữ liệu (SDS §5.1.5)."""
 
     __tablename__ = "users"

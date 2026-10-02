@@ -115,19 +115,21 @@ quick-assist-ext/
 │   │
 │   └── extension/                             # ① EXTENSION UI (Chrome MV3, TypeScript, React)
 │       └── src/
-│           ├── ui/              # giao diện: popup, sidepanel, features/<tính năng>, components/
+│           ├── ui/              # giao diện: popup/, sidepanel/, components/, lib/
+│           │   └── features/    #   auth, notes, search, summary (+ account, chat: sắp có — task A08, X02)
 │           ├── background/      # integration: cổng DUY NHẤT gọi API Controller (token, outbox, sync)
 │           ├── content/         # hàm tiêm vào trang (lấy vùng chọn, toast hoàn tác)
 │           └── shared/          # hợp đồng: messaging (UI↔background), api (kiểu sinh từ OpenAPI), storage
 │
 ├── docs/
-│   ├── specs/          # TÀI LIỆU GỐC: SDS_Nhomx.pdf, SDS mẫu, kịch bản chức năng, báo cáo ý tưởng, tham khảo
+│   ├── specs/          # TÀI LIỆU GỐC: SDS_Nhom1_v1.1 (chính thức), v1.0, SDS mẫu, kịch bản chức năng, báo cáo ý tưởng, tham khảo
 │   ├── plan/           # kế hoạch phân công (xlsx)
 │   ├── architecture/   # tài liệu này + sds-review.md
 │   ├── adr/            # quyết định kiến trúc
-│   └── api/            # quy ước API
+│   ├── api/            # quy ước API
+│   └── qa/             # kế hoạch kiểm thử, RTM, biên bản test
 ├── infra/              # docker-compose, .env.example
-├── scripts/            # script sinh tài liệu/kế hoạch, restructure.ps1
+├── scripts/            # generate_plan_v2.py; legacy/ (script đời đầu)
 └── .github/            # CI, CODEOWNERS, PR template
 ```
 
