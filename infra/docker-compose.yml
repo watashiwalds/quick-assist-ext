@@ -1,0 +1,53 @@
+# Môi trường dev/demo: PostgreSQL+pgvector, API, worker.
+#   cp infra/.env.example infra/.env   (điền GOOGLE_*, OPENAI_API_KEY nếu cần)
+#   docker compose -f infra/docker-compose.yml up --build
+name: quickassist
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: quickassist
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d quickassist"]
+      interval: 3s
+      retries: 20
+
+  migrate:
+    build: ../apps/api
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/quickassist
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      db: { condition: service_healthy }
+
+  api:
+    build: ../apps/api
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/quickassist
+    ports: ["8000:8000"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/api/v1/health/ready')"]
+      interval: 5s
+      retries: 10
+
+  worker:
+    build: ../apps/api
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/quickassist
+    command: ["python", "-m", "quickassist.worker"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    # Scale khi hàng đợi dài: docker compose up --scale worker=3 (an toàn nhờ SKIP LOCKED)
+
+volumes:
+  pgdata:

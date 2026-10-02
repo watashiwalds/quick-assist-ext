@@ -1,0 +1,62 @@
+# Mỗi thư mục có MỘT owner chịu trách nhiệm review & merge (khớp bảng phân công v2).
+# THAY @username bằng GitHub username thật của từng thành viên, rồi bật
+# "Require review from Code Owners" trong Settings → Branches cho nhánh main/dev.
+#
+#   @son-gh    = Lê Đăng Sơn       (Tech Lead / Extension core)
+#   @quang-gh  = Trịnh Mạnh Quang  (Backend: presentation, business/auth+notes, data, infrastructure)
+#   @vinh-gh   = Mai Đức Vinh      (AI/RAG: business/semantic_search+summary+rag+quota, infrastructure/openai)
+#   @duong-gh  = Trần Thùy Dương   (UI/UX & QA: extension/ui, tests E2E, docs)
+
+*                                          @son-gh
+
+# ---------- Backend (Layered Architecture — docs/architecture/README.md) ----------
+# Presentation Layer
+/apps/api/src/quickassist/presentation/                                   @quang-gh
+/apps/api/src/quickassist/presentation/api/v1/controllers/search_controller.py   @vinh-gh
+/apps/api/src/quickassist/presentation/api/v1/controllers/summary_controller.py  @vinh-gh
+/apps/api/src/quickassist/presentation/api/v1/controllers/rag_controller.py      @vinh-gh
+/apps/api/src/quickassist/presentation/api/v1/controllers/quota_controller.py    @vinh-gh
+/apps/api/src/quickassist/presentation/schemas/search.py                  @vinh-gh
+/apps/api/src/quickassist/presentation/schemas/summary.py                 @vinh-gh
+/apps/api/src/quickassist/presentation/schemas/quota.py                   @vinh-gh
+# Business Layer — mỗi service một owner
+/apps/api/src/quickassist/business/                                       @quang-gh
+/apps/api/src/quickassist/business/semantic_search/                       @vinh-gh
+/apps/api/src/quickassist/business/summary/                               @vinh-gh
+/apps/api/src/quickassist/business/rag/                                   @vinh-gh
+/apps/api/src/quickassist/business/quota/                                 @vinh-gh
+# Data Access + Data Layer
+/apps/api/src/quickassist/data_access/                                    @quang-gh
+/apps/api/src/quickassist/data_access/repositories/note_chunk_repository.py  @vinh-gh
+/apps/api/src/quickassist/data_access/repositories/quota_repository.py    @vinh-gh
+/apps/api/src/quickassist/data/                                           @quang-gh
+/apps/api/src/quickassist/data/models/note_chunk.py                       @vinh-gh
+/apps/api/src/quickassist/data/models/quota.py                            @vinh-gh
+/apps/api/migrations/                              @quang-gh
+# Infrastructure Layer
+/apps/api/src/quickassist/infrastructure/                                 @quang-gh
+/apps/api/src/quickassist/infrastructure/openai/                          @vinh-gh
+# Composition root + luật kiến trúc: thay đổi cần Tech Lead duyệt
+/apps/api/src/quickassist/main.py                                         @quang-gh @son-gh
+/apps/api/src/quickassist/worker.py                                       @quang-gh @son-gh
+/apps/api/tests/architecture/                      @son-gh @quang-gh
+
+# ---------- Extension ----------
+/apps/extension/src/background/            @son-gh
+/apps/extension/src/content/               @son-gh
+/apps/extension/src/shared/                @son-gh
+/apps/extension/manifest.config.ts         @son-gh
+/apps/extension/src/ui/                    @duong-gh
+/apps/extension/src/ui/features/search/    @son-gh
+/apps/extension/src/ui/features/chat/      @son-gh
+
+# ---------- Hợp đồng chung: đổi phải có cả 2 phía duyệt ----------
+/apps/extension/src/shared/messaging/      @son-gh @duong-gh
+/apps/extension/src/shared/api/            @son-gh @quang-gh
+/docs/api/                                 @quang-gh @son-gh
+/docs/adr/                                 @son-gh @quang-gh @vinh-gh
+
+# ---------- Hạ tầng & QA ----------
+/infra/                                    @quang-gh
+/.github/                                  @son-gh
+/apps/api/tests/integration/               @duong-gh @quang-gh
