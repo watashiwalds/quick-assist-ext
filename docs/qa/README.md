@@ -8,4 +8,10 @@
 | Extension unit | `apps/extension/tests/` | `npm test` |
 | E2E / thủ công theo kịch bản | `docs/qa/` (test plan, RTM, biên bản) | — |
 
-Cần bổ sung (theo kế hoạch v2): `test-plan.md` + ma trận truy vết FR (SDS §3.1) → test case (P08); biên bản E2E N07, C05, R05, SUM-04, H05.
+| E2E extension thật (Playwright) | `apps/extension/e2e/` | `npm run test:e2e` (cần backend — xem e2e/README.md) |
+| Đánh giá tìm kiếm | `apps/api/tests/eval/` | `python -m tests.eval.run_eval` |
+
+Tài liệu:
+- [`test-plan.md`](test-plan.md) — chiến lược, môi trường, tiêu chí vào/ra, phân loại lỗi, lỗi đã phát hiện (P08)
+- [`rtm.md`](rtm.md) — ma trận truy vết FR/NFR (SDS §3) → ca kiểm thử (P08)
+- `reports/` — biên bản: [N07](reports/N07.md) · [C05](reports/C05.md) · [R05](reports/R05.md) · [SUM-04](reports/SUM-04.md) · [H05](reports/H05.md)

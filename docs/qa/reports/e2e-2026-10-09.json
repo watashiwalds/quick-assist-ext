@@ -1,0 +1,186 @@
+{
+ "stats": {
+  "startTime": "2026-10-08T17:30:10.302Z",
+  "duration": 93674.242,
+  "expected": 28,
+  "skipped": 1,
+  "unexpected": 0,
+  "flaky": 0
+ },
+ "tests": [
+  {
+   "file": "c05-library.spec.ts",
+   "title": "mở thư viện: hiện ghi chú từ server; mất mạng vẫn mở được từ cache",
+   "status": "expected",
+   "ms": 2593
+  },
+  {
+   "file": "c05-library.spec.ts",
+   "title": "sửa ghi chú; xung đột 409 khi máy khác đã sửa → ghi đè theo lựa chọn",
+   "status": "expected",
+   "ms": 2797
+  },
+  {
+   "file": "c05-library.spec.ts",
+   "title": "xoá một và xoá nhiều ghi chú có xác nhận",
+   "status": "expected",
+   "ms": 3127
+  },
+  {
+   "file": "c05-library.spec.ts",
+   "title": "quản lý thư mục: tạo, đổi tên, xoá → ghi chú về Inbox",
+   "status": "expected",
+   "ms": 3125
+  },
+  {
+   "file": "c05-library.spec.ts",
+   "title": "ghi chú bị xoá ở máy khác biến mất khỏi thư viện sau đồng bộ (tombstone)",
+   "status": "expected",
+   "ms": 2592
+  },
+  {
+   "file": "h05-a11y.spec.ts",
+   "title": "axe: màn \"Thư viện\" không có vi phạm WCAG AA",
+   "status": "expected",
+   "ms": 3771
+  },
+  {
+   "file": "h05-a11y.spec.ts",
+   "title": "axe: màn \"Tìm kiếm\" không có vi phạm WCAG AA",
+   "status": "expected",
+   "ms": 3677
+  },
+  {
+   "file": "h05-a11y.spec.ts",
+   "title": "axe: màn \"Cài đặt\" không có vi phạm WCAG AA",
+   "status": "expected",
+   "ms": 3607
+  },
+  {
+   "file": "h05-a11y.spec.ts",
+   "title": "axe: hộp thoại sửa ghi chú",
+   "status": "expected",
+   "ms": 2906
+  },
+  {
+   "file": "h05-a11y.spec.ts",
+   "title": "bàn phím: chuyển tab bằng mũi tên, Esc đóng hộp thoại và trả focus",
+   "status": "expected",
+   "ms": 2242
+  },
+  {
+   "file": "h05-a11y.spec.ts",
+   "title": "popup: chưa đăng nhập hiển thị nút đăng nhập, không vi phạm axe",
+   "status": "expected",
+   "ms": 2030
+  },
+  {
+   "file": "n07-quick-note.spec.ts",
+   "title": "lưu nhanh vùng bôi đen → toast → server lưu vào Inbox → READY",
+   "status": "expected",
+   "ms": 8116
+  },
+  {
+   "file": "n07-quick-note.spec.ts",
+   "title": "Hoàn tác bằng Alt+Shift+Z trong 5s → không có gì được lưu",
+   "status": "expected",
+   "ms": 8765
+  },
+  {
+   "file": "n07-quick-note.spec.ts",
+   "title": "mất mạng: ghi chú nằm trong outbox, có mạng lại thì gửi đúng 1 lần",
+   "status": "expected",
+   "ms": 2798
+  },
+  {
+   "file": "n07-quick-note.spec.ts",
+   "title": "hết quota AI: ghi chú vẫn được lưu nhưng SKIPPED, thư viện hiện trạng thái",
+   "status": "expected",
+   "ms": 2891
+  },
+  {
+   "file": "n07-quick-note.spec.ts",
+   "title": "ô nhập liệu (textarea): lấy đúng phần bôi đen",
+   "status": "expected",
+   "ms": 2023
+  },
+  {
+   "file": "n07-quick-note.spec.ts",
+   "title": "trang đặc biệt (chrome://) không cho tiêm script → không lỗi, không lưu gì",
+   "status": "expected",
+   "ms": 2319
+  },
+  {
+   "file": "n07-quick-note.spec.ts",
+   "title": "chọn thư mục khi lưu nhanh (C04): menu \"Ghi chú vào thư mục\"",
+   "status": "expected",
+   "ms": 2398
+  },
+  {
+   "file": "r05-search.spec.ts",
+   "title": "câu hỏi \"hầm xương bò bao lâu\" → top-1 là \"Phở bò Hà Nội\"",
+   "status": "expected",
+   "ms": 2613
+  },
+  {
+   "file": "r05-search.spec.ts",
+   "title": "câu hỏi \"ham xuong bo\" → top-1 là \"Phở bò Hà Nội\"",
+   "status": "expected",
+   "ms": 3226
+  },
+  {
+   "file": "r05-search.spec.ts",
+   "title": "câu hỏi \"rolling update\" → top-1 là \"Kubernetes\"",
+   "status": "expected",
+   "ms": 3238
+  },
+  {
+   "file": "r05-search.spec.ts",
+   "title": "câu hỏi \"cau rong phun lua may gio\" → top-1 là \"Đà Nẵng\"",
+   "status": "expected",
+   "ms": 2685
+  },
+  {
+   "file": "r05-search.spec.ts",
+   "title": "kết quả có nguồn + \"Mở ghi chú\" mở đúng ghi chú trong thư viện",
+   "status": "expected",
+   "ms": 2678
+  },
+  {
+   "file": "r05-search.spec.ts",
+   "title": "lọc thư mục + không thấy dữ liệu của người khác",
+   "status": "expected",
+   "ms": 3737
+  },
+  {
+   "file": "r05-search.spec.ts",
+   "title": "hết quota → thông báo rõ + nút xem hạn mức chuyển sang Cài đặt",
+   "status": "expected",
+   "ms": 2161
+  },
+  {
+   "file": "sum-a08.spec.ts",
+   "title": "tóm tắt ghi chú: xem trước → Lưu → hiện \"Tóm tắt đã lưu\"",
+   "status": "expected",
+   "ms": 2606
+  },
+  {
+   "file": "sum-a08.spec.ts",
+   "title": "tóm tắt vùng chọn từ menu chuột phải → tab Tóm tắt → Lưu thành ghi chú",
+   "status": "expected",
+   "ms": 2947
+  },
+  {
+   "file": "sum-a08.spec.ts",
+   "title": "cài đặt: hạn mức, thư mục mặc định; xoá tài khoản 2 bước xoá dữ liệu server + máy",
+   "status": "expected",
+   "ms": 2886
+  },
+  {
+   "file": "ux-screens.spec.ts",
+   "title": "chụp các màn chính",
+   "status": "skipped",
+   "ms": 0
+  }
+ ]
+}
