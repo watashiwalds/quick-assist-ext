@@ -61,10 +61,12 @@ export function SettingsView({ session }: { session: SessionInfo }) {
               value={prefs.data?.defaultFolderId ?? ''}
               disabled={!prefs.data}
               onChange={(e) =>
-                void rpc('prefs/set', { defaultFolderId: e.target.value || null }).then((p) => {
-                  prefs.setData(p)
-                  toast('Đã lưu thư mục mặc định')
-                })
+                void rpc('prefs/set', { defaultFolderId: e.target.value || null })
+                  .then((p) => {
+                    prefs.setData(p)
+                    toast('Đã lưu thư mục mặc định')
+                  })
+                  .catch(() => toast('Không lưu được tuỳ chọn', 'error'))
               }
             >
               <option value="">Inbox</option>

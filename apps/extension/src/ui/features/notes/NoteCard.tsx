@@ -1,6 +1,7 @@
 import type { Note } from '@/shared/api/types'
 import { rpc } from '@/shared/messaging/client'
-import { Button, StatusBadge } from '../../components'
+import { Button, StatusBadge, useToast } from '../../components'
+import { userMessage, toSerialized } from '@/shared/errors'
 import { formatDate } from '../../lib/hooks'
 import { SummaryPanel } from '../summary/SummaryPanel'
 
@@ -28,6 +29,7 @@ export function NoteCard({
   highlight?: boolean
 }) {
   const heading = note.title ?? note.domain ?? 'Ghi chú'
+  const toast = useToast()
   return (
     <li className={`card ${highlight ? 'card-highlight' : ''}`} id={`note-${note.id}`} aria-label={heading}>
       <div className="row spread">
@@ -59,7 +61,15 @@ export function NoteCard({
             Sửa
           </Button>
           {(note.index_status === 'FAILED' || note.index_status === 'SKIPPED') && (
-            <Button variant="ghost" size="sm" onClick={() => void rpc('notes/reindex', { id: note.id }).then(onChanged)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                void rpc('notes/reindex', { id: note.id })
+                  .then(onChanged)
+                  .catch((e) => toast(userMessage(toSerialized(e)), 'error'))
+              }
+            >
               Thử lại AI
             </Button>
           )}
