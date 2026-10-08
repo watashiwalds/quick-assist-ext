@@ -12,6 +12,6 @@ export default defineConfig(({ mode }) => {
     resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
     build: { target: 'es2022', sourcemap: mode !== 'production' },
     server: { port: 5173, strictPort: true, hmr: { port: 5173 } },
-    test: { environment: 'node', include: ['tests/**/*.test.ts'] },
+    test: { environment: 'node', include: ['tests/**/*.test.{ts,tsx}'], exclude: ['e2e/**'] },
   }
 })
