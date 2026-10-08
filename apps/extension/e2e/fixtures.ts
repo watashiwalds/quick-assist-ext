@@ -105,7 +105,8 @@ export async function openArticleAndSelect(context: BrowserContext, sw: Worker, 
     return getSelection()!.toString()
   }, selector)
   await page.bringToFront()
-  const tabId = await sw.evaluate(async (url) => (await chrome.tabs.query({ url }))[0]!.id!, PAGE)
+  // nhiều tab cùng URL → lấy tab mới nhất (vừa mở)
+  const tabId = await sw.evaluate(async (url) => Math.max(...(await chrome.tabs.query({ url })).map((t) => t.id!)), PAGE)
   return { page, tabId, text }
 }
 
