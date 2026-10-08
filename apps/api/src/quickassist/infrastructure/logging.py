@@ -8,18 +8,43 @@ Chỉ log id, độ dài, mã lỗi, thời gian xử lý.
 
 import json
 import logging
+import re
 import sys
 from typing import Any
 
 SENSITIVE_KEYS = {
     "authorization", "access_token", "refresh_token", "id_token", "code", "code_verifier",
     "password", "api_key", "openai_api_key", "content", "text", "query", "secret",
+    "client_secret", "jwt_secret", "cookie", "summary", "summary_text", "prompt", "messages",
 }
+# Mẫu chuỗi trông như bí mật (Bearer token, JWT, khoá OpenAI) — che kể cả khi lọt vào message.
+_SECRET_PATTERNS = (
+    re.compile(r"(?i)bearer\s+[a-z0-9._~+/=-]{8,}"),
+    re.compile(r"eyJ[a-zA-Z0-9_-]{8,}\.[a-zA-Z0-9_-]{8,}\.[a-zA-Z0-9_-]{8,}"),  # JWT
+    re.compile(r"sk-[A-Za-z0-9_-]{16,}"),  # OpenAI API key
+)
 _RESERVED = set(logging.LogRecord("", 0, "", 0, "", (), None).__dict__) | {"message", "asctime"}
 
 
-def _redact(key: str, value: Any) -> Any:
-    return "***" if key.lower() in SENSITIVE_KEYS else value
+def _scrub(text: str) -> str:
+    for pat in _SECRET_PATTERNS:
+        text = pat.sub("***", text)
+    return text
+
+
+def _redact(key: str, value: Any, depth: int = 0) -> Any:
+    """Che theo TÊN khoá (đệ quy vào dict/list) và theo MẪU chuỗi bí mật."""
+    if key.lower() in SENSITIVE_KEYS:
+        return "***"
+    if depth > 4:
+        return "…"
+    if isinstance(value, dict):
+        return {k: _redact(str(k), v, depth + 1) for k, v in value.items()}
+    if isinstance(value, list | tuple):
+        return [_redact("", v, depth + 1) for v in value]
+    if isinstance(value, str):
+        return _scrub(value)
+    return value
 
 
 class JsonFormatter(logging.Formatter):
@@ -30,7 +55,7 @@ class JsonFormatter(logging.Formatter):
             "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
             "level": record.levelname,
             "logger": record.name,
-            "event": record.getMessage(),
+            "event": _scrub(record.getMessage()),
             "request_id": get_request_id(),
         }
         for k, v in record.__dict__.items():
@@ -38,7 +63,7 @@ class JsonFormatter(logging.Formatter):
                 payload[k] = _redact(k, v)
         if record.exc_info:
             payload["exc_type"] = record.exc_info[0].__name__ if record.exc_info[0] else None
-            payload["exc"] = self.formatException(record.exc_info)
+            payload["exc"] = _scrub(self.formatException(record.exc_info))
         return json.dumps(payload, ensure_ascii=False, default=str)
 
 
