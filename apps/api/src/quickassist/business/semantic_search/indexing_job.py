@@ -54,7 +54,9 @@ async def index_note(session: AsyncSession, payload: dict[str, Any]) -> None:
         try:
             lease = await quota.reserve(
                 note.user_id, "embed_note", sum(estimate_tokens(p) for p in pieces),
-                request_id=f"embed_note:{note_id}:{note.index_rev}",
+                # Mỗi LẦN THỬ một request_id: lần thử trước đã release → lần sau vẫn bị tính đúng,
+                # không "miễn phí"; cùng một lần thử không bao giờ bị trừ 2 lần.
+                request_id=f"embed_note:{note_id}:{note.index_rev}:{payload.get('_attempt', 1)}",
             )
         except QuotaExceeded:
             await set_index_status(session, note_id, status="SKIPPED", index_rev=note.index_rev,
