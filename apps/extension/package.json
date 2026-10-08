@@ -9,7 +9,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "gen:api": "openapi-typescript ${API_OPENAPI_URL:-http://localhost:8000/api/v1/openapi.json} -o src/shared/api/schema.d.ts",
-    "gen:api:file": "openapi-typescript ../../docs/api/openapi.json -o src/shared/api/schema.d.ts"
+    "gen:api:file": "openapi-typescript ../../docs/api/openapi.json -o src/shared/api/schema.d.ts",
+    "build:e2e": "VITE_E2E=true VITE_API_BASE_URL=${E2E_API_BASE_URL:-http://localhost:8000/api/v1} vite build --outDir dist-e2e",
+    "test:e2e": "npm run build:e2e && playwright test",
+    "check:bundle": "node scripts/check-bundle.mjs dist"
   },
   "dependencies": {
     "idb": "^8.0.3",
@@ -17,14 +20,21 @@
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.1",
     "@crxjs/vite-plugin": "^3.0.0",
+    "@playwright/test": "^1.56.0",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/react": "^16.1.0",
     "@types/chrome": "^0.1.0",
     "@types/node": "^22.10.0",
+    "@types/pg": "^8.11.10",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^6.0.0",
     "fake-indexeddb": "^6.0.0",
+    "happy-dom": "^15.11.7",
     "openapi-typescript": "^7.9.0",
+    "pg": "^8.13.1",
     "typescript": "~5.9.3",
     "vite": "^8.0.0",
     "vitest": "^5.0.0"
