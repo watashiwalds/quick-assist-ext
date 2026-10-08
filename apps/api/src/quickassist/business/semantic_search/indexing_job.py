@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from quickassist.business.common.exceptions import QuotaExceeded
 from quickassist.business.notes import get_note_for_indexing, set_index_status
 from quickassist.business.quota import QuotaService
-from quickassist.business.semantic_search.chunking import chunk_text
+from quickassist.business.semantic_search.chunking import CHUNKERS
 from quickassist.data.models.note_chunk import NoteChunk
 from quickassist.data_access.repositories.note_chunk_repository import NoteChunkRepository
 from quickassist.infrastructure.config import get_settings
@@ -47,7 +47,8 @@ async def index_note(session: AsyncSession, payload: dict[str, Any]) -> None:
         return
 
     cfg = get_settings()
-    pieces = chunk_text(note.content, size=cfg.chunk_size_chars, overlap=cfg.chunk_overlap_chars)
+    chunker = CHUNKERS[cfg.chunking_strategy]
+    pieces = chunker(note.content, size=cfg.chunk_size_chars, overlap=cfg.chunk_overlap_chars)
     ai = get_ai_provider()
 
     async with QuotaService.open() as quota:

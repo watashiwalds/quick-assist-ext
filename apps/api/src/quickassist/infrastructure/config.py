@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     # --- Indexing / Search ---
     chunk_size_chars: int = 1200
     chunk_overlap_chars: int = 150
+    chunking_strategy: Literal["v1", "v2"] = "v2"  # N04 — v2 chia theo câu tiếng Việt
     search_top_k: int = 5
     search_candidate_k: int = 30
     search_rerank_enabled: bool = False
