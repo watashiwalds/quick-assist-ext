@@ -1,7 +1,8 @@
 # Kiến trúc QuickAssist — Layered Architecture theo SDS
 
 > Tài liệu sống, cập nhật cùng code. Các quyết định lớn được ghi thành ADR trong [`docs/adr/`](../adr/).
-> Những điểm SDS cần chỉnh cho khớp với code: xem [`sds-review.md`](sds-review.md).
+> Những điểm SDS cần chỉnh cho khớp với code: xem [`sds-review.md`](sds-review.md) (đã áp dụng ở v1.1) và [`../specs/sds-v1.2-changes.md`](../specs/sds-v1.2-changes.md).
+> ERD + quy ước migration: [`erd.md`](erd.md). Bảo mật: [`../security/checklist.md`](../security/checklist.md).
 
 ## 1. Nguyên tắc
 
@@ -105,6 +106,7 @@ quick-assist-ext/
 │   │   │       ├── logging.py                 #    "LoggingService"
 │   │   │       ├── jobs/                      #    hàng đợi job trên Postgres (queue, job_kinds)
 │   │   │       ├── security.py                #    JWT, băm refresh token
+│   │   │       ├── rate_limit.py              #    giới hạn tần suất theo user (ADR-0010)
 │   │   │       ├── config.py  errors.py  request_context.py
 │   │   │
 │   │   ├── migrations/                        # ④ Data Layer — Alembic (schema version)
@@ -115,19 +117,21 @@ quick-assist-ext/
 │   │
 │   └── extension/                             # ① EXTENSION UI (Chrome MV3, TypeScript, React)
 │       └── src/
-│           ├── ui/              # giao diện: popup, sidepanel, features/<tính năng>, components/
-│           ├── background/      # integration: cổng DUY NHẤT gọi API Controller (token, outbox, sync)
+│           ├── ui/              # giao diện: popup/, sidepanel/, components/ (design system A05), lib/
+│           │   └── features/    #   auth, notes (thư viện C03), search (R04), summary (SUM-03), account (Cài đặt A08); chat: P1
+│           ├── background/      # integration: cổng DUY NHẤT gọi API (token, outbox + failed store, sync, menus, prefs)
 │           ├── content/         # hàm tiêm vào trang (lấy vùng chọn, toast hoàn tác)
 │           └── shared/          # hợp đồng: messaging (UI↔background), api (kiểu sinh từ OpenAPI), storage
 │
 ├── docs/
-│   ├── specs/          # TÀI LIỆU GỐC: SDS_Nhomx.pdf, SDS mẫu, kịch bản chức năng, báo cáo ý tưởng, tham khảo
+│   ├── specs/          # TÀI LIỆU GỐC: SDS_Nhom1_v1.1 (chính thức), v1.0, SDS mẫu, kịch bản chức năng, báo cáo ý tưởng, tham khảo
 │   ├── plan/           # kế hoạch phân công (xlsx)
 │   ├── architecture/   # tài liệu này + sds-review.md
 │   ├── adr/            # quyết định kiến trúc
-│   └── api/            # quy ước API
+│   ├── api/            # quy ước API
+│   └── qa/             # kế hoạch kiểm thử, RTM, biên bản test
 ├── infra/              # docker-compose, .env.example
-├── scripts/            # script sinh tài liệu/kế hoạch, restructure.ps1
+├── scripts/            # generate_plan_v2.py; legacy/ (script đời đầu)
 └── .github/            # CI, CODEOWNERS, PR template
 ```
 
@@ -155,6 +159,8 @@ quick-assist-ext/
 | §5.1.4 Tóm tắt AI | `summary_controller` → `SummaryService.summarize`; lưu: `PUT /notes/{id}/summary` | |
 | §5.1.5 Xoá tài khoản | `account_controller` → `AccountService.delete_account` | |
 | §5.1.6 Hỏi đáp RAG | `rag_controller` → `RAGService` (TODO X01) | |
+| Giới hạn tần suất (NFR giới hạn tài nguyên) | `presentation/api/deps.rate_limit` → `infrastructure/rate_limit.py` | — |
+| Chất lượng tìm kiếm (Recall@5, MRR) | `apps/api/tests/eval/` (H03) | — |
 
 ## 5. Ví dụ một request đi qua các tầng: lưu ghi chú (SDS §5.1.2)
 

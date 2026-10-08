@@ -48,6 +48,17 @@ class QuotaExceeded(AppError):
     status_code, code = 402, "QUOTA_EXCEEDED"
 
 
+class RateLimited(AppError):
+    """Quá số request cho phép trong một khoảng thời gian (khác hết quota AI = 402)."""
+
+    status_code, code = 429, "RATE_LIMITED"
+
+    def __init__(self, message: str = "", *, retry_after: int, **kw) -> None:  # type: ignore[no-untyped-def]
+        super().__init__(message or "Bạn thao tác quá nhanh, vui lòng thử lại sau", **kw)
+        self.retry_after = retry_after
+        self.details.setdefault("retry_after", retry_after)
+
+
 class PayloadTooLarge(AppError):
     status_code, code = 413, "PAYLOAD_TOO_LARGE"
 

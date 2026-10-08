@@ -4,6 +4,127 @@
  */
 
 export interface paths {
+    "/api/v1/ai/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Chat */
+        post: operations["chat_api_v1_ai_chat_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/summaries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Summarize */
+        post: operations["summarize_api_v1_ai_summaries_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/google/exchange": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Google Exchange */
+        post: operations["google_exchange_api_v1_auth_google_exchange_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Logout */
+        post: operations["logout_api_v1_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Refresh */
+        post: operations["refresh_api_v1_auth_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Folders */
+        get: operations["list_folders_api_v1_folders_get"];
+        put?: never;
+        /** Create Folder */
+        post: operations["create_folder_api_v1_folders_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/folders/{folder_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Folder */
+        delete: operations["delete_folder_api_v1_folders__folder_id__delete"];
+        options?: never;
+        head?: never;
+        /** Rename Folder */
+        patch: operations["rename_folder_api_v1_folders__folder_id__patch"];
+        trace?: never;
+    };
     "/api/v1/health/live": {
         parameters: {
             query?: never;
@@ -32,57 +153,6 @@ export interface paths {
         get: operations["ready_api_v1_health_ready_get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/google/exchange": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Google Exchange */
-        post: operations["google_exchange_api_v1_auth_google_exchange_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/refresh": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Refresh */
-        post: operations["refresh_api_v1_auth_refresh_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/logout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Logout */
-        post: operations["logout_api_v1_auth_logout_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -127,42 +197,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/folders": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Folders */
-        get: operations["list_folders_api_v1_folders_get"];
-        put?: never;
-        /** Create Folder */
-        post: operations["create_folder_api_v1_folders_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/folders/{folder_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Delete Folder */
-        delete: operations["delete_folder_api_v1_folders__folder_id__delete"];
-        options?: never;
-        head?: never;
-        /** Rename Folder */
-        patch: operations["rename_folder_api_v1_folders__folder_id__patch"];
-        trace?: never;
-    };
     "/api/v1/notes": {
         parameters: {
             query?: never;
@@ -175,6 +209,23 @@ export interface paths {
         put?: never;
         /** Create Note */
         post: operations["create_note_api_v1_notes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notes/bulk-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bulk Delete */
+        post: operations["bulk_delete_api_v1_notes_bulk_delete_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -200,40 +251,6 @@ export interface paths {
         patch: operations["update_note_api_v1_notes__note_id__patch"];
         trace?: never;
     };
-    "/api/v1/notes/{note_id}/summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Save Summary */
-        put: operations["save_summary_api_v1_notes__note_id__summary_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/notes/bulk-delete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Bulk Delete */
-        post: operations["bulk_delete_api_v1_notes_bulk_delete_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/notes/{note_id}/reindex": {
         parameters: {
             query?: never;
@@ -251,6 +268,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notes/{note_id}/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save Summary */
+        put: operations["save_summary_api_v1_notes__note_id__summary_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/search": {
         parameters: {
             query?: never;
@@ -262,46 +296,6 @@ export interface paths {
         put?: never;
         /** Search */
         post: operations["search_api_v1_search_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/ai/summaries": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Summarize
-         * @description Tạo bản tóm tắt PREVIEW. Lưu vào note: PUT /notes/{id}/summary.
-         */
-        post: operations["summarize_api_v1_ai_summaries_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/ai/chat": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Chat
-         * @description Nice-to-have (SDS §5.1.6). Sẽ trả text/event-stream. Xem TODO trong ai/service.py.
-         */
-        post: operations["chat_api_v1_ai_chat_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -330,19 +324,19 @@ export interface components {
         /** FolderOut */
         FolderOut: {
             /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Name */
-            name: string;
-            /** Is Default */
-            is_default: boolean;
-            /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Default */
+            is_default: boolean;
+            /** Name */
+            name: string;
             /**
              * Updated At
              * Format: date-time
@@ -360,10 +354,10 @@ export interface components {
             code: string;
             /** Code Verifier */
             code_verifier: string;
-            /** Redirect Uri */
-            redirect_uri: string;
             /** Nonce */
             nonce: string;
+            /** Redirect Uri */
+            redirect_uri: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -374,78 +368,78 @@ export interface components {
         NoteCreateIn: {
             /** Content */
             content: string;
-            /** Url */
-            url?: string | null;
-            /** Title */
-            title?: string | null;
             /** Folder Id */
             folder_id?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Url */
+            url?: string | null;
         };
         /** NoteOut */
         NoteOut: {
+            /** Content */
+            content: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Deleted At */
+            deleted_at: string | null;
+            /** Domain */
+            domain: string | null;
+            /**
+             * Folder Id
+             * Format: uuid
+             */
+            folder_id: string;
             /**
              * Id
              * Format: uuid
              */
             id: string;
             /**
-             * Folder Id
-             * Format: uuid
-             */
-            folder_id: string;
-            /** Url */
-            url: string | null;
-            /** Domain */
-            domain: string | null;
-            /** Title */
-            title: string | null;
-            /** Content */
-            content: string;
-            /** Summary Text */
-            summary_text: string | null;
-            /**
              * Index Status
              * @enum {string}
              */
             index_status: "PROCESSING" | "READY" | "SKIPPED" | "FAILED";
-            /** Version */
-            version: number;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
+            /** Summary Text */
+            summary_text: string | null;
+            /** Title */
+            title: string | null;
             /**
              * Updated At
              * Format: date-time
              */
             updated_at: string;
-            /** Deleted At */
-            deleted_at: string | null;
+            /** Url */
+            url: string | null;
+            /** Version */
+            version: number;
         };
         /**
          * NoteSummaryIn
          * @description Người dùng xác nhận bản tóm tắt preview (SDS §5.1.4).
          */
         NoteSummaryIn: {
-            /** Version */
-            version: number;
             /** Summary Text */
             summary_text: string;
+            /** Version */
+            version: number;
         };
         /** NoteUpdateIn */
         NoteUpdateIn: {
+            /** Content */
+            content?: string | null;
+            /** Folder Id */
+            folder_id?: string | null;
+            /** Title */
+            title?: string | null;
             /**
              * Version
              * @description Version client đang giữ — lệch sẽ trả 409
              */
             version: number;
-            /** Content */
-            content?: string | null;
-            /** Title */
-            title?: string | null;
-            /** Folder Id */
-            folder_id?: string | null;
         };
         /** Page[NoteOut] */
         Page_NoteOut_: {
@@ -458,12 +452,12 @@ export interface components {
         QuotaOut: {
             /** Limit Tokens */
             limit_tokens: number;
-            /** Used Tokens */
-            used_tokens: number;
-            /** Reserved Tokens */
-            reserved_tokens: number;
             /** Remaining Tokens */
             remaining_tokens: number;
+            /** Reserved Tokens */
+            reserved_tokens: number;
+            /** Used Tokens */
+            used_tokens: number;
         };
         /** RefreshIn */
         RefreshIn: {
@@ -478,30 +472,30 @@ export interface components {
              */
             chunk_id: string;
             /**
-             * Note Id
-             * Format: uuid
-             */
-            note_id: string;
-            /** Text */
-            text: string;
-            /** Score */
-            score: number;
-            /** Note Title */
-            note_title: string | null;
-            /** Note Url */
-            note_url: string | null;
-            /**
              * Folder Id
              * Format: uuid
              */
             folder_id: string;
+            /**
+             * Note Id
+             * Format: uuid
+             */
+            note_id: string;
+            /** Note Title */
+            note_title: string | null;
+            /** Note Url */
+            note_url: string | null;
+            /** Score */
+            score: number;
+            /** Text */
+            text: string;
         };
         /** SearchIn */
         SearchIn: {
-            /** Query */
-            query: string;
             /** Folder Id */
             folder_id?: string | null;
+            /** Query */
+            query: string;
             /**
              * Top K
              * @default 5
@@ -515,31 +509,24 @@ export interface components {
         };
         /** SummaryIn */
         SummaryIn: {
-            /** Text */
-            text?: string | null;
             /** Note Id */
             note_id?: string | null;
+            /** Text */
+            text?: string | null;
         };
         /** SummaryOut */
         SummaryOut: {
+            /** Request Id */
+            request_id: string;
             /** Summary */
             summary: string;
             /** Tokens Used */
             tokens_used: number;
-            /** Request Id */
-            request_id: string;
         };
         /** TokenPairOut */
         TokenPairOut: {
             /** Access Token */
             access_token: string;
-            /** Refresh Token */
-            refresh_token: string;
-            /**
-             * Token Type
-             * @default Bearer
-             */
-            token_type: string;
             /** Expires In */
             expires_in: number;
             /**
@@ -547,18 +534,16 @@ export interface components {
              * @default false
              */
             is_new_user: boolean;
+            /** Refresh Token */
+            refresh_token: string;
+            /**
+             * Token Type
+             * @default Bearer
+             */
+            token_type: string;
         };
         /** UserOut */
         UserOut: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Email */
-            email: string;
-            /** Display Name */
-            display_name: string | null;
             /** Avatar Url */
             avatar_url: string | null;
             /**
@@ -566,19 +551,28 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Display Name */
+            display_name: string | null;
+            /** Email */
+            email: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
         };
         /** ValidationError */
         ValidationError: {
+            /** Context */
+            ctx?: Record<string, never>;
+            /** Input */
+            input?: unknown;
             /** Location */
             loc: (string | number)[];
             /** Message */
             msg: string;
             /** Error Type */
             type: string;
-            /** Input */
-            input?: unknown;
-            /** Context */
-            ctx?: Record<string, never>;
         };
     };
     responses: never;
@@ -589,7 +583,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    live_api_v1_health_live_get: {
+    chat_api_v1_ai_chat_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -604,21 +598,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
+                    "application/json": unknown;
                 };
             };
         };
     };
-    ready_api_v1_health_ready_get: {
+    summarize_api_v1_ai_summaries_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SummaryIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -626,10 +624,45 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
+                    "application/json": components["schemas"]["SummaryOut"];
                 };
+            };
+            /** @description Hết quota AI */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Văn bản quá dài */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Quá tần suất (Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description AI lỗi */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -643,39 +676,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["GoogleExchangeIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TokenPairOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    refresh_api_v1_auth_refresh_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RefreshIn"];
             };
         };
         responses: {
@@ -730,14 +730,18 @@ export interface operations {
             };
         };
     };
-    get_me_api_v1_me_get: {
+    refresh_api_v1_auth_refresh_post: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -745,45 +749,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UserOut"];
+                    "application/json": components["schemas"]["TokenPairOut"];
                 };
             };
-        };
-    };
-    delete_me_api_v1_me_delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    get_quota_api_v1_me_quota_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
+            /** @description Validation Error */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["QuotaOut"];
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -905,6 +880,108 @@ export interface operations {
             };
         };
     };
+    live_api_v1_health_live_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+        };
+    };
+    ready_api_v1_health_ready_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+        };
+    };
+    get_me_api_v1_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOut"];
+                };
+            };
+        };
+    };
+    delete_me_api_v1_me_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_quota_api_v1_me_quota_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuotaOut"];
+                };
+            };
+        };
+    };
     list_notes_api_v1_notes_get: {
         parameters: {
             query?: {
@@ -964,12 +1041,52 @@ export interface operations {
                     "application/json": components["schemas"]["NoteOut"];
                 };
             };
-            /** @description Idempotency-Key dùng cho request khác */
+            /** @description Idempotency-Key đã dùng cho request khác */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Nội dung vượt MAX_NOTE_CHARS */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_delete_api_v1_notes_bulk_delete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkDeleteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkDeleteOut"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -1066,6 +1183,44 @@ export interface operations {
                     "application/json": components["schemas"]["NoteOut"];
                 };
             };
+            /** @description Lệch version */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reindex_note_api_v1_notes__note_id__reindex_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteOut"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -1112,70 +1267,6 @@ export interface operations {
             };
         };
     };
-    bulk_delete_api_v1_notes_bulk_delete_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BulkDeleteIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BulkDeleteOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    reindex_note_api_v1_notes__note_id__reindex_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                note_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NoteOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     search_api_v1_search_post: {
         parameters: {
             query?: never;
@@ -1198,40 +1289,12 @@ export interface operations {
                     "application/json": components["schemas"]["SearchOut"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description Hết quota AI */
+            402: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    summarize_api_v1_ai_summaries_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SummaryIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SummaryOut"];
-                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -1242,25 +1305,12 @@ export interface operations {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
-        };
-    };
-    chat_api_v1_ai_chat_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
+            /** @description Quá tần suất (Retry-After) */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": unknown;
-                };
+                content?: never;
             };
         };
     };

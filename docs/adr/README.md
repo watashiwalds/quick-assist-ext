@@ -14,5 +14,7 @@ Theo khung "System Design Trade-offs": luôn nêu ≥ 2 phương án, chọn 1, 
 | [0007](0007-extension-background-gateway.md) | Extension: background là cổng mạng duy nhất, RPC có kiểu | Chấp nhận |
 | [0008](0008-client-cache-outbox.md) | Cache-first đọc, outbox ghi, server là nguồn sự thật | Chấp nhận |
 | [0009](0009-sse-for-chat-streaming.md) | SSE cho streaming chat (Nice-to-have) | Đề xuất |
+| [0010](0010-in-process-rate-limit.md) | Rate limit theo user trong bộ nhớ tiến trình (429 tách khỏi 402) | Chấp nhận |
+| [0011](0011-outbox-failed-store-and-shortcuts.md) | Store "failed" cho ghi chú gửi lỗi; phím tắt Alt+Shift | Chấp nhận |
 
 Thêm ADR mới: copy file gần nhất, tăng số, mở PR cho cả nhóm duyệt.

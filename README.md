@@ -17,8 +17,11 @@ apps/api/            Backend Python (FastAPI) — Layered Architecture theo SDS 
     infrastructure/    ⑤ Infrastructure Layer (google_oauth, openai, logging, jobs)
 apps/extension/      Chrome extension MV3 (ui, background, content, shared)
 infra/               docker-compose cho dev/demo
-docs/                specs (SDS…), plan, architecture, adr, api
+docs/                specs (SDS v1.1…), plan, architecture, adr, api, qa — xem docs/README.md
+scripts/             tiện ích sinh tài liệu/kế hoạch
 ```
+
+Mỗi app và mỗi thư mục tầng có `README.md` riêng: [`apps/api/README.md`](apps/api/README.md), [`apps/extension/README.md`](apps/extension/README.md).
 
 ## Chạy nhanh
 
