@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "gen:api": "openapi-typescript ${API_OPENAPI_URL:-http://localhost:8000/api/v1/openapi.json} -o src/shared/api/schema.d.ts"
+    "gen:api": "openapi-typescript ${API_OPENAPI_URL:-http://localhost:8000/api/v1/openapi.json} -o src/shared/api/schema.d.ts",
+    "gen:api:file": "openapi-typescript ../../docs/api/openapi.json -o src/shared/api/schema.d.ts"
   },
   "dependencies": {
     "idb": "^8.0.3",
