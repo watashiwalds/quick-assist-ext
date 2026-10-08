@@ -9,7 +9,13 @@ from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from quickassist.business.common.exceptions import AppError, NotFound, PayloadTooLarge, UpstreamError
+from quickassist.business.common.exceptions import (
+    AppError,
+    Conflict,
+    NotFound,
+    PayloadTooLarge,
+    UpstreamError,
+)
 from quickassist.business.notes import get_note_content
 from quickassist.business.quota import QuotaService
 from quickassist.business.summary.prompts import summary_messages
@@ -20,6 +26,7 @@ from quickassist.infrastructure.openai.base import AIProvider, AIProviderError, 
 log = get_logger(__name__)
 
 SUMMARY_MAX_OUTPUT_TOKENS = 600
+SUMMARY_MAX_CHARS = 10_000  # = giới hạn summary_text khi lưu (PUT /notes/{id}/summary)
 
 
 @dataclass(frozen=True)
@@ -44,18 +51,29 @@ class SummaryService:
             if text is None:
                 raise NotFound("Không tìm thấy ghi chú", code="NOTE_NOT_FOUND")
         assert text is not None
+        text = text.replace("\x00", "").strip()
+        if not text:
+            raise AppError("Không có nội dung để tóm tắt", code="SUMMARY_INPUT_INVALID")
         if len(text) > get_settings().max_summary_input_chars:
             raise PayloadTooLarge("Văn bản quá dài để tóm tắt", code="SUMMARY_INPUT_TOO_LONG")
 
         messages = summary_messages(text)
         estimate = sum(estimate_tokens(m.content) for m in messages) + SUMMARY_MAX_OUTPUT_TOKENS
         async with QuotaService.open() as quota:
-            lease = await quota.reserve(user_id, "summary", estimate, f"summary:{request_id}")
+            # request_id gắn user → key của user này không đụng ledger của user khác.
+            lease = await quota.reserve(user_id, "summary", estimate, f"summary:{user_id}:{request_id}")
+            if not lease.is_new:
+                # Cùng Idempotency-Key đã dùng: không gọi AI lần nữa "miễn phí".
+                raise Conflict("Yêu cầu tóm tắt này đã được xử lý, hãy tạo yêu cầu mới",
+                               code="IDEMPOTENCY_KEY_REUSED")
             try:
                 result = await self.ai.complete(messages, max_tokens=SUMMARY_MAX_OUTPUT_TOKENS)
             except AIProviderError as e:
                 await quota.release(lease)
                 raise UpstreamError("Dịch vụ AI tạm thời không khả dụng", code="AI_UNAVAILABLE") from e
             await quota.commit(lease, result.usage.total)
-        log.info("summary_done", extra={"tokens": result.usage.total})
-        return SummaryPreview(result.text.strip(), result.usage.total, request_id)
+        summary = result.text.strip()
+        if not summary:
+            raise UpstreamError("AI không trả về nội dung tóm tắt", code="AI_UNAVAILABLE")
+        log.info("summary_done", extra={"tokens": result.usage.total, "input_chars": len(text)})
+        return SummaryPreview(summary[:SUMMARY_MAX_CHARS], result.usage.total, request_id)
