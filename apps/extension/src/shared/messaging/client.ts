@@ -7,7 +7,9 @@ export async function rpc<K extends RpcType>(type: K, ...args: RpcReq<K> extends
   const msg: RpcRequest<K> = { channel: 'qa-rpc', type, payload: args[0] as RpcReq<K> }
   const res = (await chrome.runtime.sendMessage(msg)) as RpcResponse<RpcRes<K>> | undefined
   if (!res) throw new AppError('NO_BACKGROUND', 'Background không phản hồi')
-  if (!res.ok) throw new AppError(res.error.code, res.error.message, res.error.status, res.error.requestId)
+  if (!res.ok) {
+    throw new AppError(res.error.code, res.error.message, res.error.status, res.error.requestId, res.error.details)
+  }
   return res.data
 }
 
