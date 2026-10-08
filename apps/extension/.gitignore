@@ -1,3 +1,4 @@
 dist-e2e/
 test-results/
 playwright-report/
+release/
