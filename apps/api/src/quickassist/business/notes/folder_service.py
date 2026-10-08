@@ -40,6 +40,7 @@ class FolderService:
         except IntegrityError as e:
             await self.s.rollback()
             raise Conflict("Thư mục đã tồn tại", code="FOLDER_EXISTS") from e
+        await self.s.refresh(folder)  # updated_at do DB sinh (onupdate) — nạp lại trước khi trả DTO
         return folder
 
     async def delete(self, user_id: uuid.UUID, folder_id: uuid.UUID) -> None:
