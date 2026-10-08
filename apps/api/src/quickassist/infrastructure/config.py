@@ -58,6 +58,14 @@ class Settings(BaseSettings):
     max_note_chars: int = 20_000
     max_summary_input_chars: int = 30_000
 
+    # --- Giới hạn tần suất theo user (request/phút; 0 = tắt) — H02, R03 ---
+    rate_limit_search_per_minute: int = 30
+    rate_limit_ai_per_minute: int = 10
+    rate_limit_write_per_minute: int = 120
+
+    # --- Lưu trữ dữ liệu (SDS §3.2, RET-01) ---
+    retention_inactive_days: int = 365
+
     # --- Worker ---
     worker_poll_interval_seconds: float = 1.0
     job_max_attempts: int = 5

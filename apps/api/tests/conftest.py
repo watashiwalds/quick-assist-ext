@@ -53,8 +53,12 @@ async def app(_migrated: None):  # type: ignore[no-untyped-def]
     from sqlalchemy import text
 
     from quickassist.data.database import dispose_engine, get_engine
+    from quickassist.infrastructure.rate_limit import limiter
     from quickassist.main import create_app
+    from quickassist.worker import load_job_handlers
 
+    load_job_handlers()  # để drain() xử lý được job index trong mọi test
+    limiter.reset()
     async with get_engine().begin() as conn:
         await conn.execute(text(
             "TRUNCATE users, jobs, idempotency_keys RESTART IDENTITY CASCADE"
