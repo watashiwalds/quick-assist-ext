@@ -23,7 +23,9 @@ class ChunkHit:
 # Hybrid retrieval: vector (cosine, HNSW) + từ khoá (tsvector) → hợp nhất bằng
 # Reciprocal Rank Fusion (k=60). RRF không cần chuẩn hoá thang điểm giữa 2 nguồn.
 # Điều kiện user_id nằm TRONG từng nhánh → không bao giờ rò dữ liệu chéo user.
-# Nhánh từ khoá so khớp KHÔNG DẤU (qa_unaccent ở cả chỉ mục lẫn truy vấn — R01).
+# Nhánh từ khoá so khớp KHÔNG DẤU (qa_unaccent ở cả chỉ mục lẫn truy vấn — R01) và theo OR
+# giữa các từ: câu hỏi tự nhiên ("mua quà gì ở đà lạt") không cần chứa ĐỦ mọi từ; ts_rank_cd
+# vẫn xếp chunk khớp nhiều từ hơn lên trước (đo bằng tests/eval — H03).
 _HYBRID_SQL = text("""
 WITH vec AS (
     SELECT id, row_number() OVER (ORDER BY embedding <=> CAST(:qvec AS vector)) AS r
@@ -34,7 +36,9 @@ WITH vec AS (
 ),
 kw AS (
     SELECT id, row_number() OVER (ORDER BY ts_rank_cd(tsv, q) DESC) AS r
-    FROM note_chunks, plainto_tsquery('simple', qa_unaccent(:qtext)) AS q
+    FROM note_chunks,
+         to_tsquery('simple',
+                    replace(plainto_tsquery('simple', qa_unaccent(:qtext))::text, ' & ', ' | ')) AS q
     WHERE user_id = :uid AND (CAST(:fid AS uuid) IS NULL OR folder_id = CAST(:fid AS uuid))
       AND tsv @@ q
     ORDER BY ts_rank_cd(tsv, q) DESC
