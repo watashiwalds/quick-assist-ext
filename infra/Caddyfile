@@ -1,0 +1,27 @@
+# Reverse proxy HTTPS cho API (H04). Caddy tự xin/gia hạn chứng chỉ Let's Encrypt cho {$DOMAIN}.
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode gzip
+	# Chỉ phục vụ API; không lộ /docs ở prod (FastAPI đã tắt), chặn mọi đường khác.
+	@api path /api/*
+	handle @api {
+		reverse_proxy api:8000
+	}
+	handle {
+		respond "Not found" 404
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+	request_body {
+		max_size 1MB
+	}
+	log {
+		output stdout
+		format json
+	}
+}

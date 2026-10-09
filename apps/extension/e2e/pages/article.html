@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <title>Bài viết thử nghiệm QuickAssist</title>
+    <style>
+      /* CSS "thù địch" để kiểm tra toast không bị vỡ giao diện (Shadow DOM) */
+      div, button, span { all: unset; color: red !important; font-size: 40px !important; }
+    </style>
+  </head>
+  <body>
+    <h1>Kubernetes cho người mới</h1>
+    <p id="p1">Pod là đơn vị triển khai nhỏ nhất trong Kubernetes. Deployment quản lý ReplicaSet để luôn đủ số Pod mong muốn và hỗ trợ rolling update không gián đoạn.</p>
+    <p id="p2">Service cung cấp địa chỉ ổn định cho một nhóm Pod qua label selector; Ingress định tuyến HTTP theo tên miền.</p>
+    <textarea id="ta">Ghi chú trong ô nhập: ConfigMap lưu cấu hình, Secret lưu mật khẩu.</textarea>
+  </body>
+</html>

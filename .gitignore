@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+# Env & secrets
+.env
+.env.local
+.env.*.local
+infra/.env
+infra/.env.prod
+infra/backups/
+# IDE / OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+# Office lock files
+~$*
