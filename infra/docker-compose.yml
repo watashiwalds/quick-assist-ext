@@ -1,5 +1,5 @@
 # Môi trường dev/demo: PostgreSQL+pgvector, API, worker.
-#   cp infra/.env.example infra/.env   (điền GOOGLE_*, OPENAI_API_KEY nếu cần)
+#   cp infra/.env.example infra/.env   (điền GOOGLE_*, GEMINI_API_KEY/OPENAI_API_KEY nếu cần)
 #   docker compose -f infra/docker-compose.yml up --build
 name: quickassist
 

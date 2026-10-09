@@ -25,6 +25,10 @@ def _check_config() -> None:
     s = get_settings()
     if s.embedding_dim != EMBEDDING_DIM:
         raise RuntimeError(f"EMBEDDING_DIM={s.embedding_dim} lệch cột vector({EMBEDDING_DIM})")
+    if s.ai_provider == "openai" and not s.openai_api_key.get_secret_value():
+        raise RuntimeError("AI_PROVIDER=openai nhưng thiếu OPENAI_API_KEY")
+    if s.ai_provider == "gemini" and not s.gemini_api_key.get_secret_value():
+        raise RuntimeError("AI_PROVIDER=gemini nhưng thiếu GEMINI_API_KEY")
     if s.app_env == "prod":
         problems = []
         if s.jwt_secret.get_secret_value() == "change-me-in-env" or len(s.jwt_secret.get_secret_value()) < 32:

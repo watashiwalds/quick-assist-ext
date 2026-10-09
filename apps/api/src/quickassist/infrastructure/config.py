@@ -37,12 +37,18 @@ class Settings(BaseSettings):
     enable_dev_login: bool = False  # CHỈ bật ở dev/test để test API không cần Google
 
     # --- AI provider ---
-    ai_provider: Literal["mock", "openai"] = "mock"
+    ai_provider: Literal["mock", "openai", "gemini"] = "mock"
     openai_api_key: SecretStr = SecretStr("")
     openai_base_url: str = "https://api.openai.com/v1"
     embedding_model: str = "text-embedding-3-small"
     embedding_dim: int = 1536  # PHẢI khớp cột vector trong migration
     chat_model: str = "gpt-4o-mini"
+    # Gemini API (AI_PROVIDER=gemini): chat bằng Gemma 4, embedding bằng gemini-embedding-001
+    gemini_api_key: SecretStr = SecretStr("")
+    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta/models"
+    gemini_chat_model: str = "gemma-4-31b-it"
+    gemini_embedding_model: str = "gemini-embedding-001"
+    gemini_thinking_level: str = "minimal"  # "" = không gửi thinkingConfig
     ai_timeout_seconds: float = 30.0
     ai_max_retries: int = 2
 

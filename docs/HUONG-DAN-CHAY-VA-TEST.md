@@ -69,15 +69,35 @@ Mở một bài báo tiếng Việt bất kỳ (VD vnexpress.net, tuoitre.vn) đ
 | 13 | **Offline**: `docker compose -f infra/docker-compose.yml stop api` → mở lại panel → lưu nhanh 1 đoạn | Thư viện vẫn hiện từ bộ nhớ đệm; ghi chú chờ gửi, **không mất** |
 | 14 | `docker compose -f infra/docker-compose.yml start api`, đợi ~1 phút hoặc mở lại panel | Ghi chú ở bước 13 tự gửi lên, **không bị trùng** |
 | 15 | Xoá 1 ghi chú, rồi chọn nhiều ghi chú → xoá | Biến mất khỏi Thư viện và kết quả tìm kiếm |
-| 16 | Thử Alt+Shift+N trên trang `chrome://settings` | Báo không ghi chú được trên trang này, không treo |
+| 16 | Thử Alt+Shift+N trên trang `chrome://settings` | Không lưu gì (Chrome chặn tiện ích trên trang này) và extension không bị treo — quay lại trang thường vẫn lưu được |
 | 17 | Bật dark mode của Windows/Chrome | Giao diện đọc rõ, nút đỏ (xoá) vẫn đủ tương phản |
 | 18 | Dùng phím **Tab / Enter / Esc** đi qua các màn và hộp thoại | Điều khiển được hoàn toàn bằng bàn phím |
 | 19 | (Cuối cùng) **Cài đặt → Xoá tài khoản…** → làm đủ 2 bước | Đăng xuất, toàn bộ ghi chú bị xoá cả trên server lẫn máy |
 
 Gặp lỗi: chụp màn hình + mở DevTools Console của side panel (và `chrome://extensions` → QuickAssist → **service worker** → Console) để xem lỗi, kèm log `docker compose ... logs api worker`. Mỗi lỗi API có `requestId` — ghi lại để tra log.
 
-### A5. Dùng thử với AI thật (tuỳ chọn, tốn phí)
-Sửa `infra/.env`: `AI_PROVIDER=openai`, `OPENAI_API_KEY=sk-...` → `docker compose -f infra/docker-compose.yml up -d` → ghi chú mới sẽ được tóm tắt và tìm kiếm bằng mô hình thật.
+### A5. Dùng thử với AI thật — Gemini (Gemma 4 31B)
+Sửa `infra/.env` (file này đã nằm trong `.gitignore`, **không commit khoá**):
+```
+AI_PROVIDER=gemini
+GEMINI_API_KEY=<khoá Gemini>
+GEMINI_CHAT_MODEL=gemma-4-31b-it
+GEMINI_EMBEDDING_MODEL=gemini-embedding-001
+```
+Kiểm tra khoá trước (in ra ✓/✗ cho embedding và chat, không in khoá):
+```powershell
+cd apps/api
+.venv\Scripts\activate
+python scripts/check_ai.py --env ../../infra/.env --try-both
+```
+Nếu chỉ dòng **Vertex express** thành công → thêm `GEMINI_BASE_URL=https://aiplatform.googleapis.com/v1/publishers/google/models` vào `infra/.env`.
+
+Rồi khởi động lại backend. Dữ liệu thử đã index bằng AI mock không dùng chung được với embedding Gemini → xoá dữ liệu cũ cho sạch:
+```powershell
+docker compose -f infra/docker-compose.yml down -v
+docker compose -f infra/docker-compose.yml up -d --build
+```
+Ghi chú mới sẽ được index bằng `gemini-embedding-001` (1536 chiều) và tóm tắt bằng Gemma 4 31B. Muốn quay về miễn phí: `AI_PROVIDER=mock`.
 
 ### A6. Dùng thử bản phát hành với Google thật (tuỳ chọn)
 Cần OAuth client trên Google Cloud Console — làm theo mục 3 bên dưới (`npm run build`, nạp `dist/`, khai báo Extension ID).

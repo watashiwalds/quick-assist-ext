@@ -14,7 +14,8 @@ from typing import Any
 
 SENSITIVE_KEYS = {
     "authorization", "access_token", "refresh_token", "id_token", "code", "code_verifier",
-    "password", "api_key", "openai_api_key", "content", "text", "query", "secret",
+    "password", "api_key", "openai_api_key", "gemini_api_key", "x-goog-api-key",
+    "content", "text", "query", "secret",
     "client_secret", "jwt_secret", "cookie", "summary", "summary_text", "prompt", "messages",
 }
 # Mẫu chuỗi trông như bí mật (Bearer token, JWT, khoá OpenAI) — che kể cả khi lọt vào message.
