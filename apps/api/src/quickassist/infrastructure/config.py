@@ -49,7 +49,9 @@ class Settings(BaseSettings):
     gemini_chat_model: str = "gemma-4-31b-it"
     gemini_embedding_model: str = "gemini-embedding-001"
     gemini_thinking_level: str = "minimal"  # "" = không gửi thinkingConfig
-    ai_timeout_seconds: float = 30.0
+    # Gemini/Gemma có thể mất hơn 30 giây cho một lượt tóm tắt; timeout ngắn sẽ
+    # biến một yêu cầu hợp lệ thành AI_UNAVAILABLE/502 trên máy người dùng.
+    ai_timeout_seconds: float = 90.0
     ai_max_retries: int = 2
 
     # --- Indexing / Search ---

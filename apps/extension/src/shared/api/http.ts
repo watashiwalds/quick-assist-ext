@@ -12,6 +12,8 @@ export interface HttpOptions {
   query?: Record<string, string | number | undefined | null>
   headers?: Record<string, string>
   signal?: AbortSignal
+  /** Ghi đè timeout mặc định cho endpoint có tác vụ AI lâu hơn. */
+  timeoutMs?: number
 }
 
 export interface AuthHooks {
@@ -47,7 +49,7 @@ export function createHttp(auth?: AuthHooks) {
     const token = auth ? await auth.getAccessToken() : null
     if (token) headers.Authorization = `Bearer ${token}`
 
-    const timeout = AbortSignal.timeout(config.requestTimeoutMs)
+    const timeout = AbortSignal.timeout(opts.timeoutMs ?? config.requestTimeoutMs)
     let res: Response
     try {
       res = await fetch(buildUrl(path, opts.query), {

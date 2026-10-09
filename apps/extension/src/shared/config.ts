@@ -4,6 +4,8 @@ export const config = {
   googleClientId: (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined) ?? '',
   undoWindowMs: 5_000,
   requestTimeoutMs: 15_000,
+  /** Gemini thật có thể cần hàng chục giây để tóm tắt; không dùng timeout ngắn của API thường. */
+  summaryRequestTimeoutMs: 120_000,
   /** = MAX_NOTE_CHARS của backend (P02): vùng chọn dài hơn bị cắt và báo người dùng. */
   maxNoteChars: 20_000,
   /** = MAX_SUMMARY_INPUT_CHARS của backend (SUM-01). */

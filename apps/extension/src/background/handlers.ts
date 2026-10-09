@@ -139,7 +139,7 @@ export const handlers: Handlers = {
   'outbox/retry': ({ id }) => retryPending(id),
   'outbox/discard': ({ id }) => discardPending(id),
 
-  'search/query': async ({ query, folderId }) => (await api.search.query({ query, folder_id: folderId })).items,
+  'search/query': async ({ query, folderId, topK }) => (await api.search.query({ query, folder_id: folderId, top_k: topK })).items,
   'summary/preview': ({ noteId, text }) =>
     api.ai.summarize(noteId ? { note_id: noteId } : { text: (text ?? '').slice(0, config.maxSummaryChars) }),
   'summary/save': async ({ noteId, version, summary }) => {
