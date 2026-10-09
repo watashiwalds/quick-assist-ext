@@ -8,6 +8,7 @@ import { useAction, useAsync } from '../../lib/hooks'
 export function SearchView({ onOpenNote, onGoSettings }: { onOpenNote: (noteId: string) => void; onGoSettings: () => void }) {
   const [query, setQuery] = useState('')
   const [folderId, setFolderId] = useState<string | null>(null)
+  const [topK, setTopK] = useState(5)
   const [hits, setHits] = useState<SearchHit[]>()
   const [asked, setAsked] = useState('')
   const folders = useAsync(() => rpc('folders/list'), [])
@@ -17,7 +18,7 @@ export function SearchView({ onOpenNote, onGoSettings }: { onOpenNote: (noteId: 
     e.preventDefault()
     const q = query.trim()
     if (!q || act.busy) return
-    const r = await act.run(() => rpc('search/query', { query: q, folderId }))
+    const r = await act.run(() => rpc('search/query', { query: q, folderId, topK }))
     if (r) {
       setHits(r)
       setAsked(q)
@@ -48,6 +49,11 @@ export function SearchView({ onOpenNote, onGoSettings }: { onOpenNote: (noteId: 
             </option>
           ))}
         </Select>
+        <Select aria-label="Số kết quả tối đa" value={String(topK)} onChange={(e) => setTopK(Number(e.target.value))}>
+          <option value="5">Tối đa 5 kết quả</option>
+          <option value="10">Tối đa 10 kết quả</option>
+          <option value="20">Tối đa 20 kết quả</option>
+        </Select>
       </form>
       {act.busy && <Spinner label="Đang tìm nội dung tương đồng cho bạn…" />}
       {act.error && (
@@ -67,7 +73,7 @@ export function SearchView({ onOpenNote, onGoSettings }: { onOpenNote: (noteId: 
       )}
       {!!hits?.length && (
         <p className="muted" aria-live="polite">
-          {hits.length} đoạn liên quan nhất tới “{asked}”
+          Hiển thị {hits.length} kết quả liên quan nhất tới “{asked}” (tối đa {topK})
         </p>
       )}
       <ol className="list">

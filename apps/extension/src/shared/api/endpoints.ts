@@ -2,6 +2,7 @@
  * Mỗi endpoint backend = 1 hàm ở đây. Đây là chỗ DUY NHẤT trong extension biết URL.
  * Chỉ background được import file này (kiểm tra bởi tests/architecture.test.ts).
  */
+import { config } from '../config'
 import type { HttpRequest } from './http'
 import type {
   Folder,
@@ -61,7 +62,7 @@ export function createApi(http: HttpRequest) {
     },
     ai: {
       summarize: (b: { text?: string; note_id?: string }) =>
-        http<SummaryPreview>('/ai/summaries', { method: 'POST', body: b }),
+        http<SummaryPreview>('/ai/summaries', { method: 'POST', body: b, timeoutMs: config.summaryRequestTimeoutMs }),
     },
   }
 }

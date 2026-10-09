@@ -34,7 +34,7 @@ export interface SerializedError {
 
 /** Thông báo thân thiện cho các mã lỗi phổ biến (UI/UX owner chỉnh ở đây). */
 export const USER_MESSAGES: Record<string, string> = {
-  NETWORK_ERROR: 'Không kết nối được máy chủ. Ghi chú sẽ được gửi lại khi có mạng.',
+  NETWORK_ERROR: 'Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.',
   NO_BACKGROUND: 'Tiện ích đang khởi động lại, vui lòng thử lại.',
   NOT_SIGNED_IN: 'Bạn cần đăng nhập để dùng tính năng này.',
   TOKEN_MISSING: 'Bạn cần đăng nhập để dùng tính năng này.',

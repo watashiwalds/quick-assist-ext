@@ -17,6 +17,11 @@ import uuid
 
 import httpx
 
+# Windows can default to the cp1252 console encoding.  This script reports
+# Vietnamese labels and symbols, so force UTF-8 instead of crashing on output.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 OK, FAIL = "✅", "❌"
 
 
@@ -34,7 +39,9 @@ def main() -> int:
         print(f"{OK if cond else FAIL} {name} {info}")
         return cond
 
-    with httpx.Client(timeout=20) as c:
+    # Gemini generation may take longer than the old fixed 20-second timeout.
+    # Reuse --timeout for HTTP calls and for waiting on the indexing worker.
+    with httpx.Client(timeout=a.timeout) as c:
         r = c.get(f"{api}/health/ready")
         check("health/ready", r.status_code == 200 and r.json().get("db") == "ok", f"({r.status_code})")
         check("header bảo mật", r.headers.get("x-content-type-options") == "nosniff"

@@ -69,7 +69,7 @@ export interface RpcMap {
   'outbox/retry': { req: { id: string }; res: void }
   'outbox/discard': { req: { id: string }; res: void }
 
-  'search/query': { req: { query: string; folderId?: string | null }; res: SearchHit[] }
+  'search/query': { req: { query: string; folderId?: string | null; topK?: number }; res: SearchHit[] }
   'summary/preview': { req: { noteId?: string; text?: string }; res: SummaryPreview }
   'summary/save': { req: { noteId: string; version: number; summary: string }; res: Note }
   /** Lưu vùng chọn thành ghi chú mới kèm bản tóm tắt đã xác nhận. */
