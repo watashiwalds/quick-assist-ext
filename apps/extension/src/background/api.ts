@@ -3,4 +3,5 @@ import { createApi } from '@/shared/api/endpoints'
 import { createHttp } from '@/shared/api/http'
 import { getAccessToken, refreshSession } from './auth/session'
 
-export const api = createApi(createHttp({ getAccessToken, onUnauthorized: refreshSession }))
+export const http = createHttp({ getAccessToken, onUnauthorized: refreshSession })
+export const api = createApi(http)

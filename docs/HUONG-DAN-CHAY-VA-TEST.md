@@ -15,6 +15,11 @@ Các lệnh viết cho **Windows PowerShell**. Lệnh cho bash (Git Bash/Linux/m
 
 Mục đích: lấy code `dev` về, chạy thật trên Chrome và tự bấm thử các tính năng. **Không cần tài khoản Google, không tốn tiền AI** (dùng đăng nhập thử + AI mock).
 
+### Cách nhanh: bấm đúp `chay-thu.bat` (ở thư mục gốc repo)
+Script tự làm A1 + A2: bật Docker Desktop nếu chưa chạy, tạo `infra\.env`, dựng DB + API + worker, chờ API sẵn sàng, kiểm tra khoá Gemini (nếu có), build extension bản kiểm thử, copy sẵn đường dẫn `dist-e2e` vào clipboard. Sau đó bạn chỉ làm bước nạp extension (A2 mục 1–2) và đăng nhập (A3).
+
+Muốn dùng AI thật (Gemini/Gemma 4): tạo file `infra\gemini.key` chứa đúng 1 dòng là khoá (file đã nằm trong `.gitignore`). Script tự gọi thử; khoá lỗi thì tự quay về AI giả lập và báo lý do.
+
 ### A1. Lấy code và bật backend
 ```powershell
 git checkout dev
@@ -38,15 +43,14 @@ npm run build:e2e        # tạo thư mục dist-e2e/ (bản có nút đăng nh�
 > Mỗi lần sửa code extension: chạy lại `npm run build:e2e` rồi bấm nút ↻ (Reload) của QuickAssist trong `chrome://extensions`.
 
 ### A3. Đăng nhập thử (không cần Google)
-1. Bấm biểu tượng QuickAssist → **Mở thư viện ghi chú** (side panel mở bên phải). Màn hình hiện nút "Đăng nhập bằng Google" — bỏ qua nút này.
-2. Chuột phải vào side panel → **Inspect** → tab **Console**, dán rồi Enter:
-   ```js
-   await chrome.runtime.sendMessage({ channel: 'qa-rpc', type: 'e2e/devLogin', payload: { email: 'demo@quickassist.local' } })
-   ```
-   Kết quả có `ok: true` là được.
-3. Đóng DevTools, chuột phải side panel → **Reload frame** (hoặc đóng mở lại panel) → thấy các tab **Thư viện · Tìm kiếm · Cài đặt**.
+Bấm biểu tượng QuickAssist → **Mở thư viện ghi chú** → bấm **Đăng nhập thử (bản kiểm thử)** → thấy các tab **Thư viện · Tìm kiếm · Hỏi AI · Cài đặt**.
+Nút này chỉ có trong bản `build:e2e`; bản phát hành (`npm run build`) không có (`npm run check:bundle` chặn nếu lọt).
 
-Muốn thử người dùng thứ hai (kiểm tra không thấy dữ liệu của nhau): đăng xuất trong **Cài đặt**, rồi đăng nhập thử với email khác.
+Muốn thử người dùng thứ hai (kiểm tra không thấy dữ liệu của nhau): đăng xuất trong **Cài đặt**, mở Console của side panel (chuột phải → Inspect) và chạy:
+```js
+await chrome.runtime.sendMessage({ channel: 'qa-rpc', type: 'e2e/devLogin', payload: { email: 'nguoi-thu-2@quickassist.local' } })
+```
+rồi tải lại panel.
 
 ### A4. Kịch bản dùng thử — đánh dấu ✅/❌
 
@@ -72,7 +76,12 @@ Mở một bài báo tiếng Việt bất kỳ (VD vnexpress.net, tuoitre.vn) đ
 | 16 | Thử Alt+Shift+N trên trang `chrome://settings` | Không lưu gì (Chrome chặn tiện ích trên trang này) và extension không bị treo — quay lại trang thường vẫn lưu được |
 | 17 | Bật dark mode của Windows/Chrome | Giao diện đọc rõ, nút đỏ (xoá) vẫn đủ tương phản |
 | 18 | Dùng phím **Tab / Enter / Esc** đi qua các màn và hộp thoại | Điều khiển được hoàn toàn bằng bàn phím |
-| 19 | (Cuối cùng) **Cài đặt → Xoá tài khoản…** → làm đủ 2 bước | Đăng xuất, toàn bộ ghi chú bị xoá cả trên server lẫn máy |
+| 19 | Tab **Hỏi AI** → hỏi về nội dung đã lưu (VD "hầm xương bò bao lâu") | Câu trả lời hiện dần; có số nguồn [1], [2]… bấm vào mở đúng ghi chú; mục **Nguồn** liệt kê ghi chú và trang gốc |
+| 20 | Hỏi tiếp một câu nối theo câu trước (VD "còn gia vị thì sao?") | AI hiểu ngữ cảnh câu trước (giữ 5 cặp hỏi–đáp gần nhất) |
+| 21 | Hỏi một câu dài rồi bấm **Dừng** giữa chừng | Ngừng ngay, giữ phần đã hiện kèm "(đã dừng)"; hạn mức chỉ trừ phần đã sinh |
+| 22 | Hỏi điều không có trong ghi chú (VD "thời tiết sao hoả") | Báo không tìm thấy ghi chú liên quan, không bịa |
+| 23 | Hỏi xong → chuyển sang tab khác rồi quay lại; bấm **Cuộc trò chuyện mới** | Hội thoại vẫn còn khi quay lại; nút xoá làm trống hội thoại |
+| 24 | (Cuối cùng) **Cài đặt → Xoá tài khoản…** → làm đủ 2 bước | Đăng xuất, toàn bộ ghi chú bị xoá cả trên server lẫn máy |
 
 Gặp lỗi: chụp màn hình + mở DevTools Console của side panel (và `chrome://extensions` → QuickAssist → **service worker** → Console) để xem lỗi, kèm log `docker compose ... logs api worker`. Mỗi lỗi API có `requestId` — ghi lại để tra log.
 

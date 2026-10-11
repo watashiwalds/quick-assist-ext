@@ -6,7 +6,7 @@
  * vào `RpcMap` + 1 handler trong background/handlers.ts; TypeScript sẽ bắt lỗi
  * nếu thiếu handler hoặc sai kiểu.
  */
-import type { Folder, Note, Quota, SearchHit, SummaryPreview, User } from '../api/types'
+import type { ChatSource, ChatTurn, Folder, Note, Quota, SearchHit, SummaryPreview, User } from '../api/types'
 import type { SerializedError } from '../errors'
 
 export interface SessionInfo {
@@ -107,3 +107,22 @@ export function isRpcRequest(m: unknown): m is RpcRequest {
 export function isBroadcast(m: unknown): m is BroadcastEvent {
   return typeof m === 'object' && m !== null && (m as BroadcastEvent).channel === 'qa-event'
 }
+
+/**
+ * Chat RAG (X02, ADR-0009): câu trả lời về từng phần nên KHÔNG đi qua RPC một-lần.
+ * UI mở `chrome.runtime.connect({ name: CHAT_PORT })` cho mỗi câu hỏi, gửi `ask`; background đọc SSE
+ * từ POST /ai/chat và đẩy từng sự kiện về qua Port. `stop` hoặc đóng Port → background huỷ request
+ * (server chỉ trừ quota phần đã sinh).
+ */
+export const CHAT_PORT = 'qa-chat'
+
+export type ChatClientMessage =
+  | { type: 'ask'; question: string; folderId?: string | null; history: ChatTurn[] }
+  | { type: 'stop' }
+
+export type ChatPortEvent =
+  | { type: 'sources'; sources: ChatSource[] }
+  | { type: 'delta'; text: string }
+  | { type: 'done'; tokensUsed: number }
+  | { type: 'stopped' }
+  | { type: 'error'; error: SerializedError }

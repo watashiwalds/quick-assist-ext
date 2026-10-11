@@ -41,37 +41,52 @@ async function toAppError(res: Response): Promise<AppError> {
 }
 
 export function createHttp(auth?: AuthHooks) {
-  async function raw(path: string, opts: HttpOptions, retried: boolean): Promise<Response> {
+  async function raw(path: string, opts: HttpOptions, retried: boolean, withTimeout = true): Promise<Response> {
     const headers: Record<string, string> = { Accept: 'application/json', ...opts.headers }
     if (opts.body !== undefined) headers['Content-Type'] = 'application/json'
     const token = auth ? await auth.getAccessToken() : null
     if (token) headers.Authorization = `Bearer ${token}`
 
-    const timeout = AbortSignal.timeout(config.requestTimeoutMs)
+    const signals = [opts.signal, withTimeout ? AbortSignal.timeout(config.requestTimeoutMs) : undefined]
+      .filter((s): s is AbortSignal => s !== undefined)
     let res: Response
     try {
       res = await fetch(buildUrl(path, opts.query), {
         method: opts.method ?? 'GET',
         headers,
         body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
-        signal: opts.signal ? AbortSignal.any([opts.signal, timeout]) : timeout,
+        signal: signals.length ? AbortSignal.any(signals) : undefined,
       })
     } catch (e) {
+      if (opts.signal?.aborted) throw new AppError('ABORTED', 'Đã huỷ', 0)
       throw new AppError('NETWORK_ERROR', (e as Error).message, 0)
     }
     if (res.status === 401 && auth && !retried) {
       const err = await toAppError(res.clone())
-      if (err.code === 'TOKEN_EXPIRED' && (await auth.onUnauthorized())) return raw(path, opts, true)
+      if (err.code === 'TOKEN_EXPIRED' && (await auth.onUnauthorized())) return raw(path, opts, true, withTimeout)
     }
     return res
   }
 
-  return async function request<T>(path: string, opts: HttpOptions = {}): Promise<T> {
+  async function request<T>(path: string, opts: HttpOptions = {}): Promise<T> {
     const res = await raw(path, opts, false)
     if (!res.ok) throw await toAppError(res)
     if (res.status === 204) return undefined as T
     return (await res.json()) as T
   }
+
+  /**
+   * Gọi endpoint trả luồng (SSE): trả Response để caller tự đọc `body`. Không áp timeout tổng
+   * (câu trả lời có thể dài) — caller huỷ bằng `opts.signal` (nút Dừng). Lỗi HTTP vẫn ném AppError.
+   */
+  async function stream(path: string, opts: HttpOptions = {}): Promise<Response> {
+    const res = await raw(path, { ...opts, headers: { Accept: 'text/event-stream', ...opts.headers } }, false, false)
+    if (!res.ok) throw await toAppError(res)
+    if (!res.body) throw new AppError('NETWORK_ERROR', 'Phản hồi không có nội dung', res.status)
+    return res
+  }
+
+  return Object.assign(request, { stream })
 }
 
 export type HttpRequest = ReturnType<typeof createHttp>

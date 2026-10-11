@@ -4,7 +4,7 @@ import { expect, test } from './fixtures'
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']
 
-for (const tab of ['Thư viện', 'Tìm kiếm', 'Cài đặt']) {
+for (const tab of ['Thư viện', 'Tìm kiếm', 'Hỏi AI', 'Cài đặt']) {
   test(`axe: màn "${tab}" không có vi phạm WCAG AA`, async ({ panel, api }) => {
     await api.send('POST', '/notes', { content: 'Ghi chú mẫu để có nội dung', title: 'Mẫu', url: 'https://a.example/x' })
     await panel.reload()
