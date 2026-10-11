@@ -17,3 +17,16 @@ export type Quota = S['QuotaOut']
 export type User = S['UserOut']
 export type SummaryPreview = S['SummaryOut']
 export type IndexStatus = Note['index_status']
+
+export type ChatRequest = S['ChatIn']
+export type ChatTurn = S['ChatTurnIn']
+
+/** Dữ liệu sự kiện SSE `sources` của POST /ai/chat (luồng SSE nên không có trong OpenAPI components). */
+export interface ChatSource {
+  index: number
+  note_id: string
+  chunk_id: string
+  title: string | null
+  url: string | null
+  snippet: string
+}

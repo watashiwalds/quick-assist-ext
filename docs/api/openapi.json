@@ -35,6 +35,66 @@
         "title": "BulkDeleteOut",
         "type": "object"
       },
+      "ChatIn": {
+        "additionalProperties": false,
+        "properties": {
+          "folder_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Id"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/ChatTurnIn"
+            },
+            "maxItems": 20,
+            "title": "History",
+            "type": "array"
+          },
+          "question": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "ChatIn",
+        "type": "object"
+      },
+      "ChatTurnIn": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "maxLength": 8000,
+            "title": "Content",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ],
+        "title": "ChatTurnIn",
+        "type": "object"
+      },
       "FolderCreateIn": {
         "additionalProperties": false,
         "properties": {
@@ -778,14 +838,44 @@
     "/api/v1/ai/chat": {
       "post": {
         "operationId": "chat_api_v1_ai_chat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatIn"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
+              "text/event-stream": {}
+            },
+            "description": "Luồng SSE: sources → delta… → done | error"
+          },
+          "402": {
+            "description": "Hết quota AI"
+          },
+          "413": {
+            "description": "Câu hỏi quá dài"
+          },
+          "422": {
+            "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "Quá tần suất (Retry-After)"
+          },
+          "502": {
+            "description": "AI lỗi"
           }
         },
         "security": [

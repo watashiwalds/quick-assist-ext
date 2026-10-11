@@ -20,6 +20,20 @@ export function AuthGate({ children }: { children: (s: SessionInfo, reload: () =
         <Button busy={login.busy} onClick={() => void login.run(() => rpc('auth/login')).then((s) => s && session.setData(s))}>
           Đăng nhập bằng Google
         </Button>
+        {/* Chỉ bản build kiểm thử (npm run build:e2e): đăng nhập thử không cần Google. Vite thay
+            import.meta.env.VITE_E2E lúc build → bản phát hành loại bỏ hẳn nhánh này (check:bundle chặn nếu lọt). */}
+        {import.meta.env.VITE_E2E === 'true' && (
+          <Button
+            busy={login.busy}
+            onClick={() =>
+              void login
+                .run(() => rpc('e2e/devLogin', { email: 'demo@quickassist.local' }))
+                .then((s) => s && session.setData(s))
+            }
+          >
+            Đăng nhập thử (bản kiểm thử)
+          </Button>
+        )}
         {login.error && login.error.code !== 'OAUTH_CANCELLED' && <ErrorState error={login.error} />}
         <small className="muted">Chỉ lưu nội dung khi bạn chủ động ghi chú. Không thu thập lịch sử duyệt web.</small>
       </div>

@@ -316,6 +316,25 @@ export interface components {
             /** Deleted */
             deleted: number;
         };
+        /** ChatIn */
+        ChatIn: {
+            /** Folder Id */
+            folder_id?: string | null;
+            /** History */
+            history?: components["schemas"]["ChatTurnIn"][];
+            /** Question */
+            question: string;
+        };
+        /** ChatTurnIn */
+        ChatTurnIn: {
+            /** Content */
+            content: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant";
+        };
         /** FolderCreateIn */
         FolderCreateIn: {
             /** Name */
@@ -590,16 +609,57 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatIn"];
+            };
+        };
         responses: {
-            /** @description Successful Response */
+            /** @description Luồng SSE: sources → delta… → done | error */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "text/event-stream": unknown;
                 };
+            };
+            /** @description Hết quota AI */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Câu hỏi quá dài */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Quá tần suất (Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description AI lỗi */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

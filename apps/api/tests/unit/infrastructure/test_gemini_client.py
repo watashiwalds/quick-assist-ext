@@ -56,7 +56,7 @@ async def test_complete_request_shape_and_parsing() -> None:
     b = seen["body"]
     assert b["systemInstruction"] == {"parts": [{"text": "Bạn là trợ lý."}]}
     assert b["contents"] == [{"role": "user", "parts": [{"text": "Tóm tắt: xin chào"}]}]
-    assert b["generationConfig"] == {"maxOutputTokens": 99, "thinkingConfig": {"thinkingLevel": "minimal"}}
+    assert b["generationConfig"] == {"maxOutputTokens": 99, "thinkingConfig": {"thinkingLevel": "MINIMAL"}}
     assert r.text == "Tóm tắt."  # phần thought bị bỏ
     assert (r.usage.prompt_tokens, r.usage.completion_tokens) == (11, 7)  # thought tính vào quota
 
@@ -210,3 +210,56 @@ def test_factory_returns_gemini_client(monkeypatch) -> None:  # type: ignore[no-
         assert factory.get_ai_provider().name == "gemini"
     finally:
         factory.get_ai_provider.cache_clear()
+
+
+async def test_persistent_500_falls_back_to_system_in_user_turn_and_remembers() -> None:
+    bodies = []
+
+    def h(req: httpx.Request) -> httpx.Response:
+        b = json.loads(req.content)
+        bodies.append(b)
+        if "systemInstruction" in b:  # model giả lập không nhận systemInstruction
+            return httpx.Response(500, json={"error": {"status": "INTERNAL"}})
+        return gen_ok()
+
+    c = client(h)
+    assert (await c.complete(MSGS, max_tokens=10)).text == "Tóm tắt."
+    ok = bodies[-1]
+    assert "thinkingConfig" not in ok["generationConfig"]
+    parts = [{"text": "Bạn là trợ lý."}, {"text": "Tóm tắt: xin chào"}]
+    assert ok["contents"] == [{"role": "user", "parts": parts}]
+    n = len(bodies)
+    await c.complete(MSGS, max_tokens=10)
+    assert len(bodies) == n + 1  # lần sau dùng ngay biến thể đã chạy được
+
+
+async def test_all_variants_fail_raises_last_error() -> None:
+    with pytest.raises(AIProviderError) as e:
+        await client(lambda r: httpx.Response(500, json={"error": {"status": "INTERNAL"}})).complete(
+            MSGS, max_tokens=10)
+    assert "500" in str(e.value)
+
+
+async def test_stream_falls_back_when_model_rejects_params_before_any_text() -> None:
+    bodies = []
+    evt = {"candidates": [{"content": {"parts": [{"text": "chào"}]}}],
+           "usageMetadata": {"promptTokenCount": 3, "candidatesTokenCount": 1}}
+    ok = "data: " + json.dumps(evt) + "\r\n\r\n"
+
+    def h(req: httpx.Request) -> httpx.Response:
+        b = json.loads(req.content)
+        bodies.append(b)
+        if "thinkingConfig" in b["generationConfig"]:
+            return httpx.Response(500, json={"error": {"status": "INTERNAL"}})
+        return httpx.Response(200, content=ok.encode(), headers={"content-type": "text/event-stream"})
+
+    chunks = [c async for c in client(h).stream(MSGS, max_tokens=10)]
+    assert "".join(c.delta for c in chunks) == "chào" and chunks[-1].usage is not None
+    assert len(bodies) == 2 and "thinkingConfig" not in bodies[1]["generationConfig"]
+
+
+async def test_stream_error_without_fallback_left_raises() -> None:
+    with pytest.raises(AIProviderError) as e:
+        denied = httpx.Response(403, json={"error": {"status": "PERMISSION_DENIED"}})
+        _ = [c async for c in client(lambda r: denied).stream(MSGS, max_tokens=10)]
+    assert not e.value.retryable

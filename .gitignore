@@ -27,6 +27,7 @@ infra/backups/
 Thumbs.db
 # Office lock files
 ~$*
+infra/gemini.key
 
 .repowise/
 .vscode/

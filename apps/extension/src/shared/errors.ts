@@ -55,6 +55,8 @@ export const USER_MESSAGES: Record<string, string> = {
   SUMMARY_INPUT_TOO_LONG: 'Văn bản quá dài để tóm tắt (tối đa 30 000 ký tự).',
   SUMMARY_INPUT_INVALID: 'Không có nội dung để tóm tắt.',
   AI_UNAVAILABLE: 'Dịch vụ AI đang bận, vui lòng thử lại sau.',
+  CHAT_INPUT_INVALID: 'Hãy nhập câu hỏi.',
+  CHAT_INPUT_TOO_LONG: 'Câu hỏi quá dài (tối đa 2 000 ký tự).',
   NO_SELECTION: 'Hãy bôi đen đoạn văn bản cần ghi chú.',
   VALIDATION_ERROR: 'Dữ liệu không hợp lệ.',
   INTERNAL_ERROR: 'Máy chủ gặp lỗi. Vui lòng thử lại; nếu vẫn lỗi, gửi kèm mã lỗi cho nhóm.',

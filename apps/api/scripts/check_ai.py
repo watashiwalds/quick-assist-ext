@@ -13,6 +13,9 @@ import asyncio
 import sys
 import time
 
+# Model chat dự phòng khi model đang cấu hình lỗi (VD Gemma trả 500) — chỉ để chẩn đoán, không tự đổi.
+FALLBACK_CHAT_MODELS = ["gemma-4-26b-a4b-it", "gemini-flash-latest"]
+
 ENDPOINTS = {
     "AI Studio": "https://generativelanguage.googleapis.com/v1beta/models",
     "Vertex express": "https://aiplatform.googleapis.com/v1/publishers/google/models",
@@ -93,6 +96,15 @@ async def main() -> int:
         else:
             print("→ OK: khoá và model dùng được.")
         return 0
+    if base.ai_provider == "gemini":
+        for model in FALLBACK_CHAT_MODELS:
+            if model == base.gemini_chat_model:
+                continue
+            s = base.model_copy(update={"gemini_chat_model": model})
+            print(f"\n[thử model khác] {s.gemini_base_url}  model={model}")
+            if await check(s):
+                print(f"\n→ Dùng được với model khác. Đặt GEMINI_CHAT_MODEL={model}")
+                return 0
     print("→ Lỗi. Gợi ý: http 400/403 = khoá sai loại hoặc chưa bật API; http 404 = sai tên model "
           "(xem danh sách model trên AI Studio); với khoá Vertex express thử --try-both.")
     return 1
