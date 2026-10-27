@@ -30,6 +30,100 @@ Nếu mới cài công cụ và chỉ muốn dùng thử extension, làm tuần 
 | Load extension, lấy Extension ID | Chrome tại `chrome://extensions` |
 | Lệnh JavaScript đăng nhập thử | DevTools Console của side panel, chỉ ở bước A3 |
 
+## Dùng hằng ngày: bật, đổi AI, tắt an toàn
+
+Phần này dành cho lúc bạn chỉ muốn mở QuickAssist để dùng/test lại. Không cần chạy toàn bộ phần A hoặc B mỗi lần.
+
+### 1. Bật lại project
+
+1. Mở **Docker Desktop** và đợi Docker chạy xong.
+2. Mở PowerShell mới, rồi chạy từng dòng:
+
+   ```powershell
+   cd D:\quick-assist-ext
+   docker compose -f infra/docker-compose.yml up -d
+   curl http://localhost:8000/api/v1/health/ready
+   ```
+
+3. Chỉ tiếp tục khi dòng cuối có `"status":"ok"` và `"db":"ok"`.
+4. Mở Chrome → `chrome://extensions` → tìm **QuickAssist** → bấm **Reload** ↻ → bấm biểu tượng QuickAssist để mở side panel.
+
+Lần đầu sau khi lấy code mới hoặc vừa sửa code extension, build lại bản test trước khi Reload:
+
+```powershell
+cd D:\quick-assist-ext\apps\extension
+& 'C:\Program Files\nodejs\npm.cmd' run build:e2e
+```
+
+Nếu panel hiện nút **Đăng nhập bằng Google**, đó là bình thường với bản E2E. Dùng đăng nhập thử ở A3; không cần Google OAuth thật để test. Nếu dev-login báo `NETWORK_ERROR`, lấy **Extension ID** ở `chrome://extensions`, rồi sửa `CORS_ORIGINS=chrome-extension://<ID>` trong `infra\.env` và chạy lại `docker compose -f infra/docker-compose.yml up -d --force-recreate api`.
+
+### 2. Đổi AI provider hoặc model
+
+Mở file cấu hình cục bộ:
+
+```powershell
+notepad D:\quick-assist-ext\infra\.env
+```
+
+**Dùng mock** (miễn phí, nhanh, phù hợp test UI; tóm tắt chỉ là dữ liệu giả):
+
+```env
+AI_PROVIDER=mock
+```
+
+**Dùng Gemini thật** (cần API key hợp lệ từ Google AI Studio):
+
+```env
+AI_PROVIDER=gemini
+GEMINI_API_KEY=DAN_API_KEY_O_DAY
+GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/models
+GEMINI_CHAT_MODEL=gemini-3.5-flash-lite
+GEMINI_EMBEDDING_MODEL=gemini-embedding-001
+GEMINI_THINKING_LEVEL=
+AI_TIMEOUT_SECONDS=90
+```
+
+Không gửi `GEMINI_API_KEY` cho ai và không commit file `infra\.env`. Chỉ thay giá trị sau dấu `=` của `GEMINI_API_KEY`; giữ nguyên `CORS_ORIGINS` của extension.
+
+Sau mỗi lần đổi provider/model, kiểm tra trước rồi mới áp dụng:
+
+```powershell
+cd D:\quick-assist-ext
+docker compose -f infra/docker-compose.yml run --rm --no-deps api python scripts/check_ai.py --try-both
+```
+
+- Khi dùng Gemini, chỉ cần phần **AI Studio** có cả `✓ embedding` và `✓ chat`.
+- Có thể bỏ qua **Vertex express** nếu nó báo `403`.
+- Nếu chat lỗi, không cần đổi API key khi embedding vẫn `✓`; thử lại sau hoặc đổi `GEMINI_CHAT_MODEL`, rồi kiểm tra lại.
+
+Khi kiểm tra đạt, áp dụng cấu hình mới:
+
+```powershell
+docker compose -f infra/docker-compose.yml up -d --force-recreate api worker
+curl http://localhost:8000/api/v1/health/ready
+```
+
+Sau đó Reload QuickAssist trong Chrome, tạo **ghi chú mới** và thử tìm kiếm/tóm tắt. Ghi chú đã index bằng mock có thể tìm không tốt sau khi chuyển sang Gemini (và ngược lại); không cần xoá dữ liệu ngay, chỉ nên đánh giá Gemini bằng ghi chú mới.
+
+### 3. Tắt an toàn
+
+Muốn tạm dừng để mai dùng lại, chạy:
+
+```powershell
+cd D:\quick-assist-ext
+docker compose -f infra/docker-compose.yml stop
+```
+
+Lệnh này **không xoá ghi chú hay cấu hình**. Mai bật lại bằng `docker compose -f infra/docker-compose.yml up -d` ở bước 1.
+
+Muốn dừng và xoá container nhưng vẫn giữ database/ghi chú, chạy:
+
+```powershell
+docker compose -f infra/docker-compose.yml down
+```
+
+**Không dùng `down -v`** trừ khi muốn xoá toàn bộ database, ghi chú, tài khoản demo và index để làm lại từ đầu.
+
 ## 0. Chuẩn bị (một lần)
 
 | Công cụ | Phiên bản | Kiểm tra |
