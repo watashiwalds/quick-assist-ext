@@ -2,7 +2,7 @@
 
 **Bối cảnh.** SDS §5.1.6: trả lời từng token, có nút Stop, trừ quota khi stream kết thúc hoặc bị ngắt.
 
-**Quyết định (đề xuất).** `POST /ai/chat` trả `text/event-stream` (sự kiện `delta`, `sources`, `done`). Background đọc bằng `fetch` + `ReadableStream`, chuyển tiếp cho side panel qua `chrome.runtime.connect` (Port). Stop = `AbortController.abort()` → server nhận `CancelledError` → vẫn `quota.commit` phần đã sinh.
+**Quyết định (đã triển khai — X01/X02, 10/10/2026).** `POST /ai/chat` trả `text/event-stream` (sự kiện `sources` → `delta`… → `done` | `error`). Background đọc bằng `fetch` + `ReadableStream`, chuyển tiếp cho side panel qua `chrome.runtime.connect` (Port). Stop = `AbortController.abort()` → server nhận `CancelledError` → vẫn `quota.commit` phần đã sinh.
 
 **Phương án đã loại.** WebSocket (hai chiều không cần thiết, khó qua proxy, phải tự quản lý kết nối); long-polling (trễ, tốn request).
 

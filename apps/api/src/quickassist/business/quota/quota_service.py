@@ -15,14 +15,18 @@ import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from quickassist.business.common.exceptions import QuotaExceeded
+from quickassist.business.common.exceptions import Conflict, QuotaExceeded
 from quickassist.data.database import get_sessionmaker
 from quickassist.data.models.quota import QuotaLedger
 from quickassist.data_access.repositories.quota_repository import QuotaRepository
 from quickassist.infrastructure.config import get_settings
+from quickassist.infrastructure.logging import get_logger
+
+log = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -31,6 +35,7 @@ class QuotaLease:
     request_id: str
     reserved: int
     already_settled: bool = False  # request_id đã xử lý trước đó (retry) → bỏ qua
+    is_new: bool = True  # False = request_id đã có trong ledger (gọi lại) → caller tự quyết
 
 
 @dataclass(frozen=True)
@@ -66,8 +71,12 @@ class QuotaService:
         await self.repo.ensure_account(user_id, get_settings().quota_default_tokens)
         existing = await self.repo.find_ledger(request_id)
         if existing is not None:
-            return QuotaLease(user_id, request_id, existing.reserved_tokens,
-                              already_settled=existing.status != "RESERVED")
+            owner, reserved = existing.user_id, existing.reserved_tokens
+            settled = existing.status != "RESERVED"
+            await self.s.commit()  # ensure_account phía trên
+            if owner != user_id:  # request_id phải gắn với user — không "mượn" ledger người khác
+                raise Conflict("request_id không hợp lệ", code="IDEMPOTENCY_KEY_REUSED")
+            return QuotaLease(user_id, request_id, reserved, already_settled=settled, is_new=False)
         if not await self.repo.try_reserve(user_id, estimate):
             await self.s.rollback()
             raise QuotaExceeded("Bạn đã dùng hết hạn mức AI", code="QUOTA_EXCEEDED")
@@ -90,3 +99,15 @@ class QuotaService:
 
     async def release(self, lease: QuotaLease) -> None:
         await self._settle(lease, 0, "RELEASED")
+
+    async def release_stale(self, *, older_than_minutes: int = 15) -> int:
+        """Hoàn giữ chỗ bị treo quá lâu (worker/API chết giữa reserve và commit) — chạy định kỳ
+        trong worker. Trả số giữ chỗ đã hoàn."""
+        cutoff = datetime.now(UTC) - timedelta(minutes=older_than_minutes)
+        stale = await self.repo.release_stale_ledgers(cutoff)
+        for row in stale:
+            await self.repo.apply_settlement(row.user_id, reserved=row.reserved_tokens, actual=0)
+        await self.s.commit()
+        if stale:
+            log.warning("quota_stale_released", extra={"count": len(stale)})
+        return len(stale)

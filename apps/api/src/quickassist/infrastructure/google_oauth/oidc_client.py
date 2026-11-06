@@ -30,14 +30,18 @@ class GoogleIdentity:
 
 
 class GoogleOIDCClient:
-    def __init__(self, settings: Settings) -> None:
+    """`transport` / `jwks` chỉ truyền vào khi test (HTTP giả lập, khoá ký giả lập) — task A02."""
+
+    def __init__(self, settings: Settings, *, transport: httpx.AsyncBaseTransport | None = None,
+                 jwks: PyJWKClient | None = None) -> None:
         self._s = settings
-        self._jwks = PyJWKClient(JWKS_URL, cache_keys=True, lifespan=3600)
+        self._transport = transport
+        self._jwks = jwks or PyJWKClient(JWKS_URL, cache_keys=True, lifespan=3600)
 
     async def exchange_code(self, *, code: str, code_verifier: str, redirect_uri: str) -> str:
         if redirect_uri not in self._s.oauth_allowed_redirect_uris:
             raise OAuthError("OAUTH_REDIRECT_INVALID", "redirect_uri không được phép")
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=10, transport=self._transport) as client:
             try:
                 r = await client.post(TOKEN_URL, data={
                     "code": code,
@@ -63,13 +67,15 @@ class GoogleOIDCClient:
                 id_token, key, algorithms=["RS256"], audience=self._s.google_client_id,
                 options={"require": ["iss", "aud", "exp", "sub", "nonce"]},
             )
+        except jwt.PyJWKClientConnectionError as e:
+            raise OAuthError("OAUTH_UPSTREAM", "Không tải được khoá ký của Google", upstream=True) from e
         except jwt.PyJWTError as e:
             raise OAuthError("OAUTH_ID_TOKEN_INVALID", "id_token không hợp lệ") from e
         if claims.get("iss") not in ISSUERS:
             raise OAuthError("OAUTH_ID_TOKEN_INVALID", "issuer không hợp lệ")
         if claims.get("nonce") != nonce:
             raise OAuthError("OAUTH_NONCE_MISMATCH", "nonce không khớp")
-        if not claims.get("email_verified"):
+        if not claims.get("email_verified") or not claims.get("email"):
             raise OAuthError("OAUTH_EMAIL_UNVERIFIED", "Email Google chưa xác minh")
         return GoogleIdentity(
             sub=claims["sub"], email=claims["email"], email_verified=True,

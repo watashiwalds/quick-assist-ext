@@ -4,17 +4,20 @@ QUY TẮC OWNERSHIP: user_id CHỈ lấy từ access token ở đây, không bao
 """
 
 import uuid
+from collections.abc import Awaitable, Callable
 from typing import Annotated
 
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from quickassist.business.common.exceptions import Unauthorized
+from quickassist.business.common.exceptions import RateLimited, Unauthorized
 from quickassist.data.database import get_session
+from quickassist.infrastructure.config import get_settings
 from quickassist.infrastructure.errors import TokenError
 from quickassist.infrastructure.openai import get_ai_provider
 from quickassist.infrastructure.openai.base import AIProvider
+from quickassist.infrastructure.rate_limit import limiter
 from quickassist.infrastructure.security import decode_access_token
 
 _bearer = HTTPBearer(auto_error=False)
@@ -35,3 +38,18 @@ async def get_current_user_id(creds: HTTPAuthorizationCredentials | None = Depen
 DbSession = Annotated[AsyncSession, Depends(get_session)]
 CurrentUserId = Annotated[uuid.UUID, Depends(get_current_user_id)]
 AIProviderDep = Annotated[AIProvider, Depends(get_ai_provider)]
+
+
+def rate_limit(bucket: str, setting: str) -> Callable[..., Awaitable[None]]:
+    """Dependency giới hạn tần suất theo user cho một nhóm endpoint (H02, R03).
+
+    `setting` là tên trường trong Settings (request/phút) → đổi bằng biến môi trường.
+    """
+
+    async def _dep(user_id: CurrentUserId) -> None:
+        decision = limiter.check(f"{bucket}:{user_id}", limit=getattr(get_settings(), setting),
+                                 window_seconds=60)
+        if not decision.allowed:
+            raise RateLimited(retry_after=decision.retry_after)
+
+    return _dep

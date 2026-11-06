@@ -68,6 +68,10 @@ class AIProvider(EmbeddingProvider, ChatProvider, Protocol):
 
 
 def estimate_tokens(text: str) -> int:
-    """Ước lượng thô để RESERVE quota trước khi gọi AI (chốt bằng usage thật sau đó).
-    Tiếng Việt có dấu ~ 2.5–3 ký tự/token với tokenizer của OpenAI."""
-    return max(1, len(text) // 3 + 1)
+    """Ước lượng để RESERVE quota trước khi gọi AI (chốt bằng usage thật sau đó).
+
+    Spike P03 (docs/ai/spike-openai.md) đo trên tiếng Việt: cl100k_base (text-embedding-3-small)
+    ≈ 2.14 ký tự/token, o200k_base (gpt-4o-mini) ≈ 3.44 ký tự/token. Chia 2 → luôn ước lượng
+    DƯ một chút (giữ chỗ đủ), phần thừa được trả lại khi commit.
+    """
+    return max(1, len(text) // 2 + 1)

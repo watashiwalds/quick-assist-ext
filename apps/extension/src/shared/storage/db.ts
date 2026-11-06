@@ -2,7 +2,9 @@
  * IndexedDB local (ADR-0008):
  *  - notes   : cache đọc (stale-while-revalidate) — nguồn sự thật vẫn là server.
  *  - outbox  : hàng đợi ghi chú chưa gửi được (mất mạng / đang trong 5s hoàn tác).
- *  - meta    : con trỏ đồng bộ (lastSyncAt).
+ *  - failed  : ghi chú gửi lỗi không tự khắc phục (413, 422, hết phiên…) — chờ người dùng
+ *              "Gửi lại" hoặc "Bỏ" (N06). Không bao giờ tự xoá → không mất ghi chú.
+ *  - meta    : con trỏ đồng bộ (lastSyncAt), cache danh sách thư mục cho menu chuột phải.
  * Chỉ background ghi vào DB này; UI đọc qua RPC.
  */
 import { type DBSchema, type IDBPDatabase, openDB } from 'idb'
@@ -17,22 +19,30 @@ export interface OutboxItem {
   createdAt: number
 }
 
+export interface FailedItem extends OutboxItem {
+  failedAt: number
+}
+
 interface QADB extends DBSchema {
   notes: { key: string; value: Note; indexes: { by_folder: string; by_updated: string } }
   outbox: { key: string; value: OutboxItem; indexes: { by_notBefore: number } }
+  failed: { key: string; value: FailedItem }
   meta: { key: string; value: { key: string; value: string } }
 }
 
 let dbp: Promise<IDBPDatabase<QADB>> | null = null
 
 export function db(): Promise<IDBPDatabase<QADB>> {
-  dbp ??= openDB<QADB>('quickassist', 1, {
-    upgrade(d) {
-      const notes = d.createObjectStore('notes', { keyPath: 'id' })
-      notes.createIndex('by_folder', 'folder_id')
-      notes.createIndex('by_updated', 'updated_at')
-      d.createObjectStore('outbox', { keyPath: 'id' }).createIndex('by_notBefore', 'notBefore')
-      d.createObjectStore('meta', { keyPath: 'key' })
+  dbp ??= openDB<QADB>('quickassist', 2, {
+    upgrade(d, oldVersion) {
+      if (oldVersion < 1) {
+        const notes = d.createObjectStore('notes', { keyPath: 'id' })
+        notes.createIndex('by_folder', 'folder_id')
+        notes.createIndex('by_updated', 'updated_at')
+        d.createObjectStore('outbox', { keyPath: 'id' }).createIndex('by_notBefore', 'notBefore')
+        d.createObjectStore('meta', { keyPath: 'key' })
+      }
+      if (oldVersion < 2) d.createObjectStore('failed', { keyPath: 'id' })
     },
   })
   return dbp
@@ -43,6 +53,9 @@ export const notesCache = {
     const d = await db()
     const rows = folderId ? await d.getAllFromIndex('notes', 'by_folder', folderId) : await d.getAll('notes')
     return rows.sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+  },
+  async get(id: string): Promise<Note | undefined> {
+    return (await db()).get('notes', id)
   },
   /** Áp kết quả sync: note có deleted_at → xoá khỏi cache (tombstone). */
   async apply(changes: Note[]): Promise<void> {
@@ -58,15 +71,19 @@ export const notesCache = {
     await Promise.all(ids.map((id) => tx.store.delete(id)))
     await tx.done
   },
+  /** Xoá TOÀN BỘ dữ liệu cục bộ (đăng xuất / xoá tài khoản — R-10). */
   async clear(): Promise<void> {
     const d = await db()
-    await Promise.all([d.clear('notes'), d.clear('outbox'), d.clear('meta')])
+    await Promise.all([d.clear('notes'), d.clear('outbox'), d.clear('failed'), d.clear('meta')])
   },
 }
 
 export const outbox = {
   async put(item: OutboxItem): Promise<void> {
     await (await db()).put('outbox', item)
+  },
+  async get(id: string): Promise<OutboxItem | undefined> {
+    return (await db()).get('outbox', id)
   },
   async remove(id: string): Promise<boolean> {
     const d = await db()
@@ -76,6 +93,37 @@ export const outbox = {
   },
   async due(now = Date.now()): Promise<OutboxItem[]> {
     return (await db()).getAllFromIndex('outbox', 'by_notBefore', IDBKeyRange.upperBound(now))
+  },
+  async list(): Promise<OutboxItem[]> {
+    return (await db()).getAll('outbox')
+  },
+}
+
+export const failedStore = {
+  /** Chuyển mục outbox sang "failed" trong MỘT transaction (không thể mất giữa chừng). */
+  async moveFromOutbox(item: OutboxItem, lastError: string): Promise<void> {
+    const tx = (await db()).transaction(['outbox', 'failed'], 'readwrite')
+    await tx.objectStore('failed').put({ ...item, lastError, failedAt: Date.now() })
+    await tx.objectStore('outbox').delete(item.id)
+    await tx.done
+  },
+  /** "Gửi lại": đưa về outbox, gửi ngay, đếm lại số lần thử. */
+  async requeue(id: string, now = Date.now()): Promise<boolean> {
+    const tx = (await db()).transaction(['outbox', 'failed'], 'readwrite')
+    const item = await tx.objectStore('failed').get(id)
+    if (item) {
+      const { failedAt: _f, ...rest } = item
+      await tx.objectStore('outbox').put({ ...rest, attempts: 0, notBefore: now, lastError: undefined })
+      await tx.objectStore('failed').delete(id)
+    }
+    await tx.done
+    return Boolean(item)
+  },
+  async remove(id: string): Promise<void> {
+    await (await db()).delete('failed', id)
+  },
+  async list(): Promise<FailedItem[]> {
+    return (await db()).getAll('failed')
   },
 }
 

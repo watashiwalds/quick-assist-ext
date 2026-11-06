@@ -1,0 +1,126 @@
+[
+  {
+    "config": "default",
+    "provider": "mock",
+    "queries": 46,
+    "recall_at_5": 0.978,
+    "mrr": 0.929,
+    "answer_hit_at_5": 0.978,
+    "by_kind": {
+      "keyword": {
+        "n": 31,
+        "recall_at_5": 1.0,
+        "mrr": 1.0,
+        "answer_hit_at_5": 1.0
+      },
+      "unaccent": {
+        "n": 13,
+        "recall_at_5": 1.0,
+        "mrr": 0.827,
+        "answer_hit_at_5": 1.0
+      },
+      "paraphrase": {
+        "n": 2,
+        "recall_at_5": 0.5,
+        "mrr": 0.5,
+        "answer_hit_at_5": 0.5
+      }
+    },
+    "chunks": 20,
+    "p50_ms": 27.1,
+    "p95_ms": 39.2
+  },
+  {
+    "config": "v1-small",
+    "provider": "mock",
+    "queries": 46,
+    "recall_at_5": 0.978,
+    "mrr": 0.917,
+    "answer_hit_at_5": 0.913,
+    "by_kind": {
+      "keyword": {
+        "n": 31,
+        "recall_at_5": 1.0,
+        "mrr": 1.0,
+        "answer_hit_at_5": 0.968
+      },
+      "unaccent": {
+        "n": 13,
+        "recall_at_5": 0.923,
+        "mrr": 0.808,
+        "answer_hit_at_5": 0.769
+      },
+      "paraphrase": {
+        "n": 2,
+        "recall_at_5": 1.0,
+        "mrr": 0.35,
+        "answer_hit_at_5": 1.0
+      }
+    },
+    "chunks": 39,
+    "p50_ms": 29.3,
+    "p95_ms": 38.6
+  },
+  {
+    "config": "v2-small",
+    "provider": "mock",
+    "queries": 46,
+    "recall_at_5": 1.0,
+    "mrr": 0.961,
+    "answer_hit_at_5": 0.935,
+    "by_kind": {
+      "keyword": {
+        "n": 31,
+        "recall_at_5": 1.0,
+        "mrr": 1.0,
+        "answer_hit_at_5": 1.0
+      },
+      "unaccent": {
+        "n": 13,
+        "recall_at_5": 1.0,
+        "mrr": 0.923,
+        "answer_hit_at_5": 0.769
+      },
+      "paraphrase": {
+        "n": 2,
+        "recall_at_5": 1.0,
+        "mrr": 0.6,
+        "answer_hit_at_5": 1.0
+      }
+    },
+    "chunks": 37,
+    "p50_ms": 28.7,
+    "p95_ms": 37.3
+  },
+  {
+    "config": "v2-small-cand10",
+    "provider": "mock",
+    "queries": 46,
+    "recall_at_5": 1.0,
+    "mrr": 0.951,
+    "answer_hit_at_5": 0.978,
+    "by_kind": {
+      "keyword": {
+        "n": 31,
+        "recall_at_5": 1.0,
+        "mrr": 1.0,
+        "answer_hit_at_5": 1.0
+      },
+      "unaccent": {
+        "n": 13,
+        "recall_at_5": 1.0,
+        "mrr": 0.885,
+        "answer_hit_at_5": 0.923
+      },
+      "paraphrase": {
+        "n": 2,
+        "recall_at_5": 1.0,
+        "mrr": 0.625,
+        "answer_hit_at_5": 1.0
+      }
+    },
+    "chunks": 37,
+    "p50_ms": 34.3,
+    "p95_ms": 47.4
+  }
+]

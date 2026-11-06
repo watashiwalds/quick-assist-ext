@@ -30,12 +30,14 @@ _RETRYABLE = {408, 409, 429, 500, 502, 503, 504}
 class OpenAIClient:
     name = "openai"
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, *, transport: httpx.AsyncBaseTransport | None = None) -> None:
+        """`transport` chỉ truyền khi test (httpx.MockTransport) — task P07."""
         self._s = settings
         self._client = httpx.AsyncClient(
             base_url=settings.openai_base_url,
             timeout=settings.ai_timeout_seconds,
             headers={"Authorization": f"Bearer {settings.openai_api_key.get_secret_value()}"},
+            transport=transport,
         )
 
     async def _post(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
@@ -57,12 +59,16 @@ class OpenAIClient:
         raise last
 
     async def embed(self, texts: Sequence[str]) -> EmbeddingResult:
+        if not texts:
+            return EmbeddingResult([], Usage(), self._s.embedding_model)
         data = await self._post(
             "/embeddings",
             {"model": self._s.embedding_model, "input": list(texts),
              "dimensions": self._s.embedding_dim},
         )
         vectors = [d["embedding"] for d in sorted(data["data"], key=lambda d: d["index"])]
+        if len(vectors) != len(texts) or any(len(v) != self._s.embedding_dim for v in vectors):
+            raise AIProviderError("embedding trả về sai số lượng/số chiều", retryable=False)
         u = data.get("usage", {})
         return EmbeddingResult(vectors, Usage(u.get("prompt_tokens", 0), 0), data.get("model", ""))
 
@@ -93,7 +99,10 @@ class OpenAIClient:
             async for line in r.aiter_lines():
                 if not line.startswith("data: ") or line == "data: [DONE]":
                     continue
-                evt = json.loads(line[6:])
+                try:
+                    evt = json.loads(line[6:])
+                except json.JSONDecodeError:
+                    continue  # dòng hỏng từ upstream → bỏ qua thay vì làm sập stream
                 if evt.get("usage"):
                     u = evt["usage"]
                     yield StreamChunk(usage=Usage(u.get("prompt_tokens", 0),

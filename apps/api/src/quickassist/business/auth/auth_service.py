@@ -39,7 +39,9 @@ class AuthService:
         self.sessions = AuthSessionRepository(session)
         self.accounts = AccountService(session)
 
-    async def _issue(self, user_id: uuid.UUID, user_agent: str | None, is_new: bool) -> TokenPair:
+    async def _issue(
+        self, user_id: uuid.UUID, user_agent: str | None, is_new: bool
+    ) -> tuple[TokenPair, uuid.UUID]:
         refresh = new_refresh_token()
         row = await self.sessions.add(AuthSession(
             user_id=user_id,
@@ -48,7 +50,7 @@ class AuthService:
             user_agent=(user_agent or "")[:255] or None,
         ))
         access, ttl = create_access_token(user_id, row.id)
-        return TokenPair(access, refresh, ttl, is_new)
+        return TokenPair(access, refresh, ttl, is_new), row.id
 
     async def login_with_google(
         self, oidc: GoogleOIDCClient, *, code: str, code_verifier: str, redirect_uri: str,
@@ -65,7 +67,7 @@ class AuthService:
         user, is_new = await self.accounts.upsert_google_user(
             sub=ident.sub, email=ident.email, name=ident.name, picture=ident.picture
         )
-        pair = await self._issue(user.id, user_agent, is_new)
+        pair, _ = await self._issue(user.id, user_agent, is_new)
         await self.s.commit()
         log.info("login_success", extra={"user_id": str(user.id), "new_user": is_new})
         return pair
@@ -76,7 +78,7 @@ class AuthService:
         user, is_new = await self.accounts.upsert_google_user(
             sub=f"dev:{email}", email=email, name="Dev User", picture=None
         )
-        pair = await self._issue(user.id, user_agent, is_new)
+        pair, _ = await self._issue(user.id, user_agent, is_new)
         await self.s.commit()
         return pair
 
@@ -92,8 +94,9 @@ class AuthService:
             raise Unauthorized("Phiên đã bị thu hồi, vui lòng đăng nhập lại", code="REFRESH_REUSED")
         if row.expires_at <= now:
             raise Unauthorized("Phiên đăng nhập đã hết hạn", code="REFRESH_EXPIRED")
-        pair = await self._issue(row.user_id, user_agent, False)
-        row.revoked_at = now
+        pair, new_id = await self._issue(row.user_id, user_agent, False)
+        row.revoked_at, row.replaced_by = now, new_id
+        await self.accounts.touch(row.user_id)  # last_active_at cho chính sách lưu trữ 1 năm
         await self.s.commit()
         return pair
 

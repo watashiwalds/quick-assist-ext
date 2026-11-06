@@ -5,12 +5,18 @@ Mọi thao tác trừ/giữ quota là MỘT câu UPDATE có điều kiện → n
 
 import uuid
 from datetime import UTC, datetime
+from typing import NamedTuple
 
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from quickassist.data.models.quota import QuotaAccount, QuotaLedger
+
+
+class StaleReservation(NamedTuple):
+    user_id: uuid.UUID
+    reserved_tokens: int
 
 
 class QuotaRepository:
@@ -68,3 +74,13 @@ class QuotaRepository:
             .values(reserved_tokens=QuotaAccount.reserved_tokens - reserved,
                     used_tokens=QuotaAccount.used_tokens + actual)
         )
+
+    async def release_stale_ledgers(self, older_than: datetime) -> list[StaleReservation]:
+        """Đánh dấu RELEASED các giữ chỗ bị treo (tiến trình chết giữa reserve và commit)."""
+        rows = await self.s.execute(
+            update(QuotaLedger)
+            .where(QuotaLedger.status == "RESERVED", QuotaLedger.created_at < older_than)
+            .values(status="RELEASED", actual_tokens=0, settled_at=datetime.now(UTC))
+            .returning(QuotaLedger.user_id, QuotaLedger.reserved_tokens)
+        )
+        return [StaleReservation(r.user_id, r.reserved_tokens) for r in rows]

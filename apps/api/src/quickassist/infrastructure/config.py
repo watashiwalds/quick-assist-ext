@@ -37,18 +37,25 @@ class Settings(BaseSettings):
     enable_dev_login: bool = False  # CHỈ bật ở dev/test để test API không cần Google
 
     # --- AI provider ---
-    ai_provider: Literal["mock", "openai"] = "mock"
+    ai_provider: Literal["mock", "openai", "gemini"] = "mock"
     openai_api_key: SecretStr = SecretStr("")
     openai_base_url: str = "https://api.openai.com/v1"
     embedding_model: str = "text-embedding-3-small"
     embedding_dim: int = 1536  # PHẢI khớp cột vector trong migration
     chat_model: str = "gpt-4o-mini"
+    # Gemini API (AI_PROVIDER=gemini): chat bằng Gemma 4, embedding bằng gemini-embedding-001
+    gemini_api_key: SecretStr = SecretStr("")
+    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta/models"
+    gemini_chat_model: str = "gemma-4-31b-it"
+    gemini_embedding_model: str = "gemini-embedding-001"
+    gemini_thinking_level: str = "minimal"  # "" = không gửi thinkingConfig
     ai_timeout_seconds: float = 30.0
     ai_max_retries: int = 2
 
     # --- Indexing / Search ---
     chunk_size_chars: int = 1200
     chunk_overlap_chars: int = 150
+    chunking_strategy: Literal["v1", "v2"] = "v2"  # N04 — v2 chia theo câu tiếng Việt
     search_top_k: int = 5
     search_candidate_k: int = 30
     search_rerank_enabled: bool = False
@@ -57,6 +64,14 @@ class Settings(BaseSettings):
     quota_default_tokens: int = 200_000
     max_note_chars: int = 20_000
     max_summary_input_chars: int = 30_000
+
+    # --- Giới hạn tần suất theo user (request/phút; 0 = tắt) — H02, R03 ---
+    rate_limit_search_per_minute: int = 30
+    rate_limit_ai_per_minute: int = 10
+    rate_limit_write_per_minute: int = 120
+
+    # --- Lưu trữ dữ liệu (SDS §3.2, RET-01) ---
+    retention_inactive_days: int = 365
 
     # --- Worker ---
     worker_poll_interval_seconds: float = 1.0

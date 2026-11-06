@@ -1,5 +1,9 @@
-"""Business Layer — RAG Service (SDS Hình 1 "RAGService", §5.1.6 — Nice-to-have)."""
+"""Business Layer — RAG Service (SDS Hình 1 "RAGService", §5.1.6): hỏi đáp trên ghi chú, trả lời dạng stream.
 
-from quickassist.business.rag.rag_service import RAGService
+Không sở hữu bảng nào: ngữ cảnh lấy qua SemanticSearchService, hạn mức qua QuotaService; lịch sử hội thoại
+do client gửi kèm (ADR-0012).
+"""
 
-__all__ = ["RAGService"]
+from quickassist.business.rag.rag_service import ChatEvent, ChatSource, PreparedChat, RAGService
+
+__all__ = ["ChatEvent", "ChatSource", "PreparedChat", "RAGService"]

@@ -3,11 +3,11 @@
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Header, Query, status
+from fastapi import APIRouter, Depends, Header, Query, status
 
 from quickassist.business.common.exceptions import NotFound
 from quickassist.business.notes import CreateNoteCommand, NotesService, UpdateNoteCommand
-from quickassist.presentation.api.deps import CurrentUserId, DbSession
+from quickassist.presentation.api.deps import CurrentUserId, DbSession, rate_limit
 from quickassist.presentation.schemas.common import Page
 from quickassist.presentation.schemas.notes import (
     BulkDeleteIn,
@@ -19,10 +19,12 @@ from quickassist.presentation.schemas.notes import (
 )
 
 router = APIRouter(prefix="/notes", tags=["notes"])
+_write_limit = [Depends(rate_limit("write", "rate_limit_write_per_minute"))]
 
 
-@router.post("", response_model=NoteOut, status_code=status.HTTP_201_CREATED,
-             responses={409: {"description": "Idempotency-Key đã dùng cho request khác"}})
+@router.post("", response_model=NoteOut, status_code=status.HTTP_201_CREATED, dependencies=_write_limit,
+             responses={409: {"description": "Idempotency-Key đã dùng cho request khác"},
+                        413: {"description": "Nội dung vượt MAX_NOTE_CHARS"}})
 async def create_note(
     body: NoteCreateIn, user_id: CurrentUserId, session: DbSession,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key", max_length=100),
@@ -50,7 +52,8 @@ async def get_note(note_id: uuid.UUID, user_id: CurrentUserId, session: DbSessio
     return NoteOut.model_validate(await NotesService(session).get(user_id, note_id))
 
 
-@router.patch("/{note_id}", response_model=NoteOut)
+@router.patch("/{note_id}", response_model=NoteOut, dependencies=_write_limit,
+              responses={409: {"description": "Lệch version"}})
 async def update_note(note_id: uuid.UUID, body: NoteUpdateIn, user_id: CurrentUserId,
                       session: DbSession) -> NoteOut:
     cmd = UpdateNoteCommand(version=body.version, content=body.content, title=body.title,
@@ -71,11 +74,12 @@ async def delete_note(note_id: uuid.UUID, user_id: CurrentUserId, session: DbSes
         raise NotFound("Không tìm thấy ghi chú", code="NOTE_NOT_FOUND")
 
 
-@router.post("/bulk-delete", response_model=BulkDeleteOut)
+@router.post("/bulk-delete", response_model=BulkDeleteOut, dependencies=_write_limit)
 async def bulk_delete(body: BulkDeleteIn, user_id: CurrentUserId, session: DbSession) -> BulkDeleteOut:
     return BulkDeleteOut(deleted=await NotesService(session).delete_many(user_id, body.ids))
 
 
-@router.post("/{note_id}/reindex", response_model=NoteOut, status_code=status.HTTP_202_ACCEPTED)
+@router.post("/{note_id}/reindex", response_model=NoteOut, status_code=status.HTTP_202_ACCEPTED,
+             dependencies=_write_limit)
 async def reindex_note(note_id: uuid.UUID, user_id: CurrentUserId, session: DbSession) -> NoteOut:
     return NoteOut.model_validate(await NotesService(session).reindex(user_id, note_id))

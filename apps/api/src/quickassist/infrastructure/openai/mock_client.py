@@ -20,6 +20,8 @@ from quickassist.infrastructure.openai.base import (
 )
 
 _WORD = re.compile(r"\w+", re.UNICODE)
+# Prompt hỏi đáp RAG (business/rag/prompts.py): lấy nội dung các <note id="n" ...>…</note>
+_NOTE = re.compile(r'<note id="(\d+)"[^>]*>\n?(.*?)\n?</note>', re.DOTALL)
 
 
 class MockAIClient:
@@ -42,7 +44,12 @@ class MockAIClient:
 
     async def complete(self, messages: Sequence[ChatMessage], *, max_tokens: int) -> CompletionResult:
         last = messages[-1].content if messages else ""
-        text = "[mock] " + " ".join(last.split()[:40])
+        notes = _NOTE.findall(last)
+        if notes:  # hỏi đáp RAG → câu trả lời giả lập có trích dẫn [n] như LLM thật
+            text = "[mock] Theo ghi chú của bạn: " + " ".join(
+                " ".join(body.split()[:25]) + f" [{i}]" for i, body in notes[:2])
+        else:
+            text = "[mock] " + " ".join(last.split()[:40])
         prompt = sum(estimate_tokens(m.content) for m in messages)
         return CompletionResult(text, Usage(prompt, estimate_tokens(text)), "mock-chat")
 

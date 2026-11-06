@@ -172,4 +172,5 @@ class NotesService:
         note.index_rev += 1
         await publish_note_changed(self.s, note.id)
         await self.s.commit()
+        await self.s.refresh(note)
         return note

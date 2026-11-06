@@ -33,6 +33,9 @@ class AccountService:
         log.info("user_created", extra={"user_id": str(user.id)})
         return user, True
 
+    async def touch(self, user_id: uuid.UUID) -> None:
+        await self.users.touch(user_id)
+
     async def get_profile(self, user_id: uuid.UUID) -> User:
         user = await self.users.get(user_id)
         if user is None:

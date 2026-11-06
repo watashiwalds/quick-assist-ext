@@ -43,7 +43,10 @@ class NoteChunk(Base):
     text: Mapped[str] = mapped_column(Text)
     content_hash: Mapped[str] = mapped_column(String(64))  # hash nội dung NOTE lúc index
     embedding: Mapped[list[float]] = mapped_column(Vector(EMBEDDING_DIM))
-    # 'simple' = không stemming → phù hợp tiếng Việt hơn cấu hình 'english'.
-    tsv: Mapped[str] = mapped_column(TSVECTOR, Computed("to_tsvector('simple', text)", persisted=True))
+    # 'simple' = không stemming → phù hợp tiếng Việt hơn 'english'; qa_unaccent (migration 0002)
+    # bỏ dấu để "cong thuc nau pho" khớp "Công thức nấu phở" (R01).
+    tsv: Mapped[str] = mapped_column(
+        TSVECTOR, Computed("to_tsvector('simple', qa_unaccent(text))", persisted=True)
+    )
     model: Mapped[str] = mapped_column(String(100))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

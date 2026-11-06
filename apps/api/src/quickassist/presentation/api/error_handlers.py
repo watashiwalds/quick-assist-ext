@@ -9,7 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from quickassist.business.common.exceptions import AppError
+from quickassist.business.common.exceptions import AppError, RateLimited
 from quickassist.infrastructure.logging import get_logger
 from quickassist.infrastructure.request_context import get_request_id
 
@@ -26,10 +26,13 @@ def register_error_handlers(app: FastAPI) -> None:
     async def _app_error(_: Request, exc: AppError) -> JSONResponse:
         if exc.status_code >= 500:
             log.warning("app_error", extra={"error_code": exc.code, "status": exc.status_code})
-        return JSONResponse(_body(exc.code, exc.message, exc.details), status_code=exc.status_code)
+        headers = {"Retry-After": str(exc.retry_after)} if isinstance(exc, RateLimited) else None
+        return JSONResponse(_body(exc.code, exc.message, exc.details), status_code=exc.status_code,
+                            headers=headers)
 
     @app.exception_handler(RequestValidationError)
     async def _validation(_: Request, exc: RequestValidationError) -> JSONResponse:
+        # Không phản hồi lại giá trị đầu vào (có thể chứa nội dung ghi chú) — chỉ vị trí + lý do.
         errors = [{"loc": list(e.get("loc", [])), "msg": e.get("msg")} for e in exc.errors()]
         return JSONResponse(_body("VALIDATION_ERROR", "Dữ liệu không hợp lệ", {"errors": errors}),
                             status_code=422)
