@@ -27,3 +27,6 @@ infra/backups/
 Thumbs.db
 # Office lock files
 ~$*
+
+.repowise/
+.vscode/
