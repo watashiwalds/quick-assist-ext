@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import quickassist.data.models  # noqa: F401 — đăng ký entity
+from quickassist.business.page_match import shutdown_extractor
 from quickassist.data.database import dispose_engine
 from quickassist.data.models import EMBEDDING_DIM
 from quickassist.infrastructure.config import get_settings
@@ -45,6 +46,7 @@ def _check_config() -> None:
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     _check_config()
     yield
+    shutdown_extractor()  # giết process pool Trafilatura (AutoChunk)
     await dispose_engine()
 
 

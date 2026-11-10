@@ -10,6 +10,9 @@ const files = (d) => readdirSync(d).flatMap((f) => (statSync(join(d, f)).isDirec
 const manifest = JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8'))
 const perms = [...(manifest.permissions ?? []), ...(manifest.host_permissions ?? [])]
 if (perms.some((p) => p === '<all_urls>' || p.startsWith('*://*') || p === 'http://*/*' || p === 'https://*/*')) problems.push(`quyền host quá rộng: ${perms.join(', ')}`)
+// Quyền host rộng chỉ được phép ở dạng TUỲ CHỌN (xin lúc chạy khi người dùng bấm — AutoChunk, ADR-0013).
+const optional = manifest.optional_host_permissions ?? []
+if (optional.some((p) => !['http://*/*', 'https://*/*'].includes(p))) problems.push(`optional_host_permissions lạ: ${optional.join(', ')}`)
 if (manifest.content_scripts?.length) problems.push('có content_scripts thường trực (chỉ được dùng activeTab + scripting)')
 for (const p of ['tabs', 'history', 'cookies', 'webRequest', 'downloads', 'debugger']) if (perms.includes(p)) problems.push(`quyền không cần thiết: ${p}`)
 if (!/script-src 'self'/.test(manifest.content_security_policy?.extension_pages ?? '')) problems.push('thiếu CSP extension_pages')

@@ -36,6 +36,7 @@ OWNERSHIP: dict[str, set[str]] = {
     "semantic_search": {"note_chunk_repository"},
     "summary": set(),
     "rag": set(),
+    "page_match": set(),
     "common": {"idempotency_repository"},
     "system": {"system_repository"},
 }
@@ -148,3 +149,16 @@ def test_L7_every_service_declares_public_api() -> None:
         init = (d / "__init__.py").read_text(encoding="utf-8")
         assert "__all__" in init, f"business/{d.name}/__init__.py phải khai báo __all__"
         assert d.name in OWNERSHIP, f"Thêm business/{d.name} vào OWNERSHIP trong test này"
+
+
+def test_L8_only_page_match_parses_untrusted_html() -> None:
+    """Trafilatura/lxml (parse HTML không tin cậy) chỉ nằm trong business/page_match (ADR-0013)."""
+    bad = []
+    for layer in LAYERS:
+        for f in _py(layer):
+            if f.is_relative_to(ROOT / "business" / "page_match"):
+                continue
+            for mod, _ in _imports(f):
+                if mod.split(".")[0] in ("trafilatura", "lxml"):
+                    bad.append(f"{f.relative_to(ROOT)} -> {mod}")
+    assert not bad, "Chỉ business/page_match được import trafilatura/lxml:\n" + "\n".join(bad)

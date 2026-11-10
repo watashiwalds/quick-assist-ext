@@ -18,6 +18,13 @@
 | FR-11 | Kiểm tra quota trước khi gọi OpenAI | A04 | `api/integration/business/test_quota.py` (race, không vượt hạn mức); `test_summary::test_quota_exhausted_is_402_and_no_ai_call`; `n07 › hết quota…`; `r05 › hết quota…` | Vinh | ✅ |
 | FR-12 | Ghi nhận token đã dùng | A04 | `test_quota::test_reserve_commit_release_math`, `test_settle_is_idempotent_per_request_id`; `test_search::test_each_search_charges_quota` | Vinh | ✅ |
 | FR-13 | Xoá tài khoản + toàn bộ dữ liệu | A06, A08 | `api/integration/api/test_account.py` (rollback); `test_notes_flow::test_delete_account_removes_everything`; `sum-a08 › … xoá tài khoản 2 bước` (xoá cả IndexedDB/storage) | Quang, Dương | ✅ |
+| FR-AC1 | AutoChunk: mô tả điều cần tìm → các đoạn khớp trên trang (LLM thẩm định), giữ thứ tự trang | AC T1–T2 | `api/unit/business/page_match/test_extractor.py` (bỏ boilerplate, thứ tự, id/occ, tách câu, cap, pool treo/crash); `api/integration/api/test_page_match.py::test_segments_verified_in_page_order_and_two_quota_leases` | Vinh | ✅ · 🔶 LLM thật |
+| FR-AC2 | AutoChunk: AI thẩm định lỗi vẫn dùng được (theo điểm, `VERIFY_UNAVAILABLE`) | AC T2 | `test_page_match::test_verify_failure_falls_back_to_score_ranked_unverified[error\|garbage]`; `ext/tests/ui/page-finder.test.tsx › VERIFY_UNAVAILABLE…` | Vinh, Dương | ✅ |
+| FR-AC3 | AutoChunk: chọn nhiều đoạn → 1 ghi chú gộp (title = truy vấn, url trang), index như note thường | AC T4 | `test_page_match::test_selected_segments_saved_as_one_note`; `page-finder.test.tsx › quét → … lưu 1 ghi chú gộp`, `buildNoteParts` | Dương | ✅ |
+| FR-AC4 | AutoChunk: gần như cả trang khớp → `full_page` + "Lưu cả trang" (hỏi lại, tách khi > 20 000 ký tự) | AC T6 | `test_page_match::test_full_page_mode_returns_whole_page_text`; `page-finder.test.tsx › full_page…`; `test_prompts_and_ratio.py::test_match_ratio_*` | Dương | ✅ |
+| FR-AC5 | AutoChunk: click đoạn → cuộn + nổi bật trên trang; DOM đổi → toast, không crash | AC T5 | `ext/tests/page-match.test.ts › highlightBlocksByText` (khoảng trắng, `<br>`, occ, contains, fuzzy, tự tắt, không để lại dấu vết) | Sơn | ✅ · 🔶 trang thật |
+| FR-AC6 | AutoChunk: giới hạn & lỗi — 413 `PAGE_TOO_LONG`, 422 `PAGE_NO_CONTENT`, 402, 429, 502, chưa có quyền đọc trang | AC T2–T4 | `test_page_match.py` (413/422/402/429/502/401); `ext/tests/page-match.test.ts › background page-match`; `page-finder.test.tsx › lỗi …`, `chưa có quyền đọc trang…` | Vinh, Sơn | ✅ |
+| FR-AC7 | AutoChunk: kháng prompt injection từ nội dung trang | AC T2 | `test_prompts_and_ratio.py::test_prompt_wraps_untrusted_blocks_and_neutralises_fake_tags`, `test_mock_provider_is_not_steered_by_injected_instruction` | Vinh | ✅ · 🔶 LLM thật |
 | FR-14 | Ghi log hoạt động & lỗi | A07 | `api/unit/infrastructure/test_logging.py` (request_id, che token/nội dung) | Quang | ✅ |
 
 ## Phi chức năng (SDS §3.2)
@@ -31,5 +38,5 @@
 | NFR-04 | Ghi chú lưu dù AI lỗi; không trùng | `test_indexing_job.py` (FAILED, thử lại); idempotency (`test_notes_flow`, `n07 › mất mạng…`); outbox failed store (`quick-note.test.ts`) | ✅ |
 | NFR-05 | Stateless, worker riêng, cấu hình qua env | JWT stateless; worker `SKIP LOCKED`; `config.py`; `test_prod_config_guard` | ✅ |
 | NFR-06 | Thông báo rõ trạng thái | `ext/tests/ui/ui.test.tsx`; `docs/ux/README.md` ma trận trạng thái; axe `h05-a11y.spec.ts` | ✅ |
-| NFR-07 | Giới hạn quota/token/độ dài | 413 `NOTE_TOO_LONG`, `SUMMARY_INPUT_TOO_LONG`; 429 `RATE_LIMITED` (`test_security`); cắt 20 000 ký tự ở extension (`quick-note.test.ts`) | ✅ |
+| NFR-07 | Giới hạn quota/token/độ dài | 413 `NOTE_TOO_LONG`, `SUMMARY_INPUT_TOO_LONG`, `PAGE_TOO_LONG`; AutoChunk 2 lease quota + rate limit 6/phút (`test_page_match.py`); 429 `RATE_LIMITED` (`test_security`); cắt 20 000 ký tự ở extension (`quick-note.test.ts`) | ✅ |
 | NFR-08 | Lưu trữ tối đa 1 năm | RET-01 (P1 — chưa làm, ngoài phạm vi P0) | ⏸ |

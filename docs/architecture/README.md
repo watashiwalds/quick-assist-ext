@@ -78,6 +78,7 @@ quick-assist-ext/
 │   │   │   │   │           ├── notes_controller.py     folders_controller.py
 │   │   │   │   │           ├── search_controller.py    summary_controller.py
 │   │   │   │   │           ├── rag_controller.py       quota_controller.py
+│   │   │   │   │           ├── page_match_controller.py   # AutoChunk (ADR-0013)
 │   │   │   │   │           └── health_controller.py
 │   │   │   │   └── schemas/                   #    DTO request/response (Pydantic)
 │   │   │   │
@@ -88,6 +89,7 @@ quick-assist-ext/
 │   │   │   │   ├── semantic_search/           #    SemanticSearchService + chunking + indexing_job
 │   │   │   │   ├── summary/                   #    SummaryService + prompts
 │   │   │   │   ├── rag/                       #    RAGService (Nice-to-have)
+│   │   │   │   ├── page_match/                #    PageMatchService + extractor (Trafilatura/process pool) + prompts — AutoChunk
 │   │   │   │   ├── system/                    #    HealthService
 │   │   │   │   └── common/                    #    exceptions (lỗi nghiệp vụ), idempotency
 │   │   │   │
@@ -118,9 +120,9 @@ quick-assist-ext/
 │   └── extension/                             # ① EXTENSION UI (Chrome MV3, TypeScript, React)
 │       └── src/
 │           ├── ui/              # giao diện: popup/, sidepanel/, components/ (design system A05), lib/
-│           │   └── features/    #   auth, notes (thư viện C03), search (R04), summary (SUM-03), account (Cài đặt A08); chat: P1
+│           │   └── features/    #   auth, notes (thư viện C03), search (R04), summary (SUM-03), account (Cài đặt A08), page-finder (AutoChunk); chat: P1
 │           ├── background/      # integration: cổng DUY NHẤT gọi API (token, outbox + failed store, sync, menus, prefs)
-│           ├── content/         # hàm tiêm vào trang (lấy vùng chọn, toast hoàn tác)
+│           ├── content/         # hàm tiêm vào trang (lấy vùng chọn, toast hoàn tác, chụp HTML + highlight cho AutoChunk)
 │           └── shared/          # hợp đồng: messaging (UI↔background), api (kiểu sinh từ OpenAPI), storage
 │
 ├── docs/
@@ -159,6 +161,7 @@ quick-assist-ext/
 | §5.1.4 Tóm tắt AI | `summary_controller` → `SummaryService.summarize`; lưu: `PUT /notes/{id}/summary` | |
 | §5.1.5 Xoá tài khoản | `account_controller` → `AccountService.delete_account` | |
 | §5.1.6 Hỏi đáp RAG | `rag_controller` → `RAGService` (TODO X01) | |
+| AutoChunk — ghi chú theo truy vấn (ngoài SDS, ADR-0013) | `page_match_controller` → `PageMatchService.match` (extractor → embed → LLM thẩm định); extension: `content/injected.getRawHtml/highlightBlocksByText` → `background/page-match.ts` → `ui/features/page-finder`; lưu: `POST /notes` | — (stateless, không bảng mới) |
 | Giới hạn tần suất (NFR giới hạn tài nguyên) | `presentation/api/deps.rate_limit` → `infrastructure/rate_limit.py` | — |
 | Chất lượng tìm kiếm (Recall@5, MRR) | `apps/api/tests/eval/` (H03) | — |
 

@@ -23,6 +23,10 @@ export default defineManifest((env) => {
     // Bản E2E cần thêm quyền vào trang thử nghiệm cục bộ (Playwright không tạo được user gesture
     // để cấp activeTab). Bản phát hành chỉ có origin của API.
     host_permissions: [`${apiOrigin}/*`, ...(e2e ? ['http://127.0.0.1/*'] : [])],
+    // AutoChunk "Tìm trong trang" (ADR-0013): đọc trang từ side panel không có activeTab khi người dùng đã
+    // chuyển trang → xin quyền TUỲ CHỌN lúc người dùng bấm "Cho phép đọc trang" (chrome.permissions.request).
+    // Không cấp sẵn khi cài; người dùng thu hồi được bất cứ lúc nào.
+    optional_host_permissions: ['http://*/*', 'https://*/*'],
     commands: {
       'quick-note': {
         // Chrome KHÔNG cho phép tổ hợp Ctrl+Alt (trùng AltGr) — manifest có Ctrl+Alt sẽ khiến extension

@@ -18,6 +18,7 @@
 | 5:00–6:00 | Dương | **Thư viện**: nhãn *Đang xử lý → Sẵn sàng*, lọc thư mục, sửa, xoá nhiều | side panel |
 | 6:00–8:00 | Vinh | **Tìm kiếm**: câu hỏi tự nhiên, **gõ không dấu**, mở nguồn; số liệu Recall@5 0.978, không dấu 1.0 | side panel + slide eval |
 | 8:00–9:30 | Vinh | **Tóm tắt**: ghi chú đã lưu (xem trước → Lưu); vùng chọn → tab Tóm tắt; trang có prompt injection không làm AI "nghe lời" | tab tài liệu |
+| 9:15–9:30 | Vinh | **Tìm trong trang (AutoChunk)**: tab danh sách nghị quyết → side panel *Tìm trong trang* → "nghị quyết liên quan đến đất đai" → các đoạn ✓ Đã xác nhận → *Xem trên trang* (cuộn + tô sáng) → *Lưu 2 đoạn thành ghi chú* → thấy ngay trong Thư viện | tab nghị quyết |
 | 9:30–10:30 | Quang | **Độ tin cậy**: tắt Wi-Fi → lưu ghi chú → bật lại → ghi chú tự gửi, không trùng; hết quota → vẫn lưu, thông báo rõ | máy demo |
 | 10:30–11:30 | Quang | **Bảo mật & riêng tư**: OAuth PKCE, IDOR test mọi endpoint, quyền tối thiểu; **Xoá tài khoản 2 bước** | Cài đặt (tài khoản phụ) |
 | 11:30–13:00 | Dương | Kiểm thử: 168 + 80 + 28 E2E, axe WCAG AA, lỗi P0 tìm thấy nhờ E2E (Ctrl+Alt) | slide |
@@ -30,6 +31,7 @@ Nhiệm vụ (không hướng dẫn trước, đo thời gian + số lần sai t
 3. Tìm lại ghi chú nói về "cách hầm xương" mà không mở thư viện.
 4. Tóm tắt ghi chú dài nhất và lưu bản tóm tắt.
 5. Chuyển 2 ghi chú vào thư mục mới "Ôn thi".
+6. Trên trang danh sách nghị quyết, gom mọi nghị quyết về đất đai thành **một** ghi chú mà không bôi đen (tab *Tìm trong trang*).
 Sau đó: bảng SUS 10 câu; ghi lỗi vào GitHub Issues `[usability]`.
 
 ## 4. Phương án dự phòng

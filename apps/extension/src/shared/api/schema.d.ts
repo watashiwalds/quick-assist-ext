@@ -21,6 +21,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ai/page-match": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Page Match */
+        post: operations["page_match_api_v1_ai_page_match_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/ai/summaries": {
         parameters: {
             query?: never;
@@ -460,6 +477,89 @@ export interface components {
              */
             version: number;
         };
+        /** PageMatchIn */
+        PageMatchIn: {
+            /**
+             * Html
+             * @description HTML trang đã bỏ script/style/noscript/template/svg; ≤ PAGE_MATCH_MAX_HTML_BYTES (mặc định 2MB)
+             */
+            html: string;
+            /**
+             * Query
+             * @description Ý định người dùng, ngôn ngữ tự nhiên
+             */
+            query: string;
+            /**
+             * Title
+             * @description Chỉ để log/metadata
+             */
+            title?: string | null;
+            /**
+             * Url
+             * @description Chỉ để log/metadata
+             */
+            url?: string | null;
+        };
+        /** PageMatchItemOut */
+        PageMatchItemOut: {
+            /**
+             * Id
+             * @description Id khối trong lần quét này (b00, b01…)
+             */
+            id: string;
+            /**
+             * Occ
+             * @description Lần xuất hiện thứ n (từ 0) của đúng text này trên trang — để highlight
+             */
+            occ: number;
+            /**
+             * Score
+             * @description Cosine giữa truy vấn và đoạn
+             */
+            score: number;
+            /** Text */
+            text: string;
+            /**
+             * Verified
+             * @description True = LLM đã xác nhận; False = chỉ theo điểm (VERIFY_UNAVAILABLE)
+             */
+            verified: boolean;
+        };
+        /** PageMatchOut */
+        PageMatchOut: {
+            /**
+             * Full Text
+             * @description Nội dung cả trang — chỉ có khi mode=full_page
+             */
+            full_text?: string | null;
+            /**
+             * Items
+             * @description Đoạn khớp, sắp theo thứ tự trên trang
+             */
+            items: components["schemas"]["PageMatchItemOut"][];
+            /**
+             * Match Ratio
+             * @description ∑ ký tự đoạn khớp / ∑ ký tự nội dung trích được
+             */
+            match_ratio: number;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "segments" | "full_page";
+            /**
+             * Total Chars
+             * @description Tổng ký tự nội dung chính trích được
+             */
+            total_chars: number;
+            /**
+             * Truncated
+             * @description True = trang dài hơn giới hạn, phần cuối không được quét
+             */
+            truncated: boolean;
+            /** Warning */
+            warning?: "VERIFY_UNAVAILABLE" | null;
+        };
         /** Page[NoteOut] */
         Page_NoteOut_: {
             /** Items */
@@ -655,6 +755,65 @@ export interface operations {
                 content?: never;
             };
             /** @description AI lỗi */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    page_match_api_v1_ai_page_match_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PageMatchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageMatchOut"];
+                };
+            };
+            /** @description Hết quota AI (QUOTA_EXCEEDED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description HTML trang vượt giới hạn (PAGE_TOO_LONG) */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trang không có nội dung chính (PAGE_NO_CONTENT) / dữ liệu sai */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Quá tần suất (Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description AI embed lỗi (AI_UNAVAILABLE) */
             502: {
                 headers: {
                     [name: string]: unknown;

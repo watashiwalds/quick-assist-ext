@@ -2,12 +2,15 @@
  * Mỗi endpoint backend = 1 hàm ở đây. Đây là chỗ DUY NHẤT trong extension biết URL.
  * Chỉ background được import file này (kiểm tra bởi tests/architecture.test.ts).
  */
+import { config } from '../config'
 import type { HttpRequest } from './http'
 import type {
   Folder,
   Note,
   NoteCreate,
   NoteUpdate,
+  PageMatchRequest,
+  PageMatchResult,
   Quota,
   SearchHit,
   SummaryPreview,
@@ -62,6 +65,9 @@ export function createApi(http: HttpRequest) {
     ai: {
       summarize: (b: { text?: string; note_id?: string }) =>
         http<SummaryPreview>('/ai/summaries', { method: 'POST', body: b }),
+      /** AutoChunk: Trafilatura + embed + LLM thẩm định có thể lâu hơn timeout mặc định. */
+      pageMatch: (b: PageMatchRequest) =>
+        http<PageMatchResult>('/ai/page-match', { method: 'POST', body: b, timeoutMs: config.pageMatchRequestTimeoutMs }),
     },
   }
 }
