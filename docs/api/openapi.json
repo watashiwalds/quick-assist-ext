@@ -35,6 +35,66 @@
         "title": "BulkDeleteOut",
         "type": "object"
       },
+      "ChatIn": {
+        "additionalProperties": false,
+        "properties": {
+          "folder_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Id"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/ChatTurnIn"
+            },
+            "maxItems": 20,
+            "title": "History",
+            "type": "array"
+          },
+          "question": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "ChatIn",
+        "type": "object"
+      },
+      "ChatTurnIn": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "maxLength": 8000,
+            "title": "Content",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ],
+        "title": "ChatTurnIn",
+        "type": "object"
+      },
       "FolderCreateIn": {
         "additionalProperties": false,
         "properties": {
@@ -394,6 +454,163 @@
           "version"
         ],
         "title": "NoteUpdateIn",
+        "type": "object"
+      },
+      "PageMatchIn": {
+        "additionalProperties": false,
+        "properties": {
+          "html": {
+            "description": "HTML trang đã bỏ script/style/noscript/template/svg; ≤ PAGE_MATCH_MAX_HTML_BYTES (mặc định 2MB)",
+            "minLength": 1,
+            "title": "Html",
+            "type": "string"
+          },
+          "query": {
+            "description": "Ý định người dùng, ngôn ngữ tự nhiên",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Chỉ để log/metadata",
+            "title": "Title"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Chỉ để log/metadata",
+            "title": "Url"
+          }
+        },
+        "required": [
+          "query",
+          "html"
+        ],
+        "title": "PageMatchIn",
+        "type": "object"
+      },
+      "PageMatchItemOut": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Id khối trong lần quét này (b00, b01…)",
+            "title": "Id",
+            "type": "string"
+          },
+          "occ": {
+            "description": "Lần xuất hiện thứ n (từ 0) của đúng text này trên trang — để highlight",
+            "title": "Occ",
+            "type": "integer"
+          },
+          "score": {
+            "description": "Cosine giữa truy vấn và đoạn",
+            "title": "Score",
+            "type": "number"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "verified": {
+            "description": "True = LLM đã xác nhận; False = chỉ theo điểm (VERIFY_UNAVAILABLE)",
+            "title": "Verified",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "occ",
+          "text",
+          "score",
+          "verified"
+        ],
+        "title": "PageMatchItemOut",
+        "type": "object"
+      },
+      "PageMatchOut": {
+        "additionalProperties": false,
+        "properties": {
+          "full_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Nội dung cả trang — chỉ có khi mode=full_page",
+            "title": "Full Text"
+          },
+          "items": {
+            "description": "Đoạn khớp, sắp theo thứ tự trên trang",
+            "items": {
+              "$ref": "#/components/schemas/PageMatchItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "match_ratio": {
+            "description": "∑ ký tự đoạn khớp / ∑ ký tự nội dung trích được",
+            "title": "Match Ratio",
+            "type": "number"
+          },
+          "mode": {
+            "enum": [
+              "segments",
+              "full_page"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "total_chars": {
+            "description": "Tổng ký tự nội dung chính trích được",
+            "title": "Total Chars",
+            "type": "integer"
+          },
+          "truncated": {
+            "description": "True = trang dài hơn giới hạn, phần cuối không được quét",
+            "title": "Truncated",
+            "type": "boolean"
+          },
+          "warning": {
+            "anyOf": [
+              {
+                "const": "VERIFY_UNAVAILABLE",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warning"
+          }
+        },
+        "required": [
+          "mode",
+          "match_ratio",
+          "items",
+          "total_chars",
+          "truncated"
+        ],
+        "title": "PageMatchOut",
         "type": "object"
       },
       "Page_NoteOut_": {
@@ -778,14 +995,44 @@
     "/api/v1/ai/chat": {
       "post": {
         "operationId": "chat_api_v1_ai_chat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatIn"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
+              "text/event-stream": {}
+            },
+            "description": "Luồng SSE: sources → delta… → done | error"
+          },
+          "402": {
+            "description": "Hết quota AI"
+          },
+          "413": {
+            "description": "Câu hỏi quá dài"
+          },
+          "422": {
+            "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "Quá tần suất (Retry-After)"
+          },
+          "502": {
+            "description": "AI lỗi"
           }
         },
         "security": [
@@ -796,6 +1043,57 @@
         "summary": "Chat",
         "tags": [
           "rag"
+        ]
+      }
+    },
+    "/api/v1/ai/page-match": {
+      "post": {
+        "operationId": "page_match_api_v1_ai_page_match_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PageMatchIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageMatchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "402": {
+            "description": "Hết quota AI (QUOTA_EXCEEDED)"
+          },
+          "413": {
+            "description": "HTML trang vượt giới hạn (PAGE_TOO_LONG)"
+          },
+          "422": {
+            "description": "Trang không có nội dung chính (PAGE_NO_CONTENT) / dữ liệu sai"
+          },
+          "429": {
+            "description": "Quá tần suất (Retry-After)"
+          },
+          "502": {
+            "description": "AI embed lỗi (AI_UNAVAILABLE)"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Page Match",
+        "tags": [
+          "page-match"
         ]
       }
     },

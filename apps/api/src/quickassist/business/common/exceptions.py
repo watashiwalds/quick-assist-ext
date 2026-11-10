@@ -63,6 +63,12 @@ class PayloadTooLarge(AppError):
     status_code, code = 413, "PAYLOAD_TOO_LARGE"
 
 
+class Unprocessable(AppError):
+    """Dữ liệu đúng định dạng nhưng không xử lý được (vd trang không có nội dung chính)."""
+
+    status_code, code = 422, "UNPROCESSABLE"
+
+
 class UpstreamError(AppError):
     """Lỗi từ dịch vụ ngoài (OpenAI, Google)."""
 

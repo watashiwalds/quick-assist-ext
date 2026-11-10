@@ -6,6 +6,7 @@ Embedding = vector hash theo từ (bag-of-words) → các câu chung từ khoá 
 """
 
 import hashlib
+import json
 import math
 import re
 from collections.abc import AsyncIterator, Sequence
@@ -20,6 +21,20 @@ from quickassist.infrastructure.openai.base import (
 )
 
 _WORD = re.compile(r"\w+", re.UNICODE)
+# Prompt hỏi đáp RAG (business/rag/prompts.py): lấy nội dung các <note id="n" ...>…</note>
+_NOTE = re.compile(r'<note id="(\d+)"[^>]*>\n?(.*?)\n?</note>', re.DOTALL)
+# Prompt thẩm định AutoChunk (business/page_match/prompts.py): <query>…</query> + <block id="bNN">…</block>
+_QUERY = re.compile(r"<query>(.*?)</query>", re.DOTALL)
+_BLOCK = re.compile(r'<block id="(b\d+)">(.*?)</block>', re.DOTALL)
+
+
+def _verdict_json(query: str, blocks: list[tuple[str, str]]) -> str:
+    """Thẩm định giả lập: đoạn liên quan khi chứa ≥ một nửa số từ (≥2 ký tự) của truy vấn."""
+    q = {w for w in _WORD.findall(query.lower()) if len(w) >= 2}
+    need = max(1, (len(q) + 1) // 2)
+    results = [{"id": bid, "relevant": len(q & set(_WORD.findall(text.lower()))) >= need}
+               for bid, text in blocks]
+    return json.dumps({"results": results}, ensure_ascii=False)
 
 
 class MockAIClient:
@@ -42,7 +57,16 @@ class MockAIClient:
 
     async def complete(self, messages: Sequence[ChatMessage], *, max_tokens: int) -> CompletionResult:
         last = messages[-1].content if messages else ""
-        text = "[mock] " + " ".join(last.split()[:40])
+        notes = _NOTE.findall(last)
+        blocks = _BLOCK.findall(last)
+        query = _QUERY.search(last)
+        if blocks and query:  # thẩm định AutoChunk → JSON verdict như LLM thật
+            text = _verdict_json(query.group(1), blocks)
+        elif notes:  # hỏi đáp RAG → câu trả lời giả lập có trích dẫn [n] như LLM thật
+            text = "[mock] Theo ghi chú của bạn: " + " ".join(
+                " ".join(body.split()[:25]) + f" [{i}]" for i, body in notes[:2])
+        else:
+            text = "[mock] " + " ".join(last.split()[:40])
         prompt = sum(estimate_tokens(m.content) for m in messages)
         return CompletionResult(text, Usage(prompt, estimate_tokens(text)), "mock-chat")
 

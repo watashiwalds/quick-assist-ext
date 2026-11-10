@@ -6,7 +6,7 @@
  * vào `RpcMap` + 1 handler trong background/handlers.ts; TypeScript sẽ bắt lỗi
  * nếu thiếu handler hoặc sai kiểu.
  */
-import type { Folder, Note, Quota, SearchHit, SummaryPreview, User } from '../api/types'
+import type { ChatSource, ChatTurn, Folder, Note, PageMatchResult, Quota, SearchHit, SummaryPreview, User } from '../api/types'
 import type { SerializedError } from '../errors'
 
 export interface SessionInfo {
@@ -42,6 +42,9 @@ export interface Preferences {
   defaultFolderId: string | null
 }
 
+/** Kết quả quét trang (AutoChunk) + tab đã quét (để highlight đúng tab dù người dùng chuyển tab). */
+export type PageMatchRun = PageMatchResult & { tabId: number; url: string; title: string | null }
+
 export interface RpcMap {
   'auth/status': { req: void; res: SessionInfo }
   'auth/login': { req: void; res: SessionInfo }
@@ -76,6 +79,13 @@ export interface RpcMap {
   'summary/saveSelection': { req: { text: string; url: string | null; title: string | null; summary: string; folderId?: string | null }; res: Note }
   'selection/takePending': { req: void; res: PendingSelection | null }
 
+  /** Tạo ghi chú mới từ UI (AutoChunk lưu các đoạn đã chọn) — background sinh Idempotency-Key. */
+  'notes/create': { req: { content: string; title: string | null; url: string | null; folderId?: string | null }; res: Note }
+  /** AutoChunk: quét tab đang xem theo truy vấn (POST /ai/page-match). */
+  'pageMatch/run': { req: { query: string }; res: PageMatchRun }
+  /** AutoChunk: cuộn tới + làm nổi bật các đoạn trên trang đã quét. */
+  'pageMatch/highlight': { req: { tabId: number; items: Array<{ text: string; occ: number }> }; res: { ok: boolean; found: number; total: number } }
+
   /** Chỉ có trong bản build E2E (VITE_E2E=true) — bản phát hành trả lỗi E2E_ONLY. */
   'e2e/devLogin': { req: { email: string }; res: SessionInfo }
 }
@@ -99,6 +109,8 @@ export type BroadcastEvent =
   | { channel: 'qa-event'; type: 'outbox/changed' }
   | { channel: 'qa-event'; type: 'selection/pending' }
   | { channel: 'qa-event'; type: 'session/changed'; signedIn: boolean }
+  /** AutoChunk: đã chụp xong trang, đang phân tích + thẩm định trên máy chủ. */
+  | { channel: 'qa-event'; type: 'pageMatch/progress'; phase: 'analyzing' }
 
 export function isRpcRequest(m: unknown): m is RpcRequest {
   return typeof m === 'object' && m !== null && (m as RpcRequest).channel === 'qa-rpc'
@@ -107,3 +119,22 @@ export function isRpcRequest(m: unknown): m is RpcRequest {
 export function isBroadcast(m: unknown): m is BroadcastEvent {
   return typeof m === 'object' && m !== null && (m as BroadcastEvent).channel === 'qa-event'
 }
+
+/**
+ * Chat RAG (X02, ADR-0009): câu trả lời về từng phần nên KHÔNG đi qua RPC một-lần.
+ * UI mở `chrome.runtime.connect({ name: CHAT_PORT })` cho mỗi câu hỏi, gửi `ask`; background đọc SSE
+ * từ POST /ai/chat và đẩy từng sự kiện về qua Port. `stop` hoặc đóng Port → background huỷ request
+ * (server chỉ trừ quota phần đã sinh).
+ */
+export const CHAT_PORT = 'qa-chat'
+
+export type ChatClientMessage =
+  | { type: 'ask'; question: string; folderId?: string | null; history: ChatTurn[] }
+  | { type: 'stop' }
+
+export type ChatPortEvent =
+  | { type: 'sources'; sources: ChatSource[] }
+  | { type: 'delta'; text: string }
+  | { type: 'done'; tokensUsed: number }
+  | { type: 'stopped' }
+  | { type: 'error'; error: SerializedError }

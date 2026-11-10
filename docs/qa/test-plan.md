@@ -60,6 +60,19 @@ Lỗi ghi trong GitHub Issues: tiêu đề `[P0][N07] …`, kèm `request_id` (m
 | 11 | P2 | Nút "nguy hiểm" chữ trắng trên nền đỏ nhạt ở chế độ tối (tương phản < 4.5) | test tương phản | ✅ token `--danger-fg` |
 | 12 | P2 | So sánh mốc đồng bộ theo chuỗi ("…43Z" vs "…43.5Z") có thể bỏ sót | review C02 | ✅ |
 
+| 13 | P1 | AutoChunk "Lưu cả trang" > 20 000 ký tự bị tách cứng giữa chừng một từ (mất ranh giới đoạn) | vitest `page-finder.test.tsx` | ✅ tách theo biên khối trước khi gộp |
+
+### 7.1 AutoChunk — "Tìm trong trang" (10/11/2026, ADR-0013)
+| Lớp | Bộ test | Phủ |
+|---|---|---|
+| Unit (pytest) | `unit/business/page_match/test_extractor.py` | Trafilatura bỏ nav/cookie/aside/footer; thứ tự tài liệu; `id`/`occ`; tách câu không mất chữ; cap theo biên khối; parser treo/crash → bị giết, pool tự hồi phục |
+| Unit (pytest) | `unit/business/page_match/test_prompts_and_ratio.py` | bọc `<document>`, vô hiệu thẻ `document/query/block` giả; parse JSON chỉ nhận id đã gửi; mock không bị chỉ đạo; `match_ratio` (ngoại suy khi > 15 ứng viên) |
+| Integration (pgvector) | `integration/api/test_page_match.py` | contract; embed đúng 1 batch; 2 lease quota COMMITTED/RELEASED; `VERIFY_UNAVAILABLE` (LLM lỗi / JSON rác); 413/422/402/429/502/401; `full_page`; lưu bằng `POST /notes` |
+| Kiến trúc | `architecture/test_layers.py::test_L8_only_page_match_parses_untrusted_html` | chỉ `business/page_match` import trafilatura/lxml |
+| Extension (vitest) | `tests/page-match.test.ts` | `getRawHtml` bỏ thẻ + dữ liệu nhạy cảm, không sửa DOM thật, > 2 MB dừng sớm; `highlightBlocksByText` (khoảng trắng, `<br>`, occ, contains, fuzzy, tự tắt, khôi phục nguyên trạng DOM); background run/highlight + lỗi |
+| UI (vitest) | `tests/ui/page-finder.test.tsx` | quét → tích sẵn đoạn đã xác nhận → lưu gộp; bỏ chọn; badge theo `warning`; rỗng; highlight; `full_page` + hỏi lại + tách nhiều ghi chú; 402/413/422/mạng; xin quyền đọc trang |
+| Cần người thật | — | chất lượng thẩm định với LLM thật trên bộ trang mẫu (`docs/ai/page-match-eval.md`); highlight trên trang SPA/React thật |
+
 ## 8. Việc còn lại cần người thật / tài khoản thật
 - Đăng nhập Google thật (cần OAuth client của nhóm) — checklist demo bước 4.
 - `tests.eval.summary_injection` và `run_eval` với OpenAI thật (SUM-04, H03 phần OpenAI).

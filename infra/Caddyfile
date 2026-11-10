@@ -6,8 +6,20 @@
 {$DOMAIN} {
 	encode gzip
 	# Chỉ phục vụ API; không lộ /docs ở prod (FastAPI đã tắt), chặn mọi đường khác.
+	# AutoChunk gửi HTML trang (API tự chặn > PAGE_MATCH_MAX_HTML_BYTES=2MB → 413 PAGE_TOO_LONG);
+	# JSON escape làm body lớn hơn HTML gốc → nới riêng route này, các route khác giữ 1MB.
+	@page_match path /api/v1/ai/page-match
+	handle @page_match {
+		request_body {
+			max_size 3MB
+		}
+		reverse_proxy api:8000
+	}
 	@api path /api/*
 	handle @api {
+		request_body {
+			max_size 1MB
+		}
 		reverse_proxy api:8000
 	}
 	handle {
@@ -16,9 +28,6 @@
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		-Server
-	}
-	request_body {
-		max_size 1MB
 	}
 	log {
 		output stdout

@@ -15,6 +15,7 @@ import { broadcast } from './broadcast'
 import { rememberFolders } from './menus'
 import { discardPending, flushOutbox, listPending, retryPending, undoQuickNote } from './notes/quick-note'
 import { syncNotes } from './notes/sync'
+import { highlightInTab, runPageMatch } from './page-match'
 import { clearPrefs, getPrefs, setPrefs } from './prefs'
 import { takePendingSelection } from './selection'
 
@@ -158,6 +159,18 @@ export const handlers: Handlers = {
     return note
   },
   'selection/takePending': () => takePendingSelection(),
+
+  'notes/create': async ({ content, title, url, folderId }) => {
+    const note = await api.notes.create(
+      { content: content.slice(0, config.maxNoteChars), title: title?.slice(0, 500) || null, url: url?.startsWith('http') ? url : null, ...(folderId ? { folder_id: folderId } : {}) },
+      crypto.randomUUID(),
+    )
+    await notesCache.apply([note])
+    broadcast({ channel: 'qa-event', type: 'notes/changed' })
+    return note
+  },
+  'pageMatch/run': ({ query }) => runPageMatch(query),
+  'pageMatch/highlight': ({ tabId, items }) => highlightInTab(tabId, items),
 
   'e2e/devLogin': async ({ email }) => {
     if (import.meta.env.VITE_E2E !== 'true') throw new AppError('E2E_ONLY', 'Chỉ có trong bản build kiểm thử')

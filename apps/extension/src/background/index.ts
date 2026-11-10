@@ -4,8 +4,9 @@
  * Mọi listener phải đăng ký đồng bộ ở top-level (yêu cầu của MV3).
  */
 import { AppError } from '@/shared/errors'
-import { isRpcRequest, type RpcResponse } from '@/shared/messaging/protocol'
+import { CHAT_PORT, isRpcRequest, type RpcResponse } from '@/shared/messaging/protocol'
 import { broadcast } from './broadcast'
+import { handleChatPort } from './chat'
 import { dispatch } from './handlers'
 import { folderIdFromMenu, MENU_QUICK_NOTE, MENU_SUMMARIZE, rebuildMenus } from './menus'
 import { FLUSH_ALARM, flushOutbox, startQuickNote } from './notes/quick-note'
@@ -48,6 +49,11 @@ chrome.commands.onCommand.addListener((command, tab) => {
 
 chrome.alarms.onAlarm.addListener((a) => {
   if (a.name === FLUSH_ALARM) void flushOutbox()
+})
+
+// Chat RAG: mỗi câu hỏi một Port (stream từng phần câu trả lời) — background/chat.ts
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name === CHAT_PORT && port.sender?.id === chrome.runtime.id) handleChatPort(port)
 })
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {

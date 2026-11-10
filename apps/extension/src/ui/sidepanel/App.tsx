@@ -1,16 +1,19 @@
-/** Side panel — khung ứng dụng chính: Thư viện · Tìm kiếm · Tóm tắt (khi có vùng chọn) · Cài đặt. */
+/** Side panel — khung ứng dụng chính: Thư viện · Tìm kiếm · Tìm trong trang · Hỏi AI · Tóm tắt (khi có vùng chọn) · Cài đặt. */
 import { useEffect, useState } from 'react'
 import { rpc } from '@/shared/messaging/client'
 import type { PendingSelection } from '@/shared/messaging/protocol'
 import { type TabItem, Tabs, ToastProvider } from '../components'
 import { SettingsView } from '../features/account/SettingsView'
 import { AuthGate } from '../features/auth/AuthGate'
+import { ChatView } from '../features/chat/ChatView'
+import { useChat } from '../features/chat/useChat'
 import { NotesView } from '../features/notes/NotesView'
+import { PageFinderView } from '../features/page-finder/PageFinderView'
 import { SearchView } from '../features/search/SearchView'
 import { SelectionSummary } from '../features/summary/SelectionSummary'
 import { useAsync, useBroadcast } from '../lib/hooks'
 
-type Tab = 'notes' | 'search' | 'summary' | 'settings'
+type Tab = 'notes' | 'search' | 'page' | 'chat' | 'summary' | 'settings'
 
 export function App() {
   return (
@@ -27,6 +30,7 @@ function Shell({ session }: { session: Parameters<typeof SettingsView>[0]['sessi
   const [openNoteId, setOpenNoteId] = useState<string | null>(null)
   const [selection, setSelection] = useState<PendingSelection | null>(null)
   const folders = useAsync(() => rpc('folders/list'), [])
+  const chat = useChat() // giữ hội thoại khi chuyển tab; câu trả lời đang stream vẫn chạy tiếp
 
   const takeSelection = () =>
     void rpc('selection/takePending').then((s) => {
@@ -43,6 +47,8 @@ function Shell({ session }: { session: Parameters<typeof SettingsView>[0]['sessi
   const items: TabItem<Tab>[] = [
     { key: 'notes', label: 'Thư viện' },
     { key: 'search', label: 'Tìm kiếm' },
+    { key: 'page', label: 'Tìm trong trang' },
+    { key: 'chat', label: 'Hỏi AI' },
     ...(selection ? [{ key: 'summary' as const, label: 'Tóm tắt' }] : []),
     { key: 'settings', label: 'Cài đặt' },
   ]
@@ -59,6 +65,17 @@ function Shell({ session }: { session: Parameters<typeof SettingsView>[0]['sessi
         {tab === 'notes' && <NotesView openNoteId={openNoteId} onOpened={() => setOpenNoteId(null)} onGoSettings={goSettings} />}
         {tab === 'search' && (
           <SearchView
+            onGoSettings={goSettings}
+            onOpenNote={(id) => {
+              setOpenNoteId(id)
+              setTab('notes')
+            }}
+          />
+        )}
+        {tab === 'page' && <PageFinderView folders={folders.data ?? []} onGoSettings={goSettings} />}
+        {tab === 'chat' && (
+          <ChatView
+            chat={chat}
             onGoSettings={goSettings}
             onOpenNote={(id) => {
               setOpenNoteId(id)

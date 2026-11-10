@@ -48,7 +48,13 @@ class GeminiClient:
     def __init__(self, settings: Settings, *, transport: httpx.AsyncBaseTransport | None = None) -> None:
         self._s = settings
         self._vertex = "aiplatform.googleapis.com" in settings.gemini_base_url
-        self._thinking: str | None = settings.gemini_thinking_level.strip() or None
+        self._thinking: str | None = settings.gemini_thinking_level.strip().upper() or None
+        # Các biến thể request cho chat, thử lần lượt khi model từ chối (400/500); nhớ biến thể chạy được.
+        # (thinkingConfig, systemInstruction riêng). Gemma có bản không nhận một trong hai tham số này.
+        self._variants = [(False, True), (False, False)]
+        if self._thinking:
+            self._variants.insert(0, (True, True))
+        self._variant = 0
         self._client = httpx.AsyncClient(
             base_url=settings.gemini_base_url.rstrip("/"),
             timeout=settings.ai_timeout_seconds,
@@ -117,7 +123,9 @@ class GeminiClient:
         return EmbeddingResult([_l2(v) for v in vectors], Usage(tokens, 0), model)
 
     # ---------------------------------------------------------------- chat
-    def _body(self, messages: Sequence[ChatMessage], max_tokens: int, *, thinking: bool) -> dict[str, Any]:
+    def _body(
+        self, messages: Sequence[ChatMessage], max_tokens: int, *, thinking: bool, system_field: bool = True
+    ) -> dict[str, Any]:
         system = "\n\n".join(m.content for m in messages if m.role == "system")
         contents: list[dict[str, Any]] = []
         for m in messages:
@@ -131,20 +139,31 @@ class GeminiClient:
         gen: dict[str, Any] = {"maxOutputTokens": max_tokens}
         if thinking and self._thinking:
             gen["thinkingConfig"] = {"thinkingLevel": self._thinking}
+        if system and not system_field:  # model không nhận systemInstruction → ghép vào lượt user đầu
+            if contents and contents[0]["role"] == "user":
+                contents[0]["parts"].insert(0, {"text": system})
+            else:
+                contents.insert(0, {"role": "user", "parts": [{"text": system}]})
         body: dict[str, Any] = {"contents": contents, "generationConfig": gen}
-        if system:
+        if system and system_field:
             body["systemInstruction"] = {"parts": [{"text": system}]}
         return body
 
+    def _current_body(self, messages: Sequence[ChatMessage], max_tokens: int) -> dict[str, Any]:
+        thinking, system_field = self._variants[self._variant]
+        return self._body(messages, max_tokens, thinking=thinking, system_field=system_field)
+
     async def _generate(self, messages: Sequence[ChatMessage], max_tokens: int) -> dict[str, Any]:
         path = f"/{self._s.gemini_chat_model}:generateContent"
-        try:
-            return await self._post(path, self._body(messages, max_tokens, thinking=True))
-        except AIProviderError as e:
-            if self._thinking and "http 400" in str(e):
-                self._thinking = None  # model/endpoint không nhận thinkingConfig → bỏ hẳn
-                return await self._post(path, self._body(messages, max_tokens, thinking=False))
-            raise
+        while True:
+            try:
+                return await self._post(path, self._current_body(messages, max_tokens))
+            except AIProviderError as e:
+                # 400/500 lặp lại thường do model không nhận tham số → thử biến thể đơn giản hơn
+                rejected = str(e).startswith(("http 400", "http 500"))
+                if not rejected or self._variant + 1 >= len(self._variants):
+                    raise
+                self._variant += 1
 
     async def complete(self, messages: Sequence[ChatMessage], *, max_tokens: int) -> CompletionResult:
         data = await self._generate(messages, max_tokens)
@@ -159,12 +178,25 @@ class GeminiClient:
         self, messages: Sequence[ChatMessage], *, max_tokens: int
     ) -> AsyncIterator[StreamChunk]:
         path = f"/{self._s.gemini_chat_model}:streamGenerateContent"
-        body = self._body(messages, max_tokens, thinking=True)
         last_usage: Usage | None = None
-        async with self._client.stream("POST", path, params={"alt": "sse"}, json=body) as r:
-            if r.status_code >= 400:
-                await r.aread()
-                raise AIProviderError(_err(r), retryable=r.status_code in _RETRYABLE)
+        while True:
+            body = self._current_body(messages, max_tokens)
+            try:
+                r = await self._client.send(
+                    self._client.build_request("POST", path, params={"alt": "sse"}, json=body), stream=True)
+            except (httpx.TimeoutException, httpx.TransportError) as e:
+                raise AIProviderError(f"network: {type(e).__name__}", retryable=True) from e
+            if r.status_code < 400:
+                break
+            await r.aread()
+            await r.aclose()
+            err = AIProviderError(_err(r), retryable=r.status_code in _RETRYABLE)
+            # Model từ chối tham số (400/500) TRƯỚC khi sinh chữ nào → thử biến thể request đơn giản hơn.
+            if r.status_code in (400, 500) and self._variant + 1 < len(self._variants):
+                self._variant += 1
+                continue
+            raise err
+        try:
             async for line in r.aiter_lines():
                 if not line.startswith("data:"):
                     continue
@@ -178,6 +210,8 @@ class GeminiClient:
                     delta = _text(c)
                     if delta:
                         yield StreamChunk(delta=delta)
+        finally:
+            await r.aclose()
         if last_usage is not None:
             yield StreamChunk(usage=last_usage)
 

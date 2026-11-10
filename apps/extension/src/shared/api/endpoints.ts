@@ -9,6 +9,8 @@ import type {
   Note,
   NoteCreate,
   NoteUpdate,
+  PageMatchRequest,
+  PageMatchResult,
   Quota,
   SearchHit,
   SummaryPreview,
@@ -62,7 +64,10 @@ export function createApi(http: HttpRequest) {
     },
     ai: {
       summarize: (b: { text?: string; note_id?: string }) =>
-        http<SummaryPreview>('/ai/summaries', { method: 'POST', body: b, timeoutMs: config.summaryRequestTimeoutMs }),
+        http<SummaryPreview>('/ai/summaries', { method: 'POST', body: b }),
+      /** AutoChunk: Trafilatura + embed + LLM thẩm định có thể lâu hơn timeout mặc định. */
+      pageMatch: (b: PageMatchRequest) =>
+        http<PageMatchResult>('/ai/page-match', { method: 'POST', body: b, timeoutMs: config.pageMatchRequestTimeoutMs }),
     },
   }
 }
