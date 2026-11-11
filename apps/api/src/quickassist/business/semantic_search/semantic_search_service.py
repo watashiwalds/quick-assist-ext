@@ -42,12 +42,11 @@ class SemanticSearchService:
         k = top_k or cfg.search_top_k
         request_id = f"{quota_operation}:{uuid.uuid4()}"
 
-        async with QuotaService.open() as quota:  # session riêng cho quota
-            lease = await quota.reserve(user_id, quota_operation, estimate_tokens(query), request_id)
+        async with QuotaService.open() as quota, \
+                quota.leased(user_id, quota_operation, estimate_tokens(query), request_id) as lease:
             try:
                 emb = await self.ai.embed([query])
             except AIProviderError as e:
-                await quota.release(lease)
                 raise UpstreamError("Dịch vụ AI tạm thời không khả dụng", code="AI_UNAVAILABLE") from e
             await quota.commit(lease, emb.usage.total)
 

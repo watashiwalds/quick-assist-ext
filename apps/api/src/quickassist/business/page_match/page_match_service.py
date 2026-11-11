@@ -113,14 +113,12 @@ class PageMatchService:
 
         # --- Lease 1: embed truy vấn + mọi khối trong MỘT batch
         texts = [query, *(b.text for b in blocks)]
-        async with QuotaService.open() as quota:
-            lease = await quota.reserve(user_id, "page_match_embed",
-                                        sum(estimate_tokens(t) for t in texts),
-                                        f"page_match_embed:{uuid.uuid4()}")
+        async with QuotaService.open() as quota, \
+                quota.leased(user_id, "page_match_embed", sum(estimate_tokens(t) for t in texts),
+                             f"page_match_embed:{uuid.uuid4()}") as lease:
             try:
                 emb = await self.ai.embed(texts)
             except AIProviderError as e:
-                await quota.release(lease)
                 raise UpstreamError("Dịch vụ AI tạm thời không khả dụng", code="AI_UNAVAILABLE") from e
             await quota.commit(lease, emb.usage.total)
 
@@ -169,21 +167,21 @@ class PageMatchService:
         max_out = cfg.page_match_verify_max_output_tokens
         messages = page_match_messages(query, [(b.id, b.text) for b in candidates])
         estimate = sum(estimate_tokens(m.content) for m in messages) + max_out
-        async with QuotaService.open() as quota:
-            try:
-                lease = await quota.reserve(user_id, "page_match_verify", estimate,
-                                            f"page_match_verify:{uuid.uuid4()}")
-            except QuotaExceeded:
-                log.info("page_match_verify_skipped", extra={"reason": "quota"})
-                return set(), VERIFY_UNAVAILABLE
-            try:
-                result = await asyncio.wait_for(self.ai.complete(messages, max_tokens=max_out),
-                                                timeout=cfg.page_match_verify_timeout_seconds)
-            except (AIProviderError, TimeoutError) as e:
-                await quota.release(lease)
-                log.warning("page_match_verify_failed", extra={"error_type": type(e).__name__})
-                return set(), VERIFY_UNAVAILABLE
-            await quota.commit(lease, result.usage.total)
+        try:
+            async with QuotaService.open() as quota, \
+                    quota.leased(user_id, "page_match_verify", estimate,
+                                 f"page_match_verify:{uuid.uuid4()}") as lease:
+                try:
+                    result = await asyncio.wait_for(self.ai.complete(messages, max_tokens=max_out),
+                                                    timeout=cfg.page_match_verify_timeout_seconds)
+                except (AIProviderError, TimeoutError) as e:
+                    await quota.release(lease)  # trả về bình thường (không ném) → tự release
+                    log.warning("page_match_verify_failed", extra={"error_type": type(e).__name__})
+                    return set(), VERIFY_UNAVAILABLE
+                await quota.commit(lease, result.usage.total)
+        except QuotaExceeded:  # chỉ reserve() trong leased() ném lỗi này
+            log.info("page_match_verify_skipped", extra={"reason": "quota"})
+            return set(), VERIFY_UNAVAILABLE
         try:
             return parse_verdicts(result.text, {b.id for b in candidates}), None
         except VerdictParseError as e:

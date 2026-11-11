@@ -59,9 +59,10 @@ class SummaryService:
 
         messages = summary_messages(text)
         estimate = sum(estimate_tokens(m.content) for m in messages) + SUMMARY_MAX_OUTPUT_TOKENS
-        async with QuotaService.open() as quota:
-            # request_id gắn user → key của user này không đụng ledger của user khác.
-            lease = await quota.reserve(user_id, "summary", estimate, f"summary:{user_id}:{request_id}")
+        # request_id gắn user → key của user này không đụng ledger của user khác.
+        # leased(): mọi lỗi/huỷ trước commit → tự hoàn giữ chỗ.
+        async with QuotaService.open() as quota, \
+                quota.leased(user_id, "summary", estimate, f"summary:{user_id}:{request_id}") as lease:
             if not lease.is_new:
                 # Cùng Idempotency-Key đã dùng: không gọi AI lần nữa "miễn phí".
                 raise Conflict("Yêu cầu tóm tắt này đã được xử lý, hãy tạo yêu cầu mới",
@@ -69,7 +70,6 @@ class SummaryService:
             try:
                 result = await self.ai.complete(messages, max_tokens=SUMMARY_MAX_OUTPUT_TOKENS)
             except AIProviderError as e:
-                await quota.release(lease)
                 raise UpstreamError("Dịch vụ AI tạm thời không khả dụng", code="AI_UNAVAILABLE") from e
             await quota.commit(lease, result.usage.total)
         summary = result.text.strip()

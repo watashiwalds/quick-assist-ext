@@ -7,6 +7,8 @@ Mô hình RESERVE → COMMIT/RELEASE:
     await quota.commit(lease, actual_tokens)     # trừ số thật
     # hoặc await quota.release(lease)            # AI lỗi → không trừ
 
+Ưu tiên `quota.leased(...)` (context manager): tự release khi có BẤT KỲ lỗi/huỷ nào trước commit.
+
 QuotaService TỰ COMMIT từng bước: quota phải bền vững kể cả khi nghiệp vụ phía sau
 rollback → luôn tạo trên một session RIÊNG (`QuotaService.open()`).
 """
@@ -17,6 +19,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
+import anyio
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from quickassist.business.common.exceptions import Conflict, QuotaExceeded
@@ -84,6 +87,22 @@ class QuotaService:
                                          reserved_tokens=estimate, status="RESERVED"))
         await self.s.commit()
         return QuotaLease(user_id, request_id, estimate)
+
+    @asynccontextmanager
+    async def leased(self, user_id: uuid.UUID, operation: str, estimate: int,
+                     request_id: str) -> AsyncIterator[QuotaLease]:
+        """reserve() + tự release() khi có BẤT KỲ lỗi nào trong khối — kể cả huỷ request (client
+        ngắt kết nối) — thay vì để giữ chỗ treo tới release_stale. Caller vẫn tự commit() khi
+        thành công; lỗi xảy ra sau commit thì release là no-op (ledger đã settle).
+        Lease không phải `is_new` thuộc request trước đó (có thể đang chạy) → không release hộ."""
+        lease = await self.reserve(user_id, operation, estimate, request_id)
+        try:
+            yield lease
+        except BaseException:
+            if lease.is_new:
+                with anyio.CancelScope(shield=True):  # scope đang bị huỷ vẫn phải hoàn được quota
+                    await self.release(lease)
+            raise
 
     async def _settle(self, lease: QuotaLease, actual: int, status: str) -> None:
         if lease.already_settled:

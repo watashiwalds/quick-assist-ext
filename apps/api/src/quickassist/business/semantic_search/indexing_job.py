@@ -51,35 +51,35 @@ async def index_note(session: AsyncSession, payload: dict[str, Any]) -> None:
     pieces = chunker(note.content, size=cfg.chunk_size_chars, overlap=cfg.chunk_overlap_chars)
     ai = get_ai_provider()
 
-    async with QuotaService.open() as quota:
-        try:
-            lease = await quota.reserve(
-                note.user_id, "embed_note", sum(estimate_tokens(p) for p in pieces),
-                # Mỗi LẦN THỬ một request_id: lần thử trước đã release → lần sau vẫn bị tính đúng,
-                # không "miễn phí"; cùng một lần thử không bao giờ bị trừ 2 lần.
-                request_id=f"embed_note:{note_id}:{note.index_rev}:{payload.get('_attempt', 1)}",
-            )
-        except QuotaExceeded:
-            await set_index_status(session, note_id, status="SKIPPED", index_rev=note.index_rev,
-                                   error="QUOTA_EXCEEDED")
-            return
-        try:
-            emb = await ai.embed(pieces)
-        except AIProviderError as e:
-            await quota.release(lease)
-            if e.retryable and not is_last_attempt:
-                raise  # worker retry với backoff; note vẫn PROCESSING
-            await set_index_status(session, note_id, status="FAILED", index_rev=note.index_rev,
-                                   error="AI_PROVIDER_ERROR")
-            return
+    try:
+        async with QuotaService.open() as quota, quota.leased(
+            note.user_id, "embed_note", sum(estimate_tokens(p) for p in pieces),
+            # Mỗi LẦN THỬ một request_id: lần thử trước đã release → lần sau vẫn bị tính đúng,
+            # không "miễn phí"; cùng một lần thử không bao giờ bị trừ 2 lần.
+            request_id=f"embed_note:{note_id}:{note.index_rev}:{payload.get('_attempt', 1)}",
+        ) as lease:
+            try:
+                emb = await ai.embed(pieces)
+            except AIProviderError as e:
+                if e.retryable and not is_last_attempt:
+                    raise  # leased() hoàn giữ chỗ; worker retry với backoff; note vẫn PROCESSING
+                await quota.release(lease)  # trả về bình thường (không ném) → tự release
+                await set_index_status(session, note_id, status="FAILED", index_rev=note.index_rev,
+                                       error="AI_PROVIDER_ERROR")
+                return
 
-        await repo.replace_for_note(
-            [NoteChunk(note_id=note_id, user_id=note.user_id, folder_id=note.folder_id, ordinal=i,
-                       text=t, content_hash=content_hash, embedding=v, model=emb.model)
-             for i, (t, v) in enumerate(zip(pieces, emb.vectors, strict=True))],
-            note_id,
-        )
-        await set_index_status(session, note_id, status="READY", index_rev=note.index_rev)
-        await session.commit()  # chunk + trạng thái bền vững TRƯỚC khi chốt quota
-        await quota.commit(lease, emb.usage.total)
+            # Lỗi DB ở đây → leased() hoàn giữ chỗ, job được retry.
+            await repo.replace_for_note(
+                [NoteChunk(note_id=note_id, user_id=note.user_id, folder_id=note.folder_id, ordinal=i,
+                           text=t, content_hash=content_hash, embedding=v, model=emb.model)
+                 for i, (t, v) in enumerate(zip(pieces, emb.vectors, strict=True))],
+                note_id,
+            )
+            await set_index_status(session, note_id, status="READY", index_rev=note.index_rev)
+            await session.commit()  # chunk + trạng thái bền vững TRƯỚC khi chốt quota
+            await quota.commit(lease, emb.usage.total)
+    except QuotaExceeded:  # chỉ reserve() trong leased() ném lỗi này
+        await set_index_status(session, note_id, status="SKIPPED", index_rev=note.index_rev,
+                               error="QUOTA_EXCEEDED")
+        return
     log.info("note_indexed", extra={"note_id": str(note_id), "chunks": len(pieces)})

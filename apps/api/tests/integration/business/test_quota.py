@@ -120,6 +120,35 @@ async def test_stale_reservations_are_released(client) -> None:
     assert (await _status(uid)).used_tokens == 30
 
 
+async def test_leased_releases_on_any_exception(client) -> None:
+    from sqlalchemy import text
+
+    from quickassist.data.database import get_engine
+
+    uid = await _user(client)
+    async with QuotaService.open() as q:
+        with pytest.raises(RuntimeError):
+            async with q.leased(uid, "summary", 80, "lease-err"):
+                raise RuntimeError("không phải AIProviderError")
+    st = await _status(uid)
+    assert (st.used_tokens, st.reserved_tokens) == (0, 0)
+    async with get_engine().connect() as conn:
+        status = (await conn.execute(text(
+            "SELECT status FROM quota_ledger WHERE request_id = 'lease-err'"))).scalar_one()
+    assert status == "RELEASED"
+
+
+async def test_leased_error_after_commit_keeps_charge(client) -> None:
+    uid = await _user(client)
+    async with QuotaService.open() as q:
+        with pytest.raises(RuntimeError):
+            async with q.leased(uid, "summary", 80, "lease-commit") as lease:
+                await q.commit(lease, 50)
+                raise RuntimeError("lỗi sau khi đã commit")  # release lúc thoát → bỏ qua
+    st = await _status(uid)
+    assert (st.used_tokens, st.reserved_tokens) == (50, 0)
+
+
 async def test_quota_endpoint(client) -> None:
     h = await login(client)
     r = (await client.get("/me/quota", headers=h)).json()
