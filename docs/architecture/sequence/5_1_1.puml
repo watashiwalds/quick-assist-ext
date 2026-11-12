@@ -1,0 +1,116 @@
+@startuml sd_5_1_1
+' Giao diện dùng chung cho mọi sơ đồ tuần tự §5.1.x
+' Bố cục theo phong cách SDS nhóm 08 (thanh kích hoạt, khung alt/opt/loop); nhãn dài tự xuống dòng để vừa khổ A4,
+' tô màu lifeline theo tầng kiến trúc. Mỗi file tự chứa đủ style (không dùng !include) để mở được trong draw.io.
+
+' ===== Bảng màu theo tầng (sửa mã hex ở các dòng actor/participant/database) =====
+' #D6E9FF  Giao diện extension
+' #E6DCFA  BackgroundWorker
+' #FFE3C2  Controller FastAPI
+' #D7F2DC  Service nghiệp vụ
+' #CFEFEC  Tiến trình worker
+' #ECEFF3  Hệ thống bên ngoài
+' #FFF3B8  PostgreSQL
+
+hide footbox
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 22
+skinparam ArrowFontSize 22
+skinparam ParticipantFontSize 22
+skinparam ActorFontSize 22
+skinparam DatabaseFontSize 22
+skinparam SequenceGroupFontSize 22
+skinparam SequenceGroupHeaderFontSize 22
+skinparam SequenceDividerFontSize 22
+skinparam SequenceReferenceFontSize 22
+skinparam NoteFontSize 22
+skinparam sequenceMessageAlign left
+skinparam responseMessageBelowArrow false
+skinparam roundCorner 6
+skinparam maxMessageSize 300
+
+skinparam ArrowColor #2C3E50
+skinparam ArrowThickness 1
+
+skinparam ParticipantBorderColor #34495E
+skinparam ParticipantFontStyle bold
+skinparam ParticipantPadding 0
+skinparam BoxPadding 0
+
+skinparam ActorBorderColor #34495E
+skinparam ActorFontStyle bold
+
+skinparam DatabaseBorderColor #8A6D00
+skinparam DatabaseFontStyle bold
+
+skinparam SequenceLifeLineBorderColor #7F8C8D
+skinparam SequenceLifeLineBackgroundColor #FDEBD3
+
+' Khung alt / opt / loop: tab tiêu đề màu cam nhạt, viền cam đậm
+skinparam SequenceGroupBorderColor #D35400
+skinparam SequenceGroupBorderThickness 1.5
+skinparam SequenceGroupBackgroundColor #FCE3CF
+skinparam SequenceGroupHeaderFontColor #A04000
+skinparam SequenceGroupHeaderFontStyle bold
+skinparam SequenceGroupFontColor #A04000
+skinparam SequenceGroupBodyBackgroundColor transparent
+
+' Vạch chia phần (== Phần 1 ==)
+skinparam SequenceDividerBackgroundColor #2C3E50
+skinparam SequenceDividerFontColor #FFFFFF
+skinparam SequenceDividerBorderColor #2C3E50
+skinparam SequenceDividerFontStyle bold
+
+' Khung ref (Interaction Use)
+skinparam SequenceReferenceBackgroundColor #EAF2F8
+skinparam SequenceReferenceBorderColor #2E86C1
+skinparam SequenceReferenceHeaderBackgroundColor #AED6F1
+
+actor User #FFFFFF
+participant "PopupUI" as UI #D6E9FF
+participant "Background\nWorker" as BG #E6DCFA
+participant "GoogleOAuth\n(external service)" as G #ECEFF3
+participant "Auth\nController" as API #FFE3C2
+participant "AuthService" as SVC #D7F2DC
+database Database #FFF3B8
+
+User -> UI ++ : bấm "Đăng nhập bằng Google"
+UI -> BG ++ : auth/login
+BG -> BG : buildGoogleAuthRequest() sinh code_verifier, code_challenge (S256), state, nonce
+BG -> G ++ : launchWebAuthFlow(authUrl)
+G -> User : hiển thị màn hình chọn tài khoản và đồng ý
+User -> G : đồng ý cấp quyền
+G --> BG -- : trả về redirect URL kèm code, state
+BG -> BG : parseAuthRedirect(url, state)
+alt người dùng huỷ hoặc state không khớp
+    BG --> UI : trả về lỗi OAUTH_CANCELLED
+    UI -> UI : render thông báo đăng nhập thất bại
+else state hợp lệ
+    BG -> API ++ : POST /auth/google/exchange(code, code_verifier, redirect_uri, nonce)
+    API -> SVC ++ : login_with_google(code, code_verifier, nonce)
+    SVC -> G ++ : exchange_code(code, code_verifier)
+    G --> SVC -- : trả về id_token
+    SVC -> G ++ : lấy JWKS để verify_id_token(id_token, nonce)
+    G --> SVC -- : trả về khoá công khai JWKS
+    alt Google lỗi hoặc id_token không hợp lệ
+        SVC --> API : trả về lỗi UpstreamError hoặc Unauthorized
+        API --> BG : trả về 502 UPSTREAM_ERROR hoặc 401 UNAUTHORIZED
+        BG --> UI : trả về lỗi đăng nhập
+        UI -> UI : render thông báo đăng nhập thất bại
+    else id_token hợp lệ
+        SVC -> Database ++ : upsert_google_user(sub, email, name)
+        Database --> SVC -- : trả về user
+        SVC -> Database ++ : add(AuthSession(refresh_token_hash)) và COMMIT
+        Database --> SVC -- : trả về phiên đăng nhập đã lưu
+        SVC --> API -- : trả về TokenPair
+        API --> BG -- : trả về 200 OK (access_token, refresh_token, expires_in)
+        BG -> BG : saveTokens(tokens)
+        BG --> UI : trả về trạng thái đã đăng nhập
+        UI -> UI : render giao diện chính
+    end
+end
+deactivate BG
+deactivate UI
+
+@enduml

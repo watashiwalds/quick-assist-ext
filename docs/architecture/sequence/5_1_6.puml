@@ -1,0 +1,149 @@
+@startuml sd_5_1_6
+' Giao diện dùng chung cho mọi sơ đồ tuần tự §5.1.x
+' Bố cục theo phong cách SDS nhóm 08 (thanh kích hoạt, khung alt/opt/loop); nhãn dài tự xuống dòng để vừa khổ A4,
+' tô màu lifeline theo tầng kiến trúc. Mỗi file tự chứa đủ style (không dùng !include) để mở được trong draw.io.
+
+' ===== Bảng màu theo tầng (sửa mã hex ở các dòng actor/participant/database) =====
+' #D6E9FF  Giao diện extension
+' #E6DCFA  BackgroundWorker
+' #FFE3C2  Controller FastAPI
+' #D7F2DC  Service nghiệp vụ
+' #CFEFEC  Tiến trình worker
+' #ECEFF3  Hệ thống bên ngoài
+' #FFF3B8  PostgreSQL
+
+hide footbox
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 22
+skinparam ArrowFontSize 22
+skinparam ParticipantFontSize 22
+skinparam ActorFontSize 22
+skinparam DatabaseFontSize 22
+skinparam SequenceGroupFontSize 22
+skinparam SequenceGroupHeaderFontSize 22
+skinparam SequenceDividerFontSize 22
+skinparam SequenceReferenceFontSize 22
+skinparam NoteFontSize 22
+skinparam sequenceMessageAlign left
+skinparam responseMessageBelowArrow false
+skinparam roundCorner 6
+skinparam maxMessageSize 300
+
+skinparam ArrowColor #2C3E50
+skinparam ArrowThickness 1
+
+skinparam ParticipantBorderColor #34495E
+skinparam ParticipantFontStyle bold
+skinparam ParticipantPadding 0
+skinparam BoxPadding 0
+
+skinparam ActorBorderColor #34495E
+skinparam ActorFontStyle bold
+
+skinparam DatabaseBorderColor #8A6D00
+skinparam DatabaseFontStyle bold
+
+skinparam SequenceLifeLineBorderColor #7F8C8D
+skinparam SequenceLifeLineBackgroundColor #FDEBD3
+
+' Khung alt / opt / loop: tab tiêu đề màu cam nhạt, viền cam đậm
+skinparam SequenceGroupBorderColor #D35400
+skinparam SequenceGroupBorderThickness 1.5
+skinparam SequenceGroupBackgroundColor #FCE3CF
+skinparam SequenceGroupHeaderFontColor #A04000
+skinparam SequenceGroupHeaderFontStyle bold
+skinparam SequenceGroupFontColor #A04000
+skinparam SequenceGroupBodyBackgroundColor transparent
+
+' Vạch chia phần (== Phần 1 ==)
+skinparam SequenceDividerBackgroundColor #2C3E50
+skinparam SequenceDividerFontColor #FFFFFF
+skinparam SequenceDividerBorderColor #2C3E50
+skinparam SequenceDividerFontStyle bold
+
+' Khung ref (Interaction Use)
+skinparam SequenceReferenceBackgroundColor #EAF2F8
+skinparam SequenceReferenceBorderColor #2E86C1
+skinparam SequenceReferenceHeaderBackgroundColor #AED6F1
+
+actor User #FFFFFF
+participant "SidePanelUI\n(Chat)" as UI #D6E9FF
+participant "Background\nWorker" as BG #E6DCFA
+participant "Rag\nController" as API #FFE3C2
+participant "RAGService" as RAG #D7F2DC
+participant "SemanticSearch\nService" as SS #D7F2DC
+participant "QuotaService" as Q #D7F2DC
+participant "AIProvider\n(external service)" as AI #ECEFF3
+
+User -> UI ++ : nhập câu hỏi
+UI -> BG ++ : Port qa-chat: ask(question, history, folderId)
+BG -> API ++ : POST /ai/chat(question, history, folder_id)
+alt vượt giới hạn tần suất "ai"
+    API --> BG : trả về 429 RATE_LIMITED (Retry-After)
+    BG --> UI : trả về lỗi
+else trong giới hạn
+    API -> RAG ++ : prepare(user_id, question, history)
+    RAG -> SS ++ : retrieve(question, top_k, "rag_retrieve")
+    ref over SS, Q, AI : Tham chiếu §5.1.3: giữ quota, embed truy vấn, hybrid search (có thể trả 402 hoặc 502)
+    SS --> RAG -- : trả về các chunk ngữ cảnh
+    alt không có ngữ cảnh phù hợp
+        RAG --> API : trả về PreparedChat (không giữ quota)
+        API --> BG : trả về 200 SSE (sources rỗng, câu trả lời mặc định, done)
+        BG --> UI : trả về câu trả lời mặc định
+    else có ngữ cảnh
+        RAG -> RAG : chat_messages(question, history, chunks)
+        RAG -> Q ++ : reserve(chat, prompt + token đầu ra tối đa)
+        alt hết quota
+            Q --> RAG : trả về QuotaExceeded
+            RAG --> API : trả về lỗi QuotaExceeded
+            API --> BG : trả về 402 QUOTA_EXCEEDED
+            BG --> UI : trả về lỗi hết quota
+        else đủ quota
+            Q --> RAG -- : trả về QuotaLease
+            RAG --> API -- : trả về PreparedChat
+            API --> BG : trả về 200 OK (text/event-stream)
+            API -> RAG ++ : stream(prepared)
+            RAG --> API : trả về event sources
+            API --> BG : trả về SSE sources (trích dẫn)
+            BG --> UI : trả về danh sách nguồn
+            RAG -> AI ++ : stream(messages)
+            loop mỗi đoạn văn bản được sinh ra
+                AI --> RAG : trả về delta
+                RAG --> API : trả về event delta
+                API --> BG : trả về SSE delta
+                BG --> UI : trả về đoạn câu trả lời
+                UI -> UI : render nối tiếp câu trả lời
+            end
+            alt sinh xong
+                AI --> RAG : trả về usage
+                RAG -> Q ++ : commit(lease, usage)
+                Q --> RAG -- : trả về xác nhận trừ quota
+                RAG --> API : trả về event done
+                API --> BG : trả về SSE done (tokens_used)
+            else AI lỗi giữa chừng
+                AI --> RAG : trả về AIProviderError
+                RAG -> Q ++ : commit phần đã sinh (chưa sinh thì release)
+                Q --> RAG -- : trả về xác nhận quyết toán quota
+                RAG --> API : trả về event error
+                API --> BG : trả về SSE error AI_UNAVAILABLE
+            else người dùng bấm Dừng
+                User -> UI : bấm "Dừng"
+                UI -> BG : Port qa-chat: stop
+                BG -> API : AbortController.abort() ngắt kết nối SSE
+                API -> RAG : aclose() generator
+                RAG -> AI : huỷ luồng sinh
+                deactivate AI
+                RAG -> Q ++ : commit phần ước lượng hoặc release (CancelScope shield)
+                Q --> RAG -- : trả về xác nhận quyết toán quota
+                deactivate RAG
+                deactivate API
+            end
+        end
+    end
+end
+BG --> UI -- : trả về kết thúc phiên hỏi đáp
+UI -> UI : render trạng thái hoàn tất
+deactivate UI
+
+@enduml

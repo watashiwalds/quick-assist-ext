@@ -28,3 +28,6 @@ Thumbs.db
 # Office lock files
 ~$*
 infra/gemini.key
+
+# Local technical documents, reports, and slides
+/docs-local/

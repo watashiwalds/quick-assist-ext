@@ -1,0 +1,134 @@
+@startuml sd_5_1_9
+' Giao diện dùng chung cho mọi sơ đồ tuần tự §5.1.x
+' Bố cục theo phong cách SDS nhóm 08 (thanh kích hoạt, khung alt/opt/loop); nhãn dài tự xuống dòng để vừa khổ A4,
+' tô màu lifeline theo tầng kiến trúc. Mỗi file tự chứa đủ style (không dùng !include) để mở được trong draw.io.
+
+' ===== Bảng màu theo tầng (sửa mã hex ở các dòng actor/participant/database) =====
+' #D6E9FF  Giao diện extension
+' #E6DCFA  BackgroundWorker
+' #FFE3C2  Controller FastAPI
+' #D7F2DC  Service nghiệp vụ
+' #CFEFEC  Tiến trình worker
+' #ECEFF3  Hệ thống bên ngoài
+' #FFF3B8  PostgreSQL
+
+hide footbox
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 22
+skinparam ArrowFontSize 22
+skinparam ParticipantFontSize 22
+skinparam ActorFontSize 22
+skinparam DatabaseFontSize 22
+skinparam SequenceGroupFontSize 22
+skinparam SequenceGroupHeaderFontSize 22
+skinparam SequenceDividerFontSize 22
+skinparam SequenceReferenceFontSize 22
+skinparam NoteFontSize 22
+skinparam sequenceMessageAlign left
+skinparam responseMessageBelowArrow false
+skinparam roundCorner 6
+skinparam maxMessageSize 300
+
+skinparam ArrowColor #2C3E50
+skinparam ArrowThickness 1
+
+skinparam ParticipantBorderColor #34495E
+skinparam ParticipantFontStyle bold
+skinparam ParticipantPadding 0
+skinparam BoxPadding 0
+
+skinparam ActorBorderColor #34495E
+skinparam ActorFontStyle bold
+
+skinparam DatabaseBorderColor #8A6D00
+skinparam DatabaseFontStyle bold
+
+skinparam SequenceLifeLineBorderColor #7F8C8D
+skinparam SequenceLifeLineBackgroundColor #FDEBD3
+
+' Khung alt / opt / loop: tab tiêu đề màu cam nhạt, viền cam đậm
+skinparam SequenceGroupBorderColor #D35400
+skinparam SequenceGroupBorderThickness 1.5
+skinparam SequenceGroupBackgroundColor #FCE3CF
+skinparam SequenceGroupHeaderFontColor #A04000
+skinparam SequenceGroupHeaderFontStyle bold
+skinparam SequenceGroupFontColor #A04000
+skinparam SequenceGroupBodyBackgroundColor transparent
+
+' Vạch chia phần (== Phần 1 ==)
+skinparam SequenceDividerBackgroundColor #2C3E50
+skinparam SequenceDividerFontColor #FFFFFF
+skinparam SequenceDividerBorderColor #2C3E50
+skinparam SequenceDividerFontStyle bold
+
+' Khung ref (Interaction Use)
+skinparam SequenceReferenceBackgroundColor #EAF2F8
+skinparam SequenceReferenceBorderColor #2E86C1
+skinparam SequenceReferenceHeaderBackgroundColor #AED6F1
+
+participant "AIFeature\nService" as S #D7F2DC
+participant "QuotaService" as Q #D7F2DC
+participant "AIProvider\n(external service)" as AI #ECEFF3
+participant "Housekeeping\nWorker" as W #CFEFEC
+database Database #FFF3B8
+
+== Phần 1: Giữ chỗ, chốt hoặc hoàn quota cho một lệnh gọi AI ==
+activate S
+S -> Q ++ : leased(user_id, operation, estimate, request_id)
+Q -> Database ++ : ensure_account(user_id, default_limit)
+Database --> Q -- : trả về tài khoản quota
+Q -> Database ++ : find_ledger(request_id)
+Database --> Q -- : trả về ledger hoặc rỗng
+alt request_id đã có trong ledger
+    Q --> S : trả về QuotaLease (is_new = false)
+else request_id mới
+    Q -> Database ++ : try_reserve(user_id, estimate) UPDATE có điều kiện
+    Database --> Q -- : trả về số dòng cập nhật
+    alt không đủ hạn mức
+        Q -> Database ++ : ROLLBACK
+        Database --> Q -- : trả về xác nhận huỷ
+        Q --> S : trả về QuotaExceeded (ánh xạ 402)
+    else đủ hạn mức
+        Q -> Database ++ : add_ledger(RESERVED) và COMMIT
+        Database --> Q -- : trả về xác nhận giữ chỗ
+        Q --> S -- : trả về QuotaLease (is_new = true)
+        S -> AI ++ : gọi AI (embed, complete hoặc stream)
+        alt AI thành công
+            AI --> S : trả về kết quả và usage
+            S -> Q ++ : commit(lease, usage)
+            Q -> Database ++ : settle_ledger(RESERVED sang COMMITTED)
+            Database --> Q -- : trả về 1 dòng
+            Q -> Database ++ : apply_settlement(reserved, actual) và COMMIT
+            Database --> Q -- : trả về xác nhận quyết toán
+            Q --> S -- : trả về hoàn tất
+        else lỗi bất kỳ hoặc request bị huỷ
+            AI --> S -- : trả về lỗi hoặc CancelledError
+            S -> Q ++ : release(lease) trong CancelScope(shield)
+            Q -> Database ++ : settle_ledger(RESERVED sang RELEASED)
+            Database --> Q -- : trả về 1 dòng
+            Q -> Database ++ : apply_settlement(reserved, 0) và COMMIT
+            Database --> Q -- : trả về xác nhận hoàn quota
+            Q --> S -- : trả về hoàn tất
+        end
+    end
+end
+deactivate S
+
+== Phần 2: Dọn giữ chỗ bị treo (tiến trình worker) ==
+loop mỗi 5 phút, đến khi worker dừng
+    activate W
+    W -> Q ++ : release_stale(older_than_minutes = 15)
+    Q -> Database ++ : release_stale_ledgers(cutoff) RETURNING
+    Database --> Q -- : trả về danh sách giữ chỗ bị treo
+    loop mỗi giữ chỗ bị treo
+        Q -> Database ++ : apply_settlement(reserved, 0)
+        Database --> Q -- : trả về xác nhận hoàn quota
+    end
+    Q -> Database ++ : COMMIT
+    Database --> Q -- : trả về xác nhận ghi nhận
+    Q --> W -- : trả về số giữ chỗ đã hoàn
+    deactivate W
+end
+
+@enduml
