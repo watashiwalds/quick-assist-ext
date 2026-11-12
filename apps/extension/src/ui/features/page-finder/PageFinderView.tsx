@@ -1,10 +1,12 @@
 /**
- * AutoChunk — "Tìm trong trang": mô tả điều cần tìm → quét trang đang xem → chọn các đoạn AI tìm ra
- * → lưu thành MỘT ghi chú gộp (cách ghi chú thứ hai, song song với bôi đen). Xem ADR-0013.
+ * AutoChunk — "Tìm trong trang": mô tả điều cần tìm → quét trang đang xem (hoặc nội dung dán vào) →
+ * chọn các đoạn AI tìm ra → lưu thành MỘT ghi chú gộp (cách ghi chú thứ hai, song song với bôi đen).
+ * Xem ADR-0013 và ADR-0015 (nguồn text dán).
  *
- * Luồng: nhập truy vấn → "Đang đọc trang…" → "Đang phân tích & thẩm định…" → danh sách đoạn (đã xác nhận
- * được tích sẵn) → "Xem trên trang" cuộn + làm nổi bật → "Lưu N đoạn" (hoặc "Lưu cả trang" khi gần như
- * cả trang khớp). Không tự lưu khi người dùng chưa bấm.
+ * Luồng: nhập truy vấn → "Đang đọc trang…" (chỉ nguồn trang) → "Đang phân tích & thẩm định…" → danh sách
+ * đoạn (đã xác nhận được tích sẵn) → "Xem trên trang" cuộn + làm nổi bật → "Lưu N đoạn" (hoặc "Lưu cả
+ * trang" khi gần như cả trang khớp). Nguồn dán không có trang gốc nên "Xem trên trang" bị khoá và ghi chú
+ * lưu không kèm URL. Không tự lưu khi người dùng chưa bấm.
  */
 import { type FormEvent, useMemo, useState } from 'react'
 import type { Folder, PageMatchItem } from '@/shared/api/types'
@@ -12,7 +14,7 @@ import { config } from '@/shared/config'
 import { type SerializedError, toSerialized } from '@/shared/errors'
 import { rpc } from '@/shared/messaging/client'
 import type { PageMatchRun } from '@/shared/messaging/protocol'
-import { Banner, Button, ConfirmDialog, EmptyState, ErrorState, Field, Input, Select, Spinner, useToast } from '../../components'
+import { Banner, Button, ConfirmDialog, EmptyState, ErrorState, Field, Input, Select, Spinner, TextArea, useToast } from '../../components'
 import { useBroadcast } from '../../lib/hooks'
 
 const SEP = '\n\n'
@@ -55,6 +57,8 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
   const [phase, setPhase] = useState<Phase>('idle')
   const [result, setResult] = useState<PageMatchRun>()
   const [error, setError] = useState<SerializedError>()
+  const [pasteMode, setPasteMode] = useState(false)
+  const [pasted, setPasted] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [folderId, setFolderId] = useState('')
   const [saving, setSaving] = useState(false)
@@ -68,12 +72,12 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
   const scan = async (e?: FormEvent) => {
     e?.preventDefault()
     const q = query.trim()
-    if (!q || phase !== 'idle') return
-    setPhase('reading')
+    if (!q || phase !== 'idle' || (pasteMode && !pasted.trim())) return
+    setPhase(pasteMode ? 'analyzing' : 'reading')
     setError(undefined)
     setResult(undefined)
     try {
-      const r = await rpc('pageMatch/run', { query: q })
+      const r = await rpc('pageMatch/run', pasteMode ? { query: q, text: pasted } : { query: q })
       setResult(r)
       // Đoạn đã được AI xác nhận được tích sẵn; kết quả "theo điểm" để người dùng tự chọn.
       setSelected(new Set(r.items.filter((i) => i.verified).map((i) => i.id)))
@@ -82,6 +86,13 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
     } finally {
       setPhase('idle')
     }
+  }
+
+  const togglePaste = () => {
+    if (phase !== 'idle') return
+    setPasteMode((v) => !v)
+    setError(undefined)
+    setResult(undefined)
   }
 
   const grantAndRetry = async () => {
@@ -94,6 +105,7 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
   }
 
   const items = result?.items ?? []
+  const fromPaste = result !== undefined && result.tabId == null
   const chosen = useMemo(() => items.filter((i) => selected.has(i.id)), [items, selected])
   const toggle = (id: string) =>
     setSelected((s) => {
@@ -104,7 +116,7 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
     })
 
   const highlight = async (list: PageMatchItem[]) => {
-    if (!result || list.length === 0) return
+    if (!result || result.tabId == null || list.length === 0) return
     const r = await rpc('pageMatch/highlight', { tabId: result.tabId, items: list.map((i) => ({ text: i.text, occ: i.occ })) }).catch(
       () => ({ ok: false, found: 0, total: list.length }),
     )
@@ -129,7 +141,7 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
         await rpc('notes/create', {
           content,
           title: parts.length > 1 ? `${title} (${i + 1}/${parts.length})` : title,
-          url: result.url,
+          url: result.url ?? null,
           folderId: folderId || null,
         })
         saved += 1
@@ -149,7 +161,14 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
   return (
     <section className="stack" aria-label="Tìm trong trang">
       <form className="stack" role="search" onSubmit={(e) => void scan(e)}>
-        <Field label="Bạn cần tìm gì trên trang này?" hint="Ví dụ: “nghị quyết liên quan đến đất đai”. AI tìm và gom các đoạn khớp để bạn chọn lưu.">
+        <Field
+          label={pasteMode ? 'Bạn cần tìm gì trong nội dung này?' : 'Bạn cần tìm gì trên trang này?'}
+          hint={
+            pasteMode
+              ? 'Ví dụ: “nghị quyết liên quan đến đất đai”. AI tìm và gom các đoạn khớp trong nội dung bạn dán.'
+              : 'Ví dụ: “nghị quyết liên quan đến đất đai”. AI tìm và gom các đoạn khớp để bạn chọn lưu.'
+          }
+        >
           {(id) => (
             <Input
               id={id}
@@ -161,10 +180,31 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
           )}
         </Field>
         <div className="row">
-          <Button type="submit" busy={busy} disabled={!query.trim()}>
-            Quét trang
+          <Button type="submit" busy={busy} disabled={!query.trim() || (pasteMode && !pasted.trim())}>
+            {pasteMode ? 'Quét nội dung' : 'Quét trang'}
+          </Button>
+          <Button type="button" variant="ghost" disabled={busy} onClick={togglePaste}>
+            {pasteMode ? 'Huỷ dán' : 'Dán nội dung…'}
           </Button>
         </div>
+        {pasteMode && (
+          <Field
+            label="Nội dung để quét"
+            hint="Dán văn bản từ PDF, Word, chat, email… Khoảng 50 000 ký tự đầu được quét; phần còn lại sẽ có thông báo."
+          >
+            {(id) => (
+              <>
+                <TextArea
+                  id={id}
+                  value={pasted}
+                  placeholder="Dán nội dung vào đây (Ctrl+V)…"
+                  onChange={(e) => setPasted(e.target.value)}
+                />
+                <small className="muted">{pasted.length.toLocaleString('vi-VN')} ký tự</small>
+              </>
+            )}
+          </Field>
+        )}
       </form>
 
       {phase === 'reading' && <Spinner label="Đang đọc trang…" />}
@@ -190,7 +230,13 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
 
       {result && !busy && (
         <>
-          {result.truncated && <Banner tone="info">Trang rất dài — chỉ phần đầu (khoảng 50 000 ký tự nội dung) được quét.</Banner>}
+          {result.truncated && (
+            <Banner tone="info">
+              {fromPaste
+                ? 'Nội dung rất dài — chỉ phần đầu (khoảng 50 000 ký tự) được quét.'
+                : 'Trang rất dài — chỉ phần đầu (khoảng 50 000 ký tự nội dung) được quét.'}
+            </Banner>
+          )}
           {result.warning === 'VERIFY_UNAVAILABLE' && items.length > 0 && (
             <Banner tone="warn">AI chưa thẩm định được lần này — các đoạn dưới đây xếp theo độ tương đồng. Hãy kiểm tra trước khi lưu.</Banner>
           )}
@@ -198,12 +244,22 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
             <Banner tone="info">
               <div className="stack">
                 <span>
-                  Hầu như cả trang khớp truy vấn ({Math.round(result.match_ratio * 100)}% nội dung) — nên lưu cả trang thay vì
-                  chọn từng đoạn.
+                  {fromPaste
+                    ? `Hầu như toàn bộ nội dung khớp truy vấn (${Math.round(result.match_ratio * 100)}% nội dung) — nên lưu toàn bộ thay vì chọn từng đoạn.`
+                    : `Hầu như cả trang khớp truy vấn (${Math.round(result.match_ratio * 100)}% nội dung) — nên lưu cả trang thay vì chọn từng đoạn.`}
                 </span>
                 <div className="row">
-                  <Button size="sm" busy={saving} onClick={() => requestSave(result.full_text ? result.full_text.split(SEP) : items.map((i) => i.text), 'cả trang')}>
-                    Lưu cả trang
+                  <Button
+                    size="sm"
+                    busy={saving}
+                    onClick={() =>
+                      requestSave(
+                        result.full_text ? result.full_text.split(SEP) : items.map((i) => i.text),
+                        fromPaste ? 'toàn bộ nội dung' : 'cả trang',
+                      )
+                    }
+                  >
+                    {fromPaste ? 'Lưu toàn bộ nội dung' : 'Lưu cả trang'}
                   </Button>
                   <small className="muted">≈ {result.total_chars.toLocaleString('vi-VN')} ký tự</small>
                 </div>
@@ -213,7 +269,7 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
 
           {items.length === 0 ? (
             <EmptyState title="Không tìm thấy đoạn nào đủ tin cậy">
-              Thử diễn đạt khác, dùng từ khoá có trên trang, hoặc bôi đen thủ công đoạn cần ghi chú.
+              Thử diễn đạt khác, dùng từ khoá có trong {fromPaste ? 'nội dung' : 'trang'}, hoặc bôi đen thủ công đoạn cần ghi chú.
             </EmptyState>
           ) : (
             <>
@@ -225,9 +281,11 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
                   <Button variant="ghost" size="sm" onClick={() => setSelected(new Set(chosen.length === items.length ? [] : items.map((i) => i.id)))}>
                     {chosen.length === items.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => void highlight(items)}>
-                    Xem tất cả trên trang
-                  </Button>
+                  {!fromPaste && (
+                    <Button variant="ghost" size="sm" onClick={() => void highlight(items)}>
+                      Xem tất cả trên trang
+                    </Button>
+                  )}
                 </div>
               </div>
               <ol className="list" aria-label="Các đoạn tìm thấy">
@@ -247,7 +305,13 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
                     </div>
                     <div className="clamp">{it.text}</div>
                     <div className="row actions">
-                      <Button variant="link" size="sm" onClick={() => void highlight([it])}>
+                      <Button
+                        variant="link"
+                        size="sm"
+                        disabled={fromPaste}
+                        title={fromPaste ? 'Nội dung dán không có trang gốc để xem' : undefined}
+                        onClick={() => void highlight([it])}
+                      >
                         Xem trên trang
                       </Button>
                     </div>
@@ -279,7 +343,7 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
       {!result && !error && !busy && (
         <EmptyState title="Gom nội dung theo ý bạn">
           Thay vì bôi đen từng đoạn, hãy mô tả điều bạn cần — QuickAssist đọc trang đang mở, tìm các đoạn liên quan và để bạn chọn lưu
-          thành một ghi chú.
+          thành một ghi chú. Không có trang web? Bấm <strong>Dán nội dung…</strong> để quét văn bản từ PDF, Word, chat, email…
         </EmptyState>
       )}
 

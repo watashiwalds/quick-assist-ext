@@ -89,7 +89,7 @@ quick-assist-ext/
 │   │   │   │   ├── semantic_search/           #    SemanticSearchService + chunking + indexing_job
 │   │   │   │   ├── summary/                   #    SummaryService + prompts
 │   │   │   │   ├── rag/                       #    RAGService (Nice-to-have)
-│   │   │   │   ├── page_match/                #    PageMatchService + extractor (Trafilatura/process pool) + prompts — AutoChunk
+│   │   │   │   ├── page_match/                #    PageMatchService + extractor (Trafilatura/process pool, text dán) + prompts — AutoChunk
 │   │   │   │   ├── system/                    #    HealthService
 │   │   │   │   └── common/                    #    exceptions (lỗi nghiệp vụ), idempotency
 │   │   │   │
@@ -161,7 +161,7 @@ quick-assist-ext/
 | §5.1.4 Tóm tắt AI | `summary_controller` → `SummaryService.summarize`; lưu: `PUT /notes/{id}/summary` | |
 | §5.1.5 Xoá tài khoản | `account_controller` → `AccountService.delete_account` | |
 | §5.1.6 Hỏi đáp RAG | `rag_controller` → `RAGService` (TODO X01) | |
-| AutoChunk — ghi chú theo truy vấn (ngoài SDS, ADR-0013) | `page_match_controller` → `PageMatchService.match` (extractor → embed → LLM thẩm định); extension: `content/injected.getRawHtml/highlightBlocksByText` → `background/page-match.ts` → `ui/features/page-finder`; lưu: `POST /notes` | — (stateless, không bảng mới) |
+| AutoChunk — ghi chú theo truy vấn (ngoài SDS, ADR-0013, ADR-0015) | `page_match_controller` → `PageMatchService.match` (nguồn `html` → extractor; nguồn `text` dán → `split_paragraphs`; sau đó embed → LLM thẩm định); extension: `content/injected.getRawHtml/highlightBlocksByText` (chỉ nguồn trang) → `background/page-match.ts` → `ui/features/page-finder`; lưu: `POST /notes` | — (stateless, không bảng mới) |
 | Giới hạn tần suất (NFR giới hạn tài nguyên) | `presentation/api/deps.rate_limit` → `infrastructure/rate_limit.py` | — |
 | Chất lượng tìm kiếm (Recall@5, MRR) | `apps/api/tests/eval/` (H03) | — |
 

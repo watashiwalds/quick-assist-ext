@@ -460,10 +460,17 @@
         "additionalProperties": false,
         "properties": {
           "html": {
-            "description": "HTML trang đã bỏ script/style/noscript/template/svg; ≤ PAGE_MATCH_MAX_HTML_BYTES (mặc định 2MB)",
-            "minLength": 1,
-            "title": "Html",
-            "type": "string"
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "HTML trang đã bỏ script/style/noscript/template/svg; ≤ PAGE_MATCH_MAX_HTML_BYTES (mặc định 2MB). Cần đúng một trong html/text",
+            "title": "Html"
           },
           "query": {
             "description": "Ý định người dùng, ngôn ngữ tự nhiên",
@@ -471,6 +478,19 @@
             "minLength": 1,
             "title": "Query",
             "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Nội dung văn bản người dùng dán (PDF/Word/chat/email…); cần đúng một trong html/text",
+            "title": "Text"
           },
           "title": {
             "anyOf": [
@@ -500,8 +520,7 @@
           }
         },
         "required": [
-          "query",
-          "html"
+          "query"
         ],
         "title": "PageMatchIn",
         "type": "object"
@@ -1576,6 +1595,33 @@
           }
         ],
         "summary": "Get Quota",
+        "tags": [
+          "quota"
+        ]
+      }
+    },
+    "/api/v1/me/quota/reset": {
+      "post": {
+        "description": "Tạo lại hạn mức cho demo (chỉ khi ENABLE_DEV_LOGIN bật ở dev/test).",
+        "operationId": "reset_quota_api_v1_me_quota_reset_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuotaOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reset Quota",
         "tags": [
           "quota"
         ]

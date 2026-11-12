@@ -169,7 +169,7 @@ export const handlers: Handlers = {
     broadcast({ channel: 'qa-event', type: 'notes/changed' })
     return note
   },
-  'pageMatch/run': ({ query }) => runPageMatch(query),
+  'pageMatch/run': ({ query, text }) => runPageMatch({ query, text }),
   'pageMatch/highlight': ({ tabId, items }) => highlightInTab(tabId, items),
 
   'e2e/devLogin': async ({ email }) => {

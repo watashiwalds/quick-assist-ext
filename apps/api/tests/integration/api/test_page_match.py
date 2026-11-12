@@ -81,6 +81,50 @@ async def test_full_page_mode_returns_whole_page_text(client) -> None:
     assert data["full_text"] and data["full_text"].count("\n\n") == 5
 
 
+async def test_text_source_skips_trafilatura(app, client, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from quickassist.business.page_match import page_match_service as svc
+
+    async def _boom(*args, **kwargs):  # type: ignore[no-untyped-def]
+        raise AssertionError("nguồn text không được đi qua Trafilatura")
+
+    monkeypatch.setattr(svc, "extract_blocks", _boom)
+    h = await login(client)
+    text = "Đoạn một: quy định về đất đai và thu hồi đất.\n\nĐoạn hai: chính sách giáo dục."
+    r = await client.post("/ai/page-match", json={"query": "đất đai", "text": text}, headers=h)
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["items"] and all("đất" in i["text"] for i in data["items"])
+    assert data["truncated"] is False
+
+
+async def test_text_source_full_page_returns_whole_pasted_text(client) -> None:
+    text = "\n\n".join(f"Đoạn {i}: quy định về đất đai và bồi thường." for i in range(6))
+    h = await login(client)
+    r = await client.post("/ai/page-match", json={"query": "đất đai", "text": text}, headers=h)
+    data = r.json()
+    assert r.status_code == 200 and data["mode"] == "full_page" and data["match_ratio"] >= 0.6
+    assert data["full_text"] == text
+
+
+@pytest.mark.parametrize("text", ["   ", "\n\n", "\x00"])
+async def test_blank_text_is_422_page_no_content(client, text) -> None:  # type: ignore[no-untyped-def]
+    h = await login(client)
+    r = await client.post("/ai/page-match", json={"query": "đất đai", "text": text}, headers=h)
+    assert r.status_code == 422 and r.json()["error"]["code"] == "PAGE_NO_CONTENT"
+
+
+async def test_text_over_cap_is_truncated_not_413(client, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from quickassist.infrastructure.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "page_match_max_chars", 100)
+    text = "\n\n".join(f"Đoạn {i}: nội dung về đất đai." for i in range(20))
+    h = await login(client)
+    r = await client.post("/ai/page-match", json={"query": "đất đai", "text": text}, headers=h)
+    data = r.json()
+    assert r.status_code == 200 and data["truncated"] is True
+    assert 0 < data["total_chars"] <= 100
+
+
 async def test_no_candidate_returns_empty_without_calling_llm(app, client) -> None:
     from quickassist.infrastructure.openai import get_ai_provider
 
@@ -157,6 +201,7 @@ async def test_page_without_main_content_is_422_page_no_content(client) -> None:
     {"query": "", "html": "<p>x</p>"},
     {"query": "a" * 501, "html": "<p>x</p>"},
     {"query": "abc"},
+    {"query": "abc", "html": "<p>x</p>", "text": "<p>y</p>"},
     {"query": "abc", "html": "<p>x</p>", "la": 1},
 ])
 async def test_validation_422(client, body) -> None:  # type: ignore[no-untyped-def]

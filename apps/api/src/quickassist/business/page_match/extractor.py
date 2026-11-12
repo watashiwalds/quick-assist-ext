@@ -1,7 +1,8 @@
-"""Business Layer — Page Match: HTML trang → các đoạn (block) để embed + thẩm định (ADR-0013).
+"""Business Layer — Page Match: nội dung nguồn → các đoạn (block) để embed + thẩm định (ADR-0013).
 
-- Trafilatura chạy trong ProcessPoolExecutor (spawn) — lazy singleton, timeout cứng; treo → kill cả pool
-  và tạo lại ở lần gọi sau; crash parse (lxml) không lan vào event loop của API.
+- HTML: Trafilatura chạy trong ProcessPoolExecutor (spawn) — lazy singleton, timeout cứng; treo → kill cả
+  pool và tạo lại ở lần gọi sau; crash parse (lxml) không lan vào event loop của API.
+- Text dán (PDF/Word/chat…): bỏ qua Trafilatura, tách đoạn thuần Python (`split_paragraphs`).
 - Khối > `max_block_chars` được tách theo câu (`split_long_block`).
 - `occ` = số lần đúng text đó đã xuất hiện trước → extension highlight đúng lần xuất hiện thứ n.
 - Cap tổng ký tự theo biên khối → giới hạn chi phí embed.
@@ -21,6 +22,7 @@ from quickassist.infrastructure.logging import get_logger
 log = get_logger(__name__)
 
 _SENTENCE_END = re.compile(r"(?<=[.!?…;:])\s+")
+_BLANK_LINE = re.compile(r"\n\s*\n")
 
 
 @dataclass(frozen=True)
@@ -82,6 +84,24 @@ def split_long_block(text: str, max_chars: int) -> list[str]:
     return pieces
 
 
+def split_paragraphs(text: str) -> list[str]:
+    """Văn bản người dùng dán → các đoạn thô, giữ thứ tự tài liệu.
+
+    - Chuẩn hoá xuống dòng (CRLF/CR → LF), bỏ NUL; tách theo dòng trống (`\\n\\n`).
+    - Không có dòng trống → tách theo câu: bản copy từ PDF/Word thường chỉ có `\\n` đơn,
+      gộp cả tài liệu thành một khối sẽ mất ranh giới đoạn tự nhiên.
+    - Đoạn dài hơn `max_block_chars` vẫn được `build_blocks` cắt tiếp theo câu.
+    """
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n").replace("\x00", "").strip()
+    if not normalized:
+        return []
+    paragraphs = [p.strip() for p in _BLANK_LINE.split(normalized)]
+    paragraphs = [p for p in paragraphs if p]
+    if len(paragraphs) > 1:
+        return paragraphs
+    return [s.strip() for s in _SENTENCE_END.split(normalized) if s.strip()]
+
+
 def build_blocks(texts: list[str], *, max_block_chars: int, max_chars: int) -> Extraction:
     """Text khối thô (thứ tự tài liệu) → Block có id/occ, đã tách câu và cap tổng ký tự."""
     blocks: list[Block] = []
@@ -100,6 +120,14 @@ def build_blocks(texts: list[str], *, max_block_chars: int, max_chars: int) -> E
         if truncated:
             break
     return Extraction(blocks, total, truncated)
+
+
+def extract_text_blocks(text: str, *, max_block_chars: int, max_chars: int) -> Extraction:
+    """Text dán → Extraction, không qua Trafilatura/process pool. Rỗng → ExtractError("empty")."""
+    extraction = build_blocks(split_paragraphs(text), max_block_chars=max_block_chars, max_chars=max_chars)
+    if not extraction.blocks:
+        raise ExtractError("empty")
+    return extraction
 
 
 # ---------------------------------------------------------------- process pool

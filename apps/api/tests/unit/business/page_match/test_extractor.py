@@ -11,7 +11,9 @@ from quickassist.business.page_match.extractor import (
     ExtractError,
     build_blocks,
     extract_blocks,
+    extract_text_blocks,
     split_long_block,
+    split_paragraphs,
 )
 
 FIXTURES = Path(__file__).parents[3] / "fixtures" / "html"
@@ -92,6 +94,38 @@ def test_build_blocks_occ_renumbered_after_split() -> None:
 def test_build_blocks_caps_total_chars_on_block_boundary() -> None:
     ex = build_blocks(["x" * 40, "y" * 40, "z" * 40], max_block_chars=1200, max_chars=100)
     assert [b.text[0] for b in ex.blocks] == ["x", "y"] and ex.truncated and ex.total_chars == 80
+
+
+# ---------------------------------------------------------------- nguồn text dán
+
+def test_split_paragraphs_on_blank_lines_preserves_order_and_inner_line_breaks() -> None:
+    text = "Đoạn một.\n\nĐoạn hai\ndòng hai.\n\n\n  Đoạn ba.  \r\n"
+    assert split_paragraphs(text) == ["Đoạn một.", "Đoạn hai\ndòng hai.", "Đoạn ba."]
+
+
+def test_split_paragraphs_without_blank_lines_falls_back_to_sentences() -> None:
+    # Copy từ PDF/Word thường chỉ có \n đơn → vẫn có ranh giới đoạn theo câu.
+    text = "Câu một về đất đai.\nCâu hai về quy hoạch!\nCâu ba về giao thông?"
+    assert split_paragraphs(text) == [
+        "Câu một về đất đai.", "Câu hai về quy hoạch!", "Câu ba về giao thông?",
+    ]
+
+
+def test_split_paragraphs_normalizes_and_drops_empty_input() -> None:
+    assert split_paragraphs("") == []
+    assert split_paragraphs("  \n\n \x00 ") == []
+    assert split_paragraphs("Một\x00 đoạn.\r\n\r\nĐoạn khác.") == ["Một đoạn.", "Đoạn khác."]
+
+
+def test_extract_text_blocks_builds_blocks_and_caps_chars() -> None:
+    ex = extract_text_blocks("A.\n\nB.\n\nC.", max_block_chars=1200, max_chars=4)
+    assert [b.text for b in ex.blocks] == ["A.", "B."] and ex.truncated
+
+
+def test_extract_text_blocks_empty_raises() -> None:
+    with pytest.raises(ExtractError) as e:
+        extract_text_blocks(" \n\n ", max_block_chars=1200, max_chars=50_000)
+    assert e.value.reason == "empty"
 
 
 # ---------------------------------------------------------------- process pool

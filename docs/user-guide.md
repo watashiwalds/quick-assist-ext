@@ -42,14 +42,22 @@ Tìm kiếm đã gộp vào **thanh tìm kiếm của tab Thư viện**: gõ t�
 - **Đoạn đang đọc:** bôi đen → chuột phải → **Tóm tắt đoạn văn bản này** → bảng bên phải mở tab *Tóm tắt* → **Lưu thành ghi chú** (lưu cả đoạn văn và bản tóm tắt), **Sao chép** hoặc **Huỷ**.
 Bản tóm tắt chỉ được lưu khi bạn bấm Lưu.
 
-## 7. Cài đặt, hạn mức AI, xoá tài khoản
+## 7. Tìm trong trang (AutoChunk)
+Tab **Tìm trong trang** giúp gom các đoạn liên quan thay vì bôi đen từng đoạn:
+1. Mô tả điều cần tìm (ví dụ "nghị quyết liên quan đến đất đai") rồi bấm **Quét trang**.
+2. AI tìm trên trang đang mở, trả danh sách đoạn khớp để bạn tích chọn. Bấm **Xem trên trang** để cuộn tới và tô sáng đoạn đó.
+3. Chọn thư mục rồi bấm **Lưu N đoạn thành ghi chú** — ghi chú có tiêu đề là truy vấn của bạn.
+
+**Không có trang web?** Bấm **Dán nội dung…**, dán văn bản từ PDF, Word, chat, email… rồi bấm **Quét nội dung**. Có thể dán dài; khoảng 50 000 ký tự đầu được quét và bạn sẽ thấy thông báo nếu nội dung bị cắt. Nội dung dán không có trang gốc nên nút **Xem trên trang** bị khoá, và ghi chú được lưu **không kèm đường dẫn**.
+
+## 8. Cài đặt, hạn mức AI, xoá tài khoản
 Tab **Cài đặt**: xem hạn mức AI đã dùng/còn lại, chọn thư mục mặc định khi lưu nhanh, **Đăng xuất** (xoá bộ nhớ đệm trên máy). **Xoá tài khoản** xoá vĩnh viễn mọi ghi chú, thư mục, chỉ mục và lịch sử hạn mức — cần xác nhận 2 bước và gõ "XOÁ".
 
-## 8. Câu hỏi thường gặp
+## 9. Câu hỏi thường gặp
 | Hỏi | Đáp |
 |---|---|
 | Phím tắt không chạy? | Có thể trùng phím với ứng dụng khác — đổi tại `chrome://extensions/shortcuts`. |
 | Ghi chú mới không tìm thấy? | Đợi nhãn chuyển *Sẵn sàng tìm kiếm* (vài giây). Nhãn *Bỏ qua (hết quota)* → xem Cài đặt. |
-| "Bạn thao tác quá nhanh"? | Giới hạn 30 lần tìm/phút, 10 lần tóm tắt/phút — đợi số giây được báo. |
+| "Bạn thao tác quá nhanh"? | Giới hạn 30 lần tìm/phút, 10 lần tóm tắt/phút, 6 lần quét trang/phút — đợi số giây được báo. |
 | Báo lỗi cho nhóm? | Gửi kèm **Mã lỗi** hiện dưới thông báo lỗi để nhóm tra log. |
 | QuickAssist có đọc lịch sử duyệt web? | **Không.** Chỉ đọc đoạn bạn chủ động bôi đen và lưu/tóm tắt. |

@@ -214,6 +214,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/quota/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Quota
+         * @description Tạo lại hạn mức cho demo (chỉ khi ENABLE_DEV_LOGIN bật ở dev/test).
+         */
+        post: operations["reset_quota_api_v1_me_quota_reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notes": {
         parameters: {
             query?: never;
@@ -481,14 +501,19 @@ export interface components {
         PageMatchIn: {
             /**
              * Html
-             * @description HTML trang đã bỏ script/style/noscript/template/svg; ≤ PAGE_MATCH_MAX_HTML_BYTES (mặc định 2MB)
+             * @description HTML trang đã bỏ script/style/noscript/template/svg; ≤ PAGE_MATCH_MAX_HTML_BYTES (mặc định 2MB). Cần đúng một trong html/text
              */
-            html: string;
+            html?: string | null;
             /**
              * Query
              * @description Ý định người dùng, ngôn ngữ tự nhiên
              */
             query: string;
+            /**
+             * Text
+             * @description Nội dung văn bản người dùng dán (PDF/Word/chat/email…); cần đúng một trong html/text
+             */
+            text?: string | null;
             /**
              * Title
              * @description Chỉ để log/metadata
@@ -1182,6 +1207,26 @@ export interface operations {
         };
     };
     get_quota_api_v1_me_quota_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuotaOut"];
+                };
+            };
+        };
+    };
+    reset_quota_api_v1_me_quota_reset_post: {
         parameters: {
             query?: never;
             header?: never;

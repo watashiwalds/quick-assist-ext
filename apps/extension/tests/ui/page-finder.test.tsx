@@ -78,6 +78,52 @@ describe('PageFinderView', () => {
     })
   })
 
+  it('dán nội dung → quét bằng text, khoá "Xem trên trang", banner "Nội dung rất dài", lưu không URL', async () => {
+    const text = 'Nghị quyết 12/2023 về đất đai.\n\nNghị quyết 14/2023 thu hồi đất.'
+    rpc.mockImplementation(async (type: string) => {
+      if (type === 'pageMatch/run') return run({ tabId: undefined, url: null, title: null, truncated: true })
+      if (type === 'notes/create') return note
+      throw new Error(type)
+    })
+    view()
+    fireEvent.click(screen.getByRole('button', { name: 'Dán nội dung…' }))
+    fireEvent.change(screen.getByLabelText(/Bạn cần tìm gì/), { target: { value: 'nghị quyết đất đai' } })
+    fireEvent.change(screen.getByLabelText('Nội dung để quét'), { target: { value: text } })
+    fireEvent.click(screen.getByRole('button', { name: 'Quét nội dung' }))
+    await screen.findByText('Nghị quyết 12/2023 về đất đai')
+    expect(rpc).toHaveBeenCalledWith('pageMatch/run', { query: 'nghị quyết đất đai', text })
+    expect(screen.queryByRole('button', { name: 'Xem tất cả trên trang' })).toBeNull()
+    const viewButtons = screen.getAllByRole('button', { name: 'Xem trên trang' }) as HTMLButtonElement[]
+    expect(viewButtons.every((b) => b.disabled)).toBe(true)
+    expect(viewButtons[0]!.title).toBe('Nội dung dán không có trang gốc để xem')
+    expect(screen.getByText(/Nội dung rất dài/)).toBeTruthy()
+    expect(screen.queryByText(/Trang rất dài/)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu 2 đoạn thành ghi chú' }))
+    await screen.findByText('Đã lưu 2 đoạn thành ghi chú')
+    expect(rpc).toHaveBeenCalledWith('notes/create', {
+      content: 'Nghị quyết 12/2023 về đất đai\n\nNghị quyết 14/2023 thu hồi đất',
+      title: 'nghị quyết đất đai',
+      url: null,
+      folderId: null,
+    })
+  })
+
+  it('nguồn dán full_page → "Lưu toàn bộ nội dung" thay vì "Lưu cả trang"', async () => {
+    const full = 'Đoạn A về đất đai.\n\nĐoạn B về đất đai.'
+    rpc.mockResolvedValueOnce(
+      run({ tabId: undefined, url: null, title: null, mode: 'full_page', match_ratio: 0.92, full_text: full, total_chars: full.length }),
+    )
+    view()
+    fireEvent.click(screen.getByRole('button', { name: 'Dán nội dung…' }))
+    fireEvent.change(screen.getByLabelText(/Bạn cần tìm gì/), { target: { value: 'đất đai' } })
+    fireEvent.change(screen.getByLabelText('Nội dung để quét'), { target: { value: full } })
+    fireEvent.click(screen.getByRole('button', { name: 'Quét nội dung' }))
+    await screen.findByText(/Hầu như toàn bộ nội dung khớp truy vấn/)
+    expect(screen.getByRole('button', { name: 'Lưu toàn bộ nội dung' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Lưu cả trang' })).toBeNull()
+  })
+
   it('bỏ chọn một đoạn → chỉ lưu đoạn còn lại; không chọn gì → nút Lưu bị khoá', async () => {
     rpc.mockImplementation(async (type: string) => (type === 'pageMatch/run' ? run() : note))
     view()
@@ -144,7 +190,7 @@ describe('PageFinderView', () => {
   it.each([
     ['QUOTA_EXCEEDED', 402, /hết hạn mức AI/, 'Xem hạn mức'],
     ['PAGE_TOO_LONG', 413, /Trang quá dài để quét/, null],
-    ['PAGE_NO_CONTENT', 422, /Trang không hỗ trợ quét nội dung/, null],
+    ['PAGE_NO_CONTENT', 422, /Không tìm thấy nội dung để quét/, null],
     ['NETWORK_ERROR', 0, /Không kết nối được máy chủ/, 'Thử lại'],
   ])('lỗi %s → thông báo riêng, không treo loading', async (code, status, text, button) => {
     rpc.mockRejectedValueOnce(new AppError(code, code, status))

@@ -44,8 +44,9 @@ export interface Preferences {
   showSearchTab: boolean
 }
 
-/** Kết quả quét trang (AutoChunk) + tab đã quét (để highlight đúng tab dù người dùng chuyển tab). */
-export type PageMatchRun = PageMatchResult & { tabId: number; url: string; title: string | null }
+/** Kết quả quét (AutoChunk) + tab đã quét (để highlight đúng tab dù người dùng chuyển tab).
+ *  `tabId` chỉ có khi nguồn là trang đang mở; nội dung dán không có trang gốc nên `url` = null. */
+export type PageMatchRun = PageMatchResult & { tabId?: number; url: string | null; title: string | null }
 
 export interface RpcMap {
   'auth/status': { req: void; res: SessionInfo }
@@ -83,8 +84,8 @@ export interface RpcMap {
 
   /** Tạo ghi chú mới từ UI (AutoChunk lưu các đoạn đã chọn) — background sinh Idempotency-Key. */
   'notes/create': { req: { content: string; title: string | null; url: string | null; folderId?: string | null }; res: Note }
-  /** AutoChunk: quét tab đang xem theo truy vấn (POST /ai/page-match). */
-  'pageMatch/run': { req: { query: string }; res: PageMatchRun }
+  /** AutoChunk: quét tab đang xem hoặc nội dung dán (`text`) theo truy vấn (POST /ai/page-match). */
+  'pageMatch/run': { req: { query: string; text?: string }; res: PageMatchRun }
   /** AutoChunk: cuộn tới + làm nổi bật các đoạn trên trang đã quét. */
   'pageMatch/highlight': { req: { tabId: number; items: Array<{ text: string; occ: number }> }; res: { ok: boolean; found: number; total: number } }
 

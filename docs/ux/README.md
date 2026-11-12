@@ -99,8 +99,9 @@ flowchart LR
 |---|---|
 | ![](screens/15-cai-dat.png) | ![](screens/16-xoa-tai-khoan-buoc-2.png) |
 
-## Luồng 7 — Tìm trong trang / AutoChunk (ADR-0013)
-1. Side panel → tab **Tìm trong trang** → nhập điều cần tìm (≤ 500 ký tự) → **Quét trang**.
+## Luồng 7 — Tìm trong trang / AutoChunk (ADR-0013, ADR-0015)
+1. Side panel → tab **Tìm trong trang** → nhập điều cần tìm (≤ 500 ký tự) → **Quét trang**. Nguồn thay thế:
+   bấm **Dán nội dung…** → textarea (bộ đếm ký tự) → **Quét nội dung** (nguồn text, không cần quyền đọc trang).
 2. Loading 2 pha: *Đang đọc trang…* (chụp HTML) → *Đang phân tích & thẩm định bằng AI…* (máy chủ trích nội dung chính, embed, LLM xác nhận).
 3. Danh sách đoạn theo thứ tự trên trang, mỗi đoạn: checkbox · badge **✓ Đã xác nhận** (tích sẵn) hoặc **Theo điểm tương đồng · n%**
    (khi AI thẩm định lỗi — kèm banner cảnh báo, không tích sẵn) · nội dung clamp 4 dòng · **Xem trên trang** (cuộn + tô sáng ~4 giây).
@@ -110,6 +111,9 @@ flowchart LR
 6. Trạng thái: rỗng ("Không tìm thấy đoạn nào đủ tin cậy" + gợi ý), 402 → *Xem hạn mức*, 413 → gợi ý mở trang con, 422 → "Trang không hỗ trợ",
    chưa có quyền đọc trang → **Cho phép đọc trang** (quyền tuỳ chọn), lỗi mạng → *Thử lại*; trang dài hơn 50 000 ký tự → banner "chỉ quét phần đầu".
    Ảnh chụp màn: bổ sung bằng `ux-screens.spec.ts` khi có E2E AutoChunk (Task 8).
+7. **Nguồn dán (ADR-0015):** kết quả dùng chung danh sách đoạn; khác biệt — ẩn **Xem tất cả trên trang**, nút **Xem trên trang** bị khoá kèm tooltip
+   *"Nội dung dán không có trang gốc để xem"*, banner dài đổi thành "Nội dung rất dài", **Lưu cả trang** → **Lưu toàn bộ nội dung**,
+   ghi chú lưu với `url = null` (title vẫn là truy vấn).
 
 ## Ma trận trạng thái đã bao phủ
 | Màn | Loading | Empty | Error | Undo | Hết quota | Offline |
@@ -119,4 +123,4 @@ flowchart LR
 | Tìm sâu (trong Thư viện) | ✅ | ✅ | ✅ | — | ✅ + link Cài đặt | thông báo mạng |
 | Tóm tắt | ✅ | ✅ | ✅ | Huỷ | ✅ + link Cài đặt | thông báo mạng |
 | Cài đặt | ✅ | — | ✅ | 2 bước | thanh hạn mức + cảnh báo | hồ sơ từ cache |
-| Tìm trong trang | ✅ 2 pha | ✅ | ✅ (413/422/quyền/Thử lại) | không tự lưu; hỏi lại khi lớn | ✅ + link Cài đặt | thông báo mạng |
+| Tìm trong trang | ✅ 2 pha (dán: 1 pha) | ✅ | ✅ (413/422/quyền/Thử lại) | không tự lưu; hỏi lại khi lớn | ✅ + link Cài đặt | thông báo mạng |
