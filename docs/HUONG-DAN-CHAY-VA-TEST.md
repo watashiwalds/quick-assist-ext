@@ -20,6 +20,11 @@ Script tự làm A1 + A2: bật Docker Desktop nếu chưa chạy, tạo `infra\
 
 Muốn dùng AI thật (Gemini/Gemma 4): tạo file `infra\gemini.key` chứa đúng 1 dòng là khoá (file đã nằm trong `.gitignore`). Script tự gọi thử; khoá lỗi thì tự quay về AI giả lập và báo lý do.
 
+### Cách nhanh: bấm đúp `chay-thu.bat` (ở thư mục gốc repo)
+Script tự làm A1 + A2: bật Docker Desktop nếu chưa chạy, tạo `infra\.env`, dựng DB + API + worker, chờ API sẵn sàng, kiểm tra khoá Gemini (nếu có), build extension bản kiểm thử, copy sẵn đường dẫn `dist-e2e` vào clipboard. Sau đó bạn chỉ làm bước nạp extension (A2 mục 1–2) và đăng nhập (A3).
+
+Muốn dùng AI thật (Gemini/Gemma 4): tạo file `infra\gemini.key` chứa đúng 1 dòng là khoá (file đã nằm trong `.gitignore`). Script tự gọi thử; khoá lỗi thì tự quay về AI giả lập và báo lý do.
+
 ### A1. Lấy code và bật backend
 ```powershell
 git checkout dev

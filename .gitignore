@@ -31,3 +31,6 @@ infra/gemini.key
 
 # Local technical documents, reports, and slides
 /docs-local/
+.repowise/
+.vscode/
+docs/presentation/

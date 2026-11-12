@@ -28,6 +28,8 @@ test('mở thư viện: hiện ghi chú từ server; mất mạng vẫn mở đ�
 test('sửa ghi chú; xung đột 409 khi máy khác đã sửa → ghi đè theo lựa chọn', async ({ panel, api }) => {
   const [n] = await seed(api, 1)
   await panel.reload()
+  // mở ghi chú trong reader rồi bấm Sửa (editor nhúng thay modal — W03)
+  await panel.locator('.note-list').getByRole('heading', { name: 'Note 0' }).click()
   await panel.getByRole('button', { name: 'Sửa' }).click()
   await panel.getByLabel('Nội dung').fill('Nội dung tôi sửa')
   // "máy khác" sửa trước
@@ -44,9 +46,10 @@ test('sửa ghi chú; xung đột 409 khi máy khác đã sửa → ghi đè the
 test('xoá một và xoá nhiều ghi chú có xác nhận', async ({ panel, api }) => {
   await seed(api, 4)
   await panel.reload()
-  await panel.getByRole('listitem', { name: 'Note 3' }).getByRole('button', { name: 'Xoá' }).click()
+  await panel.locator('.note-list').getByRole('heading', { name: 'Note 3' }).click()
+  await panel.getByRole('button', { name: 'Xoá' }).click() // footer của reader
   await panel.getByRole('dialog').getByRole('button', { name: 'Xoá' }).click()
-  await expect(panel.getByRole('heading', { name: 'Note 3' })).toHaveCount(0)
+  await expect(panel.getByRole('heading', { name: 'Note 3' })).toHaveCount(0) // khỏi danh sách lẫn reader (đã đóng)
   await panel.getByRole('button', { name: 'Chọn', exact: true }).click()
   await panel.getByLabel('Chọn “Note 0”').check()
   await panel.getByLabel('Chọn “Note 1”').check()

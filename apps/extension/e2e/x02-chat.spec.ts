@@ -29,8 +29,7 @@ test('hỏi → câu trả lời + nguồn từ ghi chú, mở được ghi chú
   await expect(first).toContainText('[1] Phở bò Hà Nội')
   await expect(first.getByRole('link', { name: /Trang nguồn/ })).toHaveAttribute('href', 'https://amthuc.example/pho')
   await first.getByRole('button', { name: 'Mở ghi chú' }).click()
-  await expect(panel.getByRole('dialog', { name: 'Sửa ghi chú' })).toBeVisible()
-  await expect(panel.getByLabel('Tiêu đề')).toHaveValue('Phở bò Hà Nội')
+  await expect(panel.locator('.reader-title')).toHaveText('Phở bò Hà Nội')
 })
 
 test('không có ghi chú liên quan → nói rõ, không bịa', async ({ panel }) => {

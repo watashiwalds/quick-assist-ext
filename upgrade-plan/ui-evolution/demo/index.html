@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Demo tĩnh cho màn Thư viện của QuickAssist khi sidebar được mở rộng."
+    />
+    <title>QuickAssist — Thư viện (demo mở rộng)</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <h1 class="sr-only">QuickAssist — Thư viện ghi chú</h1>
+
+    <svg class="icon-sprite" aria-hidden="true">
+      <symbol id="i-note" viewBox="0 0 24 24">
+        <path d="M7 3h7l5 5v13H7z" />
+        <path d="M14 3v5h5" />
+        <path d="M10 13h6M10 17h4" />
+      </symbol>
+      <symbol id="i-search" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="6.5" />
+        <path d="m16 16 4 4" />
+      </symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24">
+        <path d="M3.5 7.5A2.5 2.5 0 0 1 6 5h4l2 2h6a2.5 2.5 0 0 1 2.5 2.5v7A2.5 2.5 0 0 1 18 19H6a2.5 2.5 0 0 1-2.5-2.5z" />
+      </symbol>
+      <symbol id="i-layers" viewBox="0 0 24 24">
+        <path d="m12 3 8 4.5-8 4.5-8-4.5z" />
+        <path d="m4 12 8 4.5 8-4.5" />
+        <path d="m4 16.5 8 4.5 8-4.5" />
+      </symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24">
+        <path d="M12 5v14M5 12h14" />
+      </symbol>
+      <symbol id="i-sync" viewBox="0 0 24 24">
+        <path d="M20 7v5h-5" />
+        <path d="M4 17v-5h5" />
+        <path d="M6.1 9A7 7 0 0 1 18.5 7.5L20 12" />
+        <path d="M17.9 15A7 7 0 0 1 5.5 16.5L4 12" />
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24">
+        <path d="m5 12.5 4.5 4.5L19 7.5" />
+      </symbol>
+      <symbol id="i-check-square" viewBox="0 0 24 24">
+        <rect x="4" y="4" width="16" height="16" rx="3" />
+        <path d="m8 12 2.5 2.5L16 9" />
+      </symbol>
+      <symbol id="i-external" viewBox="0 0 24 24">
+        <path d="M14 4h6v6" />
+        <path d="M20 4 11 13" />
+        <path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5" />
+      </symbol>
+      <symbol id="i-sparkles" viewBox="0 0 24 24">
+        <path d="m12 3 1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z" />
+        <path d="m19 14 .8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8z" />
+      </symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24">
+        <path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17z" />
+        <path d="m13.5 6.5 4 4" />
+      </symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24">
+        <path d="M4 7h16M9 7V4h6v3M6.5 7l1 13h9l1-13" />
+        <path d="M10 11v5M14 11v5" />
+      </symbol>
+      <symbol id="i-more" viewBox="0 0 24 24">
+        <path d="M5 12h.01M12 12h.01M19 12h.01" />
+      </symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24">
+        <path d="M12 3 2.5 20h19z" />
+        <path d="M12 9v5" />
+        <path d="M12 17h.01" />
+      </symbol>
+      <symbol id="i-chevron-down" viewBox="0 0 24 24">
+        <path d="m6 9 6 6 6-6" />
+      </symbol>
+      <symbol id="i-user" viewBox="0 0 24 24">
+        <circle cx="12" cy="8" r="3.5" />
+        <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+      </symbol>
+    </svg>
+
+    <div class="app">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="QuickAssist — Thư viện">
+          <span class="brand-mark" aria-hidden="true">
+            <svg class="icon"><use href="#i-note" /></svg>
+          </span>
+          <span class="brand-name">QuickAssist</span>
+        </a>
+
+        <span class="topbar-spacer"></span>
+
+        <div class="topbar-actions">
+          <span class="sync-chip" title="Đồng bộ lần cuối: 2 phút trước">
+            <span class="sync-dot" aria-hidden="true"></span>
+            Đã đồng bộ
+          </span>
+          <button class="icon-btn" type="button" aria-label="Mở trong tab" title="Mở trong tab">
+            <svg class="icon"><use href="#i-external" /></svg>
+          </button>
+          <a class="user" href="#" aria-label="Tài khoản demo@quickassist.local">
+            <span class="avatar" aria-hidden="true">
+              <svg class="icon"><use href="#i-user" /></svg>
+            </span>
+            <span class="email">demo@quickassist.local</span>
+          </a>
+        </div>
+      </header>
+
+      <nav class="tabbar" aria-label="Chức năng">
+        <a class="tab" href="#" aria-current="page">Thư viện</a>
+        <a class="tab" href="#">Tìm kiếm</a>
+        <a class="tab" href="#">Tìm trong trang</a>
+        <a class="tab" href="#">Hỏi AI</a>
+        <a class="tab" href="#">Cài đặt</a>
+      </nav>
+
+      <div class="workspace">
+        <aside class="folder-rail" aria-label="Thư mục">
+          <div class="rail-header">
+            <h2 class="rail-title">Thư mục</h2>
+            <button class="icon-btn icon-btn-sm" type="button" aria-label="Thêm thư mục" title="Thêm thư mục">
+              <svg class="icon"><use href="#i-plus" /></svg>
+            </button>
+          </div>
+
+          <label class="search rail-search">
+            <span class="sr-only">Tìm thư mục</span>
+            <svg class="icon" aria-hidden="true"><use href="#i-search" /></svg>
+            <input type="search" placeholder="Tìm thư mục..." autocomplete="off" />
+          </label>
+
+          <nav class="folder-nav" aria-label="Danh sách thư mục">
+            <a class="folder-item" href="#" aria-current="page">
+              <svg class="icon" aria-hidden="true"><use href="#i-layers" /></svg>
+              <span class="folder-name">Tất cả ghi chú</span>
+              <span class="folder-count">12</span>
+            </a>
+
+            <div class="rail-divider" role="separator"></div>
+
+            <a class="folder-item" href="#">
+              <svg class="icon" aria-hidden="true"><use href="#i-folder" /></svg>
+              <span class="folder-name">Chứng khoán</span>
+              <span class="folder-count">4</span>
+            </a>
+            <a class="folder-item" href="#">
+              <svg class="icon" aria-hidden="true"><use href="#i-folder" /></svg>
+              <span class="folder-name">Học tập</span>
+              <span class="folder-count">3</span>
+            </a>
+            <a class="folder-item" href="#">
+              <svg class="icon" aria-hidden="true"><use href="#i-folder" /></svg>
+              <span class="folder-name">Thời sự</span>
+              <span class="folder-count">5</span>
+            </a>
+          </nav>
+
+          <div class="rail-footer">
+            <button class="btn btn-ghost btn-sm rail-action" type="button">
+              <svg class="icon" aria-hidden="true"><use href="#i-plus" /></svg>
+              Thêm thư mục
+            </button>
+            <button class="btn btn-ghost btn-sm rail-action" type="button">
+              <svg class="icon" aria-hidden="true"><use href="#i-folder" /></svg>
+              Quản lý thư mục
+            </button>
+            <p class="rail-hint">
+              Mẹo: nhấn <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd> để ghi chú nhanh.
+            </p>
+          </div>
+        </aside>
+
+        <section class="notes-pane" aria-labelledby="notes-title">
+          <div class="pane-head">
+            <div class="pane-head-row">
+              <div>
+                <h2 class="pane-title" id="notes-title">Tất cả ghi chú</h2>
+                <p class="pane-subtitle">12 ghi chú · 1 chưa gửi</p>
+              </div>
+              <div class="pane-actions">
+                <button class="btn btn-ghost btn-sm" type="button" aria-pressed="false">
+                  <svg class="icon" aria-hidden="true"><use href="#i-check-square" /></svg>
+                  Chọn
+                </button>
+                <button class="icon-btn" type="button" aria-label="Đồng bộ với máy chủ" title="Đồng bộ">
+                  <svg class="icon"><use href="#i-sync" /></svg>
+                </button>
+                <button class="icon-btn folder-toggle" type="button" aria-label="Lọc theo thư mục" title="Lọc theo thư mục">
+                  <svg class="icon"><use href="#i-folder" /></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="pane-tools">
+            <label class="search notes-search">
+              <span class="sr-only">Lọc ghi chú theo từ khoá</span>
+              <svg class="icon" aria-hidden="true"><use href="#i-search" /></svg>
+              <input type="search" placeholder="Lọc nhanh trong thư viện..." autocomplete="off" />
+            </label>
+            <div class="list-meta">
+              <span>12 ghi chú</span>
+              <span class="meta-sort">Mới nhất trước</span>
+            </div>
+          </div>
+
+          <div class="pending-banner" role="status">
+            <svg class="icon" aria-hidden="true"><use href="#i-alert" /></svg>
+            <span class="pending-text"><strong>1 ghi chú chưa gửi được.</strong></span>
+            <span class="pending-spacer"></span>
+            <button class="btn-link" type="button">Gửi lại</button>
+            <button class="btn-link" type="button">Xem</button>
+          </div>
+
+          <ul class="note-list" aria-label="Danh sách ghi chú">
+            <li>
+              <a class="note-item is-active" href="#" aria-current="true">
+                <h3 class="note-item-title">Bộ trưởng Nội vụ: Nhiều xã chưa có công chức chuyên trách tiếp dân - Báo VnExpress</h3>
+                <p class="note-item-excerpt">Dẫn báo cáo của Ủy ban Thường vụ Quốc hội, ông cho biết năm 2026, các cơ quan Quốc hội và Đoàn đại biểu Quốc hội tiếp nhận gần 27.000 đơn thư...</p>
+                <div class="note-item-meta">
+                  <span class="note-date">11/08/2026</span>
+                  <span class="meta-dot" aria-hidden="true"></span>
+                  <span class="note-folder">Thời sự</span>
+                  <span class="status is-ready"><span class="status-dot" aria-hidden="true"></span>Sẵn sàng</span>
+                </div>
+              </a>
+            </li>
+
+            <li>
+              <a class="note-item" href="#">
+                <h3 class="note-item-title">Chứng khoán ngày 12/10</h3>
+                <p class="note-item-excerpt">Sự phân hóa tiếp tục chi phối thị trường khi phần lớn các nhóm ngành chỉ dao động trong biên độ hẹp. Chỉ có hai nhóm tiện ích và bất động sản ghi nhận mức tăng hơn 1%...</p>
+                <div class="note-item-meta">
+                  <span class="note-date">12/10/2026</span>
+                  <span class="meta-dot" aria-hidden="true"></span>
+                  <span class="note-folder">Chứng khoán</span>
+                  <span class="status is-ready"><span class="status-dot" aria-hidden="true"></span>Sẵn sàng</span>
+                </div>
+              </a>
+            </li>
+
+            <li>
+              <a class="note-item" href="#">
+                <h3 class="note-item-title">Cháy showroom xe máy điện ở TP.HCM</h3>
+                <p class="note-item-excerpt">Cảnh sát huy động 4 xe gồm một xe thang, một xe bồn, hai xe chữa cháy cùng 18 cán bộ chiến sĩ tham gia dập lửa, ngăn cháy lan sang các công trình bên cạnh.</p>
+                <div class="note-item-meta">
+                  <span class="note-date">09/10/2026</span>
+                  <span class="meta-dot" aria-hidden="true"></span>
+                  <span class="note-folder">Thời sự</span>
+                  <span class="status is-ready"><span class="status-dot" aria-hidden="true"></span>Sẵn sàng</span>
+                </div>
+              </a>
+            </li>
+
+            <li>
+              <a class="note-item" href="#">
+                <h3 class="note-item-title">Chứng khoán ngày 10/10</h3>
+                <p class="note-item-excerpt">CTCP Helio Energy (UPCoM: HIO) sẽ chính thức giao dịch 42 triệu cp trên HOSE từ ngày 16/11, với giá tham chiếu 9,900 đồng/cp, tương ứng vốn hóa gần...</p>
+                <div class="note-item-meta">
+                  <span class="note-date">12/10/2026</span>
+                  <span class="meta-dot" aria-hidden="true"></span>
+                  <span class="note-folder">Chứng khoán</span>
+                  <span class="status is-ready"><span class="status-dot" aria-hidden="true"></span>Sẵn sàng</span>
+                </div>
+              </a>
+            </li>
+
+            <li>
+              <a class="note-item" href="#">
+                <h3 class="note-item-title">Kubernetes Deployment</h3>
+                <p class="note-item-excerpt">Deployment quản lý ReplicaSet và hỗ trợ rolling update không gián đoạn dịch vụ.</p>
+                <div class="note-item-meta">
+                  <span class="note-date">27/09/2026</span>
+                  <span class="meta-dot" aria-hidden="true"></span>
+                  <span class="note-folder">Học tập</span>
+                  <span class="status is-processing"><span class="status-dot" aria-hidden="true"></span>Đang xử lý</span>
+                </div>
+              </a>
+            </li>
+
+            <li>
+              <a class="note-item" href="#">
+                <h3 class="note-item-title">Phố bỏ Hà Nội</h3>
+                <p class="note-item-excerpt">Hàm xương bò khoảng 8 tiếng, gia vị quế hồi thảo quả rang thơm. Bánh phở tươi tráng nhẹ.</p>
+                <div class="note-item-meta">
+                  <span class="note-date">27/09/2026</span>
+                  <span class="meta-dot" aria-hidden="true"></span>
+                  <span class="note-folder">Thời sự</span>
+                  <span class="status is-ready"><span class="status-dot" aria-hidden="true"></span>Sẵn sàng</span>
+                </div>
+              </a>
+            </li>
+
+            <li>
+              <a class="note-item" href="#">
+                <h3 class="note-item-title">Ghi chú lỗi AI (minh hoạ)</h3>
+                <p class="note-item-excerpt">Ghi chú này minh hoạ trạng thái lỗi xử lý AI. Nội dung vẫn được lưu an toàn và có thể thử lại sau.</p>
+                <div class="note-item-meta">
+                  <span class="note-date">27/09/2026</span>
+                  <span class="meta-dot" aria-hidden="true"></span>
+                  <span class="note-folder">Học tập</span>
+                  <span class="status is-failed"><span class="status-dot" aria-hidden="true"></span>Lỗi AI</span>
+                </div>
+              </a>
+            </li>
+          </ul>
+        </section>
+
+        <main class="reader-pane" aria-label="Chi tiết ghi chú">
+          <div class="reader-toolbar">
+            <nav class="breadcrumb" aria-label="Vị trí">
+              <a href="#">Thư viện</a>
+              <span class="sep" aria-hidden="true">/</span>
+              <a href="#">Thời sự</a>
+            </nav>
+            <div class="reader-toolbar-actions">
+              <span class="reader-state">Đang mở</span>
+              <button class="icon-btn" type="button" aria-label="Thêm thao tác" title="Thêm thao tác">
+                <svg class="icon"><use href="#i-more" /></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="reader-scroll">
+            <article class="reader-view" aria-labelledby="note-title">
+              <header class="note-header">
+                <div class="note-kicker">
+                  <span class="status-pill"><span class="status-dot" aria-hidden="true"></span>Sẵn sàng tìm kiếm</span>
+                  <span class="folder-pill">
+                    <svg class="icon" aria-hidden="true"><use href="#i-folder" /></svg>
+                    Thời sự
+                  </span>
+                </div>
+                <h2 class="reader-title" id="note-title">Bộ trưởng Nội vụ: Nhiều xã chưa có công chức chuyên trách tiếp dân - Báo VnExpress</h2>
+                <div class="reader-meta">
+                  <span>13:22 11/08/2026</span>
+                  <span class="sep" aria-hidden="true">·</span>
+                  <a href="#">vnexpress.net</a>
+                </div>
+              </header>
+
+              <div class="reader-body">
+                <p>
+                  Dẫn báo cáo của Ủy ban Thường vụ Quốc hội, ông cho biết năm 2026, các cơ quan Quốc hội và Đoàn đại biểu Quốc hội tiếp nhận gần 27.000 đơn thư. Tuy nhiên, trong số đơn đủ điều kiện xử lý, chỉ khoảng 23% được chuyển đến cơ quan có thẩm quyền giải quyết.
+                </p>
+              </div>
+
+              <details class="summary-card" open>
+                <summary class="summary-head">
+                  <span class="summary-icon" aria-hidden="true">
+                    <svg class="icon"><use href="#i-sparkles" /></svg>
+                  </span>
+                  <span class="summary-title">Tóm tắt AI</span>
+                  <span class="summary-badge">Đã lưu</span>
+                  <svg class="icon summary-chevron" aria-hidden="true"><use href="#i-chevron-down" /></svg>
+                </summary>
+                <p>
+                  Báo cáo ghi nhận gần 27.000 đơn thư được tiếp nhận trong năm 2026; chỉ khoảng 23% đủ điều kiện được chuyển đến cơ quan có thẩm quyền. Nhiều xã vẫn chưa bố trí công chức chuyên trách tiếp dân.
+                </p>
+              </details>
+            </article>
+
+            <form class="reader-editor" aria-labelledby="editor-title">
+              <header class="editor-head">
+                <h2 class="editor-title" id="editor-title">Sửa ghi chú</h2>
+                <p class="editor-subtitle">Thay đổi chỉ được lưu khi bạn bấm Lưu. Nội dung tối đa 20.000 ký tự.</p>
+              </header>
+
+              <div class="field">
+                <label for="edit-title">Tiêu đề</label>
+                <input
+                  id="edit-title"
+                  type="text"
+                  maxlength="500"
+                  value="Bộ trưởng Nội vụ: Nhiều xã chưa có công chức chuyên trách tiếp dân - Báo VnExpress"
+                />
+              </div>
+
+              <div class="field">
+                <div class="field-label-row">
+                  <label for="edit-content">Nội dung</label>
+                  <span class="char-count">251 / 20.000 ký tự</span>
+                </div>
+                <textarea id="edit-content" rows="6">Dẫn báo cáo của Ủy ban Thường vụ Quốc hội, ông cho biết năm 2026, các cơ quan Quốc hội và Đoàn đại biểu Quốc hội tiếp nhận gần 27.000 đơn thư. Tuy nhiên, trong số đơn đủ điều kiện xử lý, chỉ khoảng 23% được chuyển đến cơ quan có thẩm quyền giải quyết.</textarea>
+              </div>
+
+              <div class="field">
+                <label for="edit-folder">Thư mục</label>
+                <select id="edit-folder">
+                  <option selected>Thời sự</option>
+                  <option>Chứng khoán</option>
+                  <option>Học tập</option>
+                </select>
+              </div>
+            </form>
+          </div>
+
+          <input type="checkbox" id="edit-mode" class="mode-toggle" aria-label="Chế độ sửa ghi chú" />
+
+          <footer class="reader-footer reader-footer-read">
+            <span class="save-state">
+              <svg class="icon" aria-hidden="true"><use href="#i-check" /></svg>
+              Đã lưu · 2 phút trước
+            </span>
+            <div class="reader-actions">
+              <button class="btn btn-soft btn-sm" type="button">
+                <svg class="icon" aria-hidden="true"><use href="#i-sparkles" /></svg>
+                Tóm tắt lại
+              </button>
+              <label class="btn btn-ghost btn-sm" for="edit-mode">
+                <svg class="icon" aria-hidden="true"><use href="#i-edit" /></svg>
+                Sửa
+              </label>
+              <button class="btn btn-danger-ghost btn-sm" type="button">
+                <svg class="icon" aria-hidden="true"><use href="#i-trash" /></svg>
+                Xoá
+              </button>
+            </div>
+          </footer>
+
+          <footer class="reader-footer reader-footer-edit">
+            <span class="save-state save-state-edit">
+              <span class="status-dot" aria-hidden="true"></span>
+              Chưa lưu thay đổi
+            </span>
+            <div class="reader-actions">
+              <label class="btn btn-ghost btn-sm" for="edit-mode">Huỷ</label>
+              <button class="btn btn-primary btn-sm" type="button">
+                <svg class="icon" aria-hidden="true"><use href="#i-check" /></svg>
+                Lưu
+              </button>
+            </div>
+          </footer>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

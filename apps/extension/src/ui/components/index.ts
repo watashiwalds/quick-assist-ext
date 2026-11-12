@@ -5,6 +5,7 @@
  */
 export { Button } from './Button'
 export { Field, Input, Select, TextArea } from './Form'
+export { Icon, type IconName } from './Icon'
 export { ConfirmDialog, Modal } from './Modal'
 export { Banner, EmptyState, ErrorState, ProgressBar, Spinner, StatusBadge } from './State'
 export { type TabItem, Tabs } from './Tabs'
