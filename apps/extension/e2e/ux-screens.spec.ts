@@ -74,14 +74,16 @@ test('chụp các màn chính', async ({ context, sw, panel, api, extId }) => {
   await expect(panel.getByText('Bản xem trước — chưa lưu')).toBeVisible()
   await shot('09-tom-tat-xem-truoc')
 
-  await panel.getByRole('tab', { name: 'Tìm kiếm' }).click()
-  await panel.getByLabel('Câu hỏi tìm kiếm').fill('ham xuong bo bao lau')
-  await panel.getByRole('button', { name: 'Tìm', exact: true }).click()
+  // tìm sâu bằng AI ngay trong Thư viện (Enter) — thay cho tab "Tìm kiếm" cũ
+  await panel.getByRole('button', { name: 'Đóng ghi chú' }).click() // panel hẹp: mỗi lúc một cột, cần đóng reader để thấy thanh tìm
+  const searchInput = panel.getByLabel('Tìm kiếm hoặc lọc ghi chú')
+  await searchInput.fill('ham xuong bo bao lau')
+  await searchInput.press('Enter')
   await expect(panel.locator('ol.list > li').first()).toBeVisible()
   await shot('10-tim-kiem')
-  await panel.getByLabel('Câu hỏi tìm kiếm').fill('tên lửa vũ trụ sao hoả')
-  await panel.getByLabel('Tìm trong thư mục').selectOption(f.id)
-  await panel.getByRole('button', { name: 'Tìm', exact: true }).click()
+  await panel.getByLabel('Lọc theo thư mục').selectOption(f.id)
+  await searchInput.fill('tên lửa vũ trụ sao hoả')
+  await searchInput.press('Enter')
   await shot('11-tim-kiem-khong-co-ket-qua')
 
   // tóm tắt vùng chọn
@@ -119,9 +121,9 @@ test('chụp các màn chính', async ({ context, sw, panel, api, extId }) => {
   await shot('16-xoa-tai-khoan-buoc-2')
   await panel.keyboard.press('Escape')
   await sql('UPDATE quota_accounts SET limit_tokens = 0 WHERE user_id = $1', [me.id])
-  await panel.getByRole('tab', { name: 'Tìm kiếm' }).click()
-  await panel.getByLabel('Câu hỏi tìm kiếm').fill('phở')
-  await panel.getByRole('button', { name: 'Tìm', exact: true }).click()
+  await panel.getByRole('tab', { name: 'Thư viện' }).click()
+  await searchInput.fill('phở')
+  await searchInput.press('Enter')
   await expect(panel.getByText(/hết hạn mức AI/)).toBeVisible()
   await shot('17-het-quota')
 })

@@ -56,7 +56,7 @@ export const USER_MESSAGES: Record<string, string> = {
   SUMMARY_INPUT_INVALID: 'Không có nội dung để tóm tắt.',
   AI_UNAVAILABLE: 'Dịch vụ AI đang bận, vui lòng thử lại sau.',
   PAGE_TOO_LONG: 'Trang quá dài để quét (tối đa ~2 MB). Hãy mở trang con hoặc phần nhỏ hơn rồi quét lại.',
-  PAGE_NO_CONTENT: 'Trang không hỗ trợ quét nội dung (PDF, ảnh, trang ứng dụng hoặc trang trống).',
+  PAGE_NO_CONTENT: 'Không tìm thấy nội dung để quét (trang trống/PDF/ảnh hoặc nội dung dán rỗng).',
   PAGE_ACCESS_DENIED: 'Tiện ích chưa được phép đọc trang này.',
   PAGE_MATCH_QUERY_INVALID: 'Hãy mô tả điều bạn cần tìm (tối đa 500 ký tự).',
   NO_ACTIVE_TAB: 'Không tìm thấy tab đang mở để quét.',

@@ -53,6 +53,25 @@ async def test_embed_empty_input_makes_no_call() -> None:
     assert (await client(h).embed([])).vectors == []
 
 
+async def test_embed_batches_by_token_budget_and_sums_usage() -> None:
+    reqs = []
+
+    def h(req: httpx.Request) -> httpx.Response:
+        b = json.loads(req.content)
+        reqs.append(b)
+        return httpx.Response(200, json={
+            "data": [{"index": i, "embedding": [float(i)] * DIM} for i in range(len(b["input"]))],
+            "usage": {"prompt_tokens": 11}, "model": "m",
+        })
+
+    texts = ["x" * 10_000] * 5  # ước tính 5 001 token/text → budget 16k gói tối đa 3 text/batch
+    r = await client(h).embed(texts)
+    assert [len(b["input"]) for b in reqs] == [3, 2]
+    assert all(sum(len(t) // 2 + 1 for t in b["input"]) <= 16_000 for b in reqs)
+    assert [v[0] for v in r.vectors] == [0.0, 1.0, 2.0, 0.0, 1.0]  # ghép đúng thứ tự giữa các batch
+    assert r.usage.prompt_tokens == 22
+
+
 async def test_wrong_dimension_is_permanent_error() -> None:
     with pytest.raises(AIProviderError) as e:
         await client(lambda r: emb_response(1, dim=DIM + 1)).embed(["a"])

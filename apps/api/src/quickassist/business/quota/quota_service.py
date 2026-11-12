@@ -22,7 +22,7 @@ from datetime import UTC, datetime, timedelta
 import anyio
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from quickassist.business.common.exceptions import Conflict, QuotaExceeded
+from quickassist.business.common.exceptions import Conflict, Forbidden, QuotaExceeded
 from quickassist.data.database import get_sessionmaker
 from quickassist.data.models.quota import QuotaLedger
 from quickassist.data_access.repositories.quota_repository import QuotaRepository
@@ -69,6 +69,17 @@ class QuotaService:
         await self.s.commit()
         acc = await self.repo.get_account(user_id)
         return QuotaStatus(acc.limit_tokens, acc.used_tokens, acc.reserved_tokens)
+
+    async def reset_demo(self, user_id: uuid.UUID) -> QuotaStatus:
+        """Tạo lại hạn mức cho demo: hoàn mọi giữ chỗ, đưa đã dùng về 0 và cấp lại mức mặc định."""
+        settings = get_settings()
+        if not settings.is_dev_login_allowed:
+            raise Forbidden("Tạo lại hạn mức chỉ có ở môi trường demo", code="DEMO_ONLY")
+        await self.repo.ensure_account(user_id, settings.quota_default_tokens)
+        await self.repo.release_reserved_ledgers(user_id)
+        await self.repo.reset_account(user_id, settings.quota_default_tokens)
+        await self.s.commit()
+        return QuotaStatus(settings.quota_default_tokens, 0, 0)
 
     async def reserve(self, user_id: uuid.UUID, operation: str, estimate: int, request_id: str) -> QuotaLease:
         await self.repo.ensure_account(user_id, get_settings().quota_default_tokens)

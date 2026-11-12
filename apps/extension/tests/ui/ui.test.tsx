@@ -93,9 +93,9 @@ describe('thư viện (C03)', () => {
     })
     wrap(<NotesView onGoSettings={() => undefined} />)
     await screen.findByText('Tiêu đề n1')
-    fireEvent.change(screen.getByLabelText('Lọc ghi chú theo từ khoá'), { target: { value: 'PHỞ' } })
+    fireEvent.change(screen.getByLabelText('Tìm kiếm hoặc lọc ghi chú'), { target: { value: 'PHỞ' } })
     expect(screen.queryByText('Tiêu đề n1')).toBeNull()
-    fireEvent.change(screen.getByLabelText('Lọc ghi chú theo từ khoá'), { target: { value: '' } })
+    fireEvent.change(screen.getByLabelText('Tìm kiếm hoặc lọc ghi chú'), { target: { value: '' } })
     fireEvent.click(screen.getByRole('button', { name: 'Chọn' }))
     fireEvent.click(screen.getByLabelText('Chọn “Tiêu đề n1”'))
     fireEvent.click(screen.getByLabelText('Chọn “Tiêu đề n3”'))
@@ -120,6 +120,59 @@ describe('thư viện (C03)', () => {
     expect(screen.getByText(/quá dài/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Gửi lại' }))
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('outbox/retry', { id: 'p1' }))
+  })
+})
+
+describe('thanh tìm gộp trong Thư viện (R04 + C03)', () => {
+  it('gõ → lọc cục bộ; Enter → tìm sâu AI; "Mở ghi chú" mở ngay trong reader', async () => {
+    rpc.mockImplementation(async (type: string, p: { id?: string }) => {
+      if (type === 'folders/list') return FOLDERS
+      if (type === 'notes/list') return [note('n1'), note('n2', { content: 'phở bò' }), note('n3')]
+      if (type === 'outbox/list') return []
+      if (type === 'search/query')
+        return [{ chunk_id: 'c1', note_id: 'n2', text: 'hầm xương 8 tiếng', score: 0.03, note_title: 'Tiêu đề n2', note_url: 'https://pho.vn', folder_id: 'inbox' }]
+      if (type === 'notes/get') return note(p.id!)
+      throw new Error(type)
+    })
+    wrap(<NotesView onGoSettings={() => undefined} />)
+    await screen.findByText('Tiêu đề n1')
+    expect(screen.getByText(/tìm sâu bằng AI/)).toBeTruthy()
+    // gõ → chỉ lọc cục bộ, chưa gọi AI
+    fireEvent.change(screen.getByLabelText('Tìm kiếm hoặc lọc ghi chú'), { target: { value: 'PHỞ' } })
+    expect(screen.queryByText('Tiêu đề n1')).toBeNull()
+    expect(rpc).not.toHaveBeenCalledWith('search/query', expect.anything())
+    // Enter → tìm kiếm ngữ nghĩa với thư mục đang chọn + số kết quả đã chọn
+    fireEvent.change(screen.getByLabelText('Số kết quả tối đa'), { target: { value: '10' } })
+    fireEvent.submit(screen.getByRole('search'))
+    await screen.findByText('1. Tiêu đề n2')
+    expect(rpc).toHaveBeenCalledWith('search/query', { query: 'PHỞ', folderId: null, topK: 10 })
+    expect(screen.getByRole('link', { name: /Mở trang nguồn/ }).getAttribute('href')).toBe('https://pho.vn')
+    // mở ngay trong reader, không cần chuyển tab
+    fireEvent.click(screen.getByRole('button', { name: 'Mở ghi chú' }))
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('notes/get', { id: 'n2' }))
+    expect(screen.getByText('Nội dung n2')).toBeTruthy()
+    // quay về danh sách (vẫn giữ từ khoá lọc; reader vẫn mở ghi chú vừa xem)
+    fireEvent.click(screen.getByRole('button', { name: '← Về danh sách' }))
+    expect(screen.getByText('Tiêu đề n2', { selector: '.note-item-title' })).toBeTruthy()
+    expect(screen.queryByText('Tiêu đề n1')).toBeNull()
+  })
+
+  it('tìm sâu hết quota → thông báo rõ + đường tới Cài đặt', async () => {
+    const goSettings = vi.fn()
+    rpc.mockImplementation(async (type: string) => {
+      if (type === 'folders/list') return FOLDERS
+      if (type === 'notes/list') return [note('n1')]
+      if (type === 'outbox/list') return []
+      if (type === 'search/query') throw new AppError('QUOTA_EXCEEDED', 'x', 402)
+      throw new Error(type)
+    })
+    wrap(<NotesView onGoSettings={goSettings} />)
+    await screen.findByText('Tiêu đề n1')
+    fireEvent.change(screen.getByLabelText('Tìm kiếm hoặc lọc ghi chú'), { target: { value: 'x' } })
+    fireEvent.submit(screen.getByRole('search'))
+    await screen.findByText(/hết hạn mức AI/)
+    fireEvent.click(screen.getByRole('button', { name: 'Xem hạn mức' }))
+    expect(goSettings).toHaveBeenCalled()
   })
 })
 
@@ -175,6 +228,22 @@ describe('cài đặt (A08)', () => {
     wrap(<SettingsView session={session} />)
     await screen.findByText(/còn lại/)
     expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('950')
+    expect(screen.queryByRole('button', { name: 'Tạo lại hạn mức' })).toBeNull()
+  })
+
+  it('bản demo: tạo lại hạn mức về mức mặc định', async () => {
+    rpc.mockImplementation(async (type: string) => {
+      if (type === 'quota/get') return { limit_tokens: 1000, used_tokens: 950, reserved_tokens: 0, remaining_tokens: 50 }
+      if (type === 'quota/reset') return { limit_tokens: 1000, used_tokens: 0, reserved_tokens: 0, remaining_tokens: 1000 }
+      if (type === 'prefs/get') return { defaultFolderId: null }
+      if (type === 'folders/list') return FOLDERS
+      throw new Error(type)
+    })
+    wrap(<SettingsView session={session} demo />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Tạo lại hạn mức' }))
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('quota/reset'))
+    await waitFor(() => expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('0'))
+    expect(screen.getByText(/còn lại/).textContent).toMatch(/1\.000/)
   })
 
   it('xoá tài khoản cần 2 bước + gõ XOÁ', async () => {
@@ -195,6 +264,23 @@ describe('cài đặt (A08)', () => {
     await waitFor(() => expect((sel as HTMLSelectElement).disabled).toBe(false))
     fireEvent.change(sel, { target: { value: 'f1' } })
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('prefs/set', { defaultFolderId: 'f1' }))
+  })
+
+  it('bật lại tab Tìm kiếm (đã gộp vào Thư viện) và báo ngay cho App', async () => {
+    const onPrefs = vi.fn()
+    rpc.mockImplementation(async (type: string, p: Record<string, unknown>) => {
+      if (type === 'quota/get') return { limit_tokens: 1000, used_tokens: 950, reserved_tokens: 0, remaining_tokens: 50 }
+      if (type === 'prefs/get') return { defaultFolderId: null, showSearchTab: false }
+      if (type === 'prefs/set') return { ...p }
+      if (type === 'folders/list') return FOLDERS
+      throw new Error(type)
+    })
+    wrap(<SettingsView session={session} onPrefsChanged={onPrefs} />)
+    const cb = (await screen.findByRole('checkbox', { name: /Hiện tab “Tìm kiếm”/ })) as HTMLInputElement
+    expect(cb.checked).toBe(false)
+    fireEvent.click(cb)
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('prefs/set', { showSearchTab: true }))
+    expect(onPrefs).toHaveBeenCalledWith(expect.objectContaining({ showSearchTab: true }))
   })
 })
 

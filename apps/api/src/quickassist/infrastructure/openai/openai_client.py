@@ -22,9 +22,11 @@ from quickassist.infrastructure.openai.base import (
     EmbeddingResult,
     StreamChunk,
     Usage,
+    estimate_tokens,
 )
 
 _RETRYABLE = {408, 409, 429, 500, 502, 503, 504}
+_EMBED_MAX_INPUTS = 2048  # cap số mục mỗi request /embeddings của OpenAI
 
 
 class OpenAIClient:
@@ -61,16 +63,41 @@ class OpenAIClient:
     async def embed(self, texts: Sequence[str]) -> EmbeddingResult:
         if not texts:
             return EmbeddingResult([], Usage(), self._s.embedding_model)
+        # Batch theo ngân sách token ước tính + cap số mục: một request vượt giới hạn input của
+        # provider sẽ 400 (không retryable) → cả lần quét chết. Vector/usage ghép đúng thứ tự.
+        budget = max(1, self._s.ai_embed_batch_tokens)
+        vectors: list[list[float]] = []
+        usage = Usage()
+        batch: list[str] = []
+        used = 0
+        for t in texts:
+            cost = estimate_tokens(t)
+            if batch and (len(batch) >= _EMBED_MAX_INPUTS or used + cost > budget):
+                v, u = await self._embed_batch(batch)
+                vectors.extend(v)
+                usage = Usage(usage.prompt_tokens + u.prompt_tokens, 0)
+                batch, used = [], 0
+            batch.append(t)
+            used += cost
+        if batch:
+            v, u = await self._embed_batch(batch)
+            vectors.extend(v)
+            usage = Usage(usage.prompt_tokens + u.prompt_tokens, 0)
+        if len(vectors) != len(texts) or any(len(v) != self._s.embedding_dim for v in vectors):
+            raise AIProviderError("embedding trả về sai số lượng/số chiều", retryable=False)
+        return EmbeddingResult(vectors, usage, self._s.embedding_model)
+
+    async def _embed_batch(self, batch: list[str]) -> tuple[list[list[float]], Usage]:
         data = await self._post(
             "/embeddings",
-            {"model": self._s.embedding_model, "input": list(texts),
+            {"model": self._s.embedding_model, "input": batch,
              "dimensions": self._s.embedding_dim},
         )
         vectors = [d["embedding"] for d in sorted(data["data"], key=lambda d: d["index"])]
-        if len(vectors) != len(texts) or any(len(v) != self._s.embedding_dim for v in vectors):
-            raise AIProviderError("embedding trả về sai số lượng/số chiều", retryable=False)
+        if len(vectors) != len(batch):
+            raise AIProviderError("embedding trả về sai số lượng", retryable=False)
         u = data.get("usage", {})
-        return EmbeddingResult(vectors, Usage(u.get("prompt_tokens", 0), 0), data.get("model", ""))
+        return vectors, Usage(u.get("prompt_tokens", 0), 0)
 
     async def complete(self, messages: Sequence[ChatMessage], *, max_tokens: int) -> CompletionResult:
         data = await self._post(

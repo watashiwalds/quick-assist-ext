@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, Ref } from 'react'
 
-type Variant = 'primary' | 'ghost' | 'soft' | 'danger' | 'danger-ghost' | 'link'
+type Variant = 'primary' | 'ghost' | 'soft' | 'danger' | 'danger-ghost' | 'link' | 'quiet'
 
 export function Button({
   variant = 'primary',

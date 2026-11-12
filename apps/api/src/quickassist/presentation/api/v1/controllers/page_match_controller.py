@@ -20,7 +20,9 @@ router = APIRouter(prefix="/ai/page-match", tags=["page-match"])
                         429: {"description": "Quá tần suất (Retry-After)"},
                         502: {"description": "AI embed lỗi (AI_UNAVAILABLE)"}})
 async def page_match(body: PageMatchIn, user_id: CurrentUserId, ai: AIProviderDep) -> PageMatchOut:
-    r = await PageMatchService(ai).match(user_id, query=body.query, html=body.html, url=body.url)
+    r = await PageMatchService(ai).match(
+        user_id, query=body.query, html=body.html, text=body.text, url=body.url,
+    )
     return PageMatchOut(
         mode=r.mode, match_ratio=r.match_ratio, warning=r.warning,  # type: ignore[arg-type]
         items=[PageMatchItemOut(id=i.id, occ=i.occ, text=i.text, score=i.score, verified=i.verified)

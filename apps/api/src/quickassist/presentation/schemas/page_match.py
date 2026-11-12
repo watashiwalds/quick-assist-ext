@@ -1,18 +1,29 @@
 """Presentation Layer — DTO cho POST /ai/page-match (AutoChunk: ghi chú theo truy vấn)."""
 
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from quickassist.presentation.schemas.common import ApiModel
 
 
 class PageMatchIn(ApiModel):
     query: str = Field(min_length=1, max_length=500, description="Ý định người dùng, ngôn ngữ tự nhiên")
-    html: str = Field(min_length=1, description="HTML trang đã bỏ script/style/noscript/template/svg; "
-                                                "≤ PAGE_MATCH_MAX_HTML_BYTES (mặc định 2MB)")
+    html: str | None = Field(default=None, min_length=1,
+                             description="HTML trang đã bỏ script/style/noscript/template/svg; "
+                                         "≤ PAGE_MATCH_MAX_HTML_BYTES (mặc định 2MB). "
+                                         "Cần đúng một trong html/text")
+    text: str | None = Field(default=None, min_length=1,
+                             description="Nội dung văn bản người dùng dán (PDF/Word/chat/email…); "
+                                         "cần đúng một trong html/text")
     url: str | None = Field(default=None, max_length=2048, description="Chỉ để log/metadata")
     title: str | None = Field(default=None, max_length=500, description="Chỉ để log/metadata")
+
+    @model_validator(mode="after")
+    def _exactly_one_source(self) -> Self:
+        if (self.html is None) == (self.text is None):
+            raise ValueError("Phải cung cấp đúng một trong hai: html hoặc text")
+        return self
 
 
 class PageMatchItemOut(ApiModel):

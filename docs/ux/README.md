@@ -58,10 +58,14 @@ flowchart TD
 | ![](screens/05-sua-ghi-chu.png) | ![](screens/06-xung-dot-409.png) | ![](screens/07-quan-ly-thu-muc.png) | ![](screens/08-chon-nhieu.png) |
 
 ## Luồng 4 — Tìm kiếm ngữ nghĩa (SDS §5.1.3, kịch bản #4)
+
+Tìm kiếm đã **gộp vào thanh tìm kiếm của tab Thư viện**: gõ → lọc nhanh trong danh sách; nhấn
+**Enter** → tìm sâu bằng AI. Tab "Tìm kiếm" riêng ẩn mặc định, bật lại trong Cài đặt.
+
 ```mermaid
 flowchart LR
-  Q[Nhập câu hỏi, có thể không dấu] --> F[Lọc thư mục tuỳ chọn] --> R{POST /search}
-  R -->|có kết quả| H[Top 5 đoạn + tiêu đề + nguồn → Mở ghi chú / Mở trang nguồn]
+  Q[Gõ từ khoá vào thanh tìm của Thư viện, có thể không dấu] --> F[Lọc thư mục tuỳ chọn] --> R{Enter → POST /search}
+  R -->|có kết quả| H[Top N đoạn + tiêu đề + nguồn → Mở ghi chú ngay trong khung đọc / Mở trang nguồn]
   R -->|rỗng| E[“Không có kết quả phù hợp” + gợi ý]
   R -->|402| Z[Hết hạn mức → nút Xem hạn mức]
   R -->|429| W[Chờ N giây]
@@ -95,8 +99,9 @@ flowchart LR
 |---|---|
 | ![](screens/15-cai-dat.png) | ![](screens/16-xoa-tai-khoan-buoc-2.png) |
 
-## Luồng 7 — Tìm trong trang / AutoChunk (ADR-0013)
-1. Side panel → tab **Tìm trong trang** → nhập điều cần tìm (≤ 500 ký tự) → **Quét trang**.
+## Luồng 7 — Tìm trong trang / AutoChunk (ADR-0013, ADR-0015)
+1. Side panel → tab **Tìm trong trang** → nhập điều cần tìm (≤ 500 ký tự) → **Quét trang**. Nguồn thay thế:
+   bấm **Dán nội dung…** → textarea (bộ đếm ký tự) → **Quét nội dung** (nguồn text, không cần quyền đọc trang).
 2. Loading 2 pha: *Đang đọc trang…* (chụp HTML) → *Đang phân tích & thẩm định bằng AI…* (máy chủ trích nội dung chính, embed, LLM xác nhận).
 3. Danh sách đoạn theo thứ tự trên trang, mỗi đoạn: checkbox · badge **✓ Đã xác nhận** (tích sẵn) hoặc **Theo điểm tương đồng · n%**
    (khi AI thẩm định lỗi — kèm banner cảnh báo, không tích sẵn) · nội dung clamp 4 dòng · **Xem trên trang** (cuộn + tô sáng ~4 giây).
@@ -106,13 +111,16 @@ flowchart LR
 6. Trạng thái: rỗng ("Không tìm thấy đoạn nào đủ tin cậy" + gợi ý), 402 → *Xem hạn mức*, 413 → gợi ý mở trang con, 422 → "Trang không hỗ trợ",
    chưa có quyền đọc trang → **Cho phép đọc trang** (quyền tuỳ chọn), lỗi mạng → *Thử lại*; trang dài hơn 50 000 ký tự → banner "chỉ quét phần đầu".
    Ảnh chụp màn: bổ sung bằng `ux-screens.spec.ts` khi có E2E AutoChunk (Task 8).
+7. **Nguồn dán (ADR-0015):** kết quả dùng chung danh sách đoạn; khác biệt — ẩn **Xem tất cả trên trang**, nút **Xem trên trang** bị khoá kèm tooltip
+   *"Nội dung dán không có trang gốc để xem"*, banner dài đổi thành "Nội dung rất dài", **Lưu cả trang** → **Lưu toàn bộ nội dung**,
+   ghi chú lưu với `url = null` (title vẫn là truy vấn).
 
 ## Ma trận trạng thái đã bao phủ
 | Màn | Loading | Empty | Error | Undo | Hết quota | Offline |
 |---|---|---|---|---|---|---|
 | Lưu nhanh (toast) | — | toast "hãy bôi đen" | toast lỗi / failed store | ✅ | SKIPPED, vẫn lưu | outbox |
 | Thư viện | ✅ | ✅ | ✅ (Thử lại) | — | nhãn "Bỏ qua (hết quota)" + Thử lại AI | ✅ cache |
-| Tìm kiếm | ✅ | ✅ | ✅ | — | ✅ + link Cài đặt | thông báo mạng |
+| Tìm sâu (trong Thư viện) | ✅ | ✅ | ✅ | — | ✅ + link Cài đặt | thông báo mạng |
 | Tóm tắt | ✅ | ✅ | ✅ | Huỷ | ✅ + link Cài đặt | thông báo mạng |
 | Cài đặt | ✅ | — | ✅ | 2 bước | thanh hạn mức + cảnh báo | hồ sơ từ cache |
-| Tìm trong trang | ✅ 2 pha | ✅ | ✅ (413/422/quyền/Thử lại) | không tự lưu; hỏi lại khi lớn | ✅ + link Cài đặt | thông báo mạng |
+| Tìm trong trang | ✅ 2 pha (dán: 1 pha) | ✅ | ✅ (413/422/quyền/Thử lại) | không tự lưu; hỏi lại khi lớn | ✅ + link Cài đặt | thông báo mạng |

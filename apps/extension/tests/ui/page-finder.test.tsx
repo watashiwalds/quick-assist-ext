@@ -3,7 +3,7 @@
  * AutoChunk — PageFinderView: quét → chọn nhiều → lưu 1 ghi chú gộp đúng thứ tự trang; badge theo
  * VERIFY_UNAVAILABLE; full_page; các trạng thái lỗi (402/413/422/quyền/mạng) không treo loading.
  */
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppError } from '../../src/shared/errors'
 import { installChrome } from '../helpers/chrome'
@@ -65,10 +65,12 @@ describe('PageFinderView', () => {
     await scan()
     await screen.findByText('Nghị quyết 12/2023 về đất đai')
     expect(rpc).toHaveBeenCalledWith('pageMatch/run', { query: 'nghị quyết đất đai' })
-    expect(screen.getAllByText('✓ Đã xác nhận')).toHaveLength(2)
+    const badges = screen.getAllByTitle('AI đã xác nhận đoạn này khớp truy vấn')
+    expect(badges).toHaveLength(2)
+    badges.forEach((b) => expect(b.textContent).toBe('Độ tương đồng 71%'))
     expect((screen.getByLabelText('Chọn đoạn 1') as HTMLInputElement).checked).toBe(true)
     fireEvent.change(screen.getByLabelText('Lưu vào thư mục'), { target: { value: 'f1' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Lưu 2 đoạn thành ghi chú' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu lựa chọn' }))
     await screen.findByText('Đã lưu 2 đoạn thành ghi chú')
     expect(rpc).toHaveBeenCalledWith('notes/create', {
       content: 'Nghị quyết 12/2023 về đất đai\n\nNghị quyết 14/2023 thu hồi đất',
@@ -78,24 +80,73 @@ describe('PageFinderView', () => {
     })
   })
 
+  it('dán nội dung → quét bằng text, khoá "Xem trên trang", banner "Nội dung rất dài", lưu không URL', async () => {
+    const text = 'Nghị quyết 12/2023 về đất đai.\n\nNghị quyết 14/2023 thu hồi đất.'
+    rpc.mockImplementation(async (type: string) => {
+      if (type === 'pageMatch/run') return run({ tabId: undefined, url: null, title: null, truncated: true })
+      if (type === 'notes/create') return note
+      throw new Error(type)
+    })
+    view()
+    fireEvent.click(screen.getByRole('button', { name: 'Dán thủ công' }))
+    fireEvent.change(screen.getByLabelText(/Bạn cần tìm gì/), { target: { value: 'nghị quyết đất đai' } })
+    fireEvent.change(screen.getByLabelText('Nội dung để quét'), { target: { value: text } })
+    fireEvent.click(screen.getByRole('button', { name: 'Quét nội dung' }))
+    await screen.findByText('Nghị quyết 12/2023 về đất đai')
+    expect(rpc).toHaveBeenCalledWith('pageMatch/run', { query: 'nghị quyết đất đai', text })
+    expect(screen.queryByRole('button', { name: 'Xem tất cả trên trang' })).toBeNull()
+    const viewButtons = screen.getAllByRole('button', { name: 'Xem trên trang' }) as HTMLButtonElement[]
+    expect(viewButtons.every((b) => b.disabled)).toBe(true)
+    expect(viewButtons[0]!.title).toBe('Nội dung dán không có trang gốc để xem')
+    expect(screen.getByText(/Nội dung rất dài/)).toBeTruthy()
+    expect(screen.queryByText(/Trang rất dài/)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu lựa chọn' }))
+    await screen.findByText('Đã lưu 2 đoạn thành ghi chú')
+    expect(rpc).toHaveBeenCalledWith('notes/create', {
+      content: 'Nghị quyết 12/2023 về đất đai\n\nNghị quyết 14/2023 thu hồi đất',
+      title: 'nghị quyết đất đai',
+      url: null,
+      folderId: null,
+    })
+  })
+
+  it('nguồn dán full_page → banner "toàn bộ nội dung" + nút "Lưu toàn bộ"', async () => {
+    const full = 'Đoạn A về đất đai.\n\nĐoạn B về đất đai.'
+    rpc.mockResolvedValueOnce(
+      run({ tabId: undefined, url: null, title: null, mode: 'full_page', match_ratio: 0.92, full_text: full, total_chars: full.length }),
+    )
+    view()
+    fireEvent.click(screen.getByRole('button', { name: 'Dán thủ công' }))
+    fireEvent.change(screen.getByLabelText(/Bạn cần tìm gì/), { target: { value: 'đất đai' } })
+    fireEvent.change(screen.getByLabelText('Nội dung để quét'), { target: { value: full } })
+    fireEvent.click(screen.getByRole('button', { name: 'Quét nội dung' }))
+    await screen.findByText(/Hầu như toàn bộ nội dung khớp truy vấn/)
+    expect(screen.getByText('92%')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Lưu toàn bộ' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Lưu cả trang' })).toBeNull()
+  })
+
   it('bỏ chọn một đoạn → chỉ lưu đoạn còn lại; không chọn gì → nút Lưu bị khoá', async () => {
     rpc.mockImplementation(async (type: string) => (type === 'pageMatch/run' ? run() : note))
     view()
     await scan()
     await screen.findByText('Nghị quyết 12/2023 về đất đai')
     fireEvent.click(screen.getByLabelText('Chọn đoạn 1'))
-    fireEvent.click(screen.getByRole('button', { name: 'Lưu 1 đoạn thành ghi chú' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu lựa chọn' }))
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('notes/create', expect.objectContaining({ content: 'Nghị quyết 14/2023 thu hồi đất', folderId: null })))
     fireEvent.click(screen.getByLabelText('Chọn đoạn 2'))
-    expect((screen.getByRole('button', { name: 'Lưu 0 đoạn thành ghi chú' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: 'Lưu lựa chọn' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
-  it('VERIFY_UNAVAILABLE → banner cảnh báo, badge "theo điểm", không tích sẵn', async () => {
+  it('VERIFY_UNAVAILABLE → banner cảnh báo, badge trung tính "theo điểm", không tích sẵn', async () => {
     rpc.mockResolvedValueOnce(run({ warning: 'VERIFY_UNAVAILABLE', items: [item('b02', 'Đoạn A', false)] }))
     view()
     await scan()
     await screen.findByText(/AI chưa thẩm định được/)
-    expect(screen.getByText(/Theo điểm tương đồng · 71%/)).toBeTruthy()
+    const badge = screen.getByTitle('Chưa thẩm định — xếp theo độ tương đồng')
+    expect(badge.textContent).toBe('Độ tương đồng 71%')
+    expect(badge.className).toContain('is-unverified')
     expect((screen.getByLabelText('Chọn đoạn 1') as HTMLInputElement).checked).toBe(false)
   })
 
@@ -116,13 +167,14 @@ describe('PageFinderView', () => {
     expect(rpc).toHaveBeenCalledWith('pageMatch/highlight', { tabId: 5, items: [{ text: 'Nghị quyết 14/2023 thu hồi đất', occ: 0 }] })
   })
 
-  it('full_page → banner + "Lưu cả trang" (hỏi lại khi nội dung lớn, tách nhiều ghi chú khi vượt 20 000 ký tự)', async () => {
+  it('full_page → banner + "Lưu toàn bộ" (hỏi lại khi nội dung lớn, tách nhiều ghi chú khi vượt 20 000 ký tự)', async () => {
     const full = Array.from({ length: 30 }, (_, i) => `Đoạn ${i} ` + 'đất đai '.repeat(120)).join('\n\n')
     rpc.mockImplementation(async (type: string) => (type === 'pageMatch/run' ? run({ mode: 'full_page', match_ratio: 0.92, full_text: full, total_chars: full.length }) : note))
     view()
     await scan()
-    await screen.findByText(/Hầu như cả trang khớp truy vấn \(92% nội dung\)/)
-    fireEvent.click(screen.getByRole('button', { name: 'Lưu cả trang' }))
+    await screen.findByText(/Hầu như cả trang khớp truy vấn/)
+    expect(screen.getByText('92%')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu toàn bộ' }))
     await screen.findByText(/sẽ được lưu thành 2 ghi chú/)
     expect(screen.getByText(/token hạn mức AI/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Lưu' }))
@@ -138,13 +190,24 @@ describe('PageFinderView', () => {
     view()
     await scan()
     await screen.findByText('Nghị quyết 12/2023 về đất đai')
-    expect(screen.queryByRole('button', { name: 'Lưu cả trang' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Lưu toàn bộ' })).toBeNull()
+  })
+
+  it('rail hiển thị trạng thái trang theo tab hiện tại (sẵn sàng / không hỗ trợ)', async () => {
+    rpc.mockResolvedValue(run())
+    view()
+    await screen.findByText('Trang có thể quét tự động')
+    // Tab chuyển sang trang hệ thống (URL ẩn dù đã cấp quyền) → "không hỗ trợ quét".
+    ;(chrome.tabs.query as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: 7 }])
+    const listener = (chrome.tabs.onActivated.addListener as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0] as () => void
+    await act(async () => listener())
+    await screen.findByText('Trang này không hỗ trợ quét')
   })
 
   it.each([
     ['QUOTA_EXCEEDED', 402, /hết hạn mức AI/, 'Xem hạn mức'],
     ['PAGE_TOO_LONG', 413, /Trang quá dài để quét/, null],
-    ['PAGE_NO_CONTENT', 422, /Trang không hỗ trợ quét nội dung/, null],
+    ['PAGE_NO_CONTENT', 422, /Không tìm thấy nội dung để quét/, null],
     ['NETWORK_ERROR', 0, /Không kết nối được máy chủ/, 'Thử lại'],
   ])('lỗi %s → thông báo riêng, không treo loading', async (code, status, text, button) => {
     rpc.mockRejectedValueOnce(new AppError(code, code, status))

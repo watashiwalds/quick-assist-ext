@@ -1,4 +1,4 @@
-/** Side panel — khung ứng dụng chính: Thư viện · Tìm kiếm · Tìm trong trang · Hỏi AI · Tóm tắt (khi có vùng chọn) · Cài đặt. */
+/** Side panel — khung ứng dụng chính: Thư viện (tìm nhanh + tìm sâu AI) · Tìm kiếm* · Tìm trong trang · Hỏi AI · Tóm tắt (khi có vùng chọn) · Cài đặt. Tab "Tìm kiếm" ẩn mặc định, bật lại trong Cài đặt. */
 import { useEffect, useState } from 'react'
 import { rpc } from '@/shared/messaging/client'
 import type { PendingSelection } from '@/shared/messaging/protocol'
@@ -30,6 +30,8 @@ function Shell({ session }: { session: Parameters<typeof SettingsView>[0]['sessi
   const [openNoteId, setOpenNoteId] = useState<string | null>(null)
   const [selection, setSelection] = useState<PendingSelection | null>(null)
   const folders = useAsync(() => rpc('folders/list'), [])
+  const prefs = useAsync(() => rpc('prefs/get'), [])
+  const showSearchTab = prefs.data?.showSearchTab ?? false
   const chat = useChat() // giữ hội thoại khi chuyển tab; câu trả lời đang stream vẫn chạy tiếp
 
   const takeSelection = () =>
@@ -44,9 +46,14 @@ function Shell({ session }: { session: Parameters<typeof SettingsView>[0]['sessi
     if (e.type === 'folders/changed') void folders.reload()
   })
 
+  // Tab "Tìm kiếm" bị tắt trong Cài đặt khi đang mở → về Thư viện.
+  useEffect(() => {
+    if (tab === 'search' && prefs.data && !showSearchTab) setTab('notes')
+  }, [tab, prefs.data, showSearchTab])
+
   const items: TabItem<Tab>[] = [
     { key: 'notes', label: 'Thư viện' },
-    { key: 'search', label: 'Tìm kiếm' },
+    ...(showSearchTab ? [{ key: 'search' as const, label: 'Tìm kiếm' }] : []),
     { key: 'page', label: 'Tìm trong trang' },
     { key: 'chat', label: 'Hỏi AI' },
     ...(selection ? [{ key: 'summary' as const, label: 'Tóm tắt' }] : []),
@@ -105,7 +112,7 @@ function Shell({ session }: { session: Parameters<typeof SettingsView>[0]['sessi
             }}
           />
         )}
-        {tab === 'settings' && <SettingsView session={session} />}
+        {tab === 'settings' && <SettingsView session={session} onPrefsChanged={prefs.setData} />}
       </main>
     </>
   )

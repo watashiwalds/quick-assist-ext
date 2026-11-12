@@ -1,7 +1,8 @@
 """Business Layer — PageMatchService (AutoChunk, ADR-0013): tìm các đoạn trên trang hiện tại khớp
 ý định người dùng. Operation STATELESS trả preview — không ghi DB; lưu bằng POST /notes như note thường.
 
-    HTML ─► Trafilatura (process pool) ─► blocks ─► embed([query, *blocks]) 1 batch (quota lease 1)
+    HTML ─► Trafilatura (process pool) ──────────► blocks ─► embed([query, *blocks]) 1 batch (quota lease 1)
+    text ─► split_paragraphs (reflow + gộp) ────► blocks ─┘
          ─► cosine ─► lọc min_score / top_candidates ─► LLM thẩm định JSON (quota lease 2)
          ─► match_ratio ─► mode "segments" | "full_page"
 
@@ -23,7 +24,12 @@ from quickassist.business.common.exceptions import (
     Unprocessable,
     UpstreamError,
 )
-from quickassist.business.page_match.extractor import Block, ExtractError, extract_blocks
+from quickassist.business.page_match.extractor import (
+    Block,
+    ExtractError,
+    extract_blocks,
+    extract_text_blocks,
+)
 from quickassist.business.page_match.prompts import (
     VerdictParseError,
     page_match_messages,
@@ -89,26 +95,44 @@ class PageMatchService:
         self.ai = ai
 
     async def match(
-        self, user_id: uuid.UUID, *, query: str, html: str, url: str | None = None,
+        self, user_id: uuid.UUID, *, query: str, html: str | None = None, text: str | None = None,
+        url: str | None = None,
     ) -> PageMatchResult:
+        """Một trong hai nguồn: `html` (trang hiện tại) hoặc `text` (nội dung dán). Schema đã bảo đảm
+        đúng một nguồn; service ưu tiên `text` nếu cả hai cùng có mặt."""
         cfg = get_settings()
         started = time.perf_counter()
         query = " ".join(query.replace("\x00", "").split())
         if not query or len(query) > MAX_QUERY_CHARS:
             raise Unprocessable("Truy vấn phải có 1–500 ký tự", code="PAGE_MATCH_QUERY_INVALID")
-        html_bytes = len(html.encode("utf-8", errors="ignore"))
-        if html_bytes > cfg.page_match_max_html_bytes:
-            raise PayloadTooLarge("Trang quá dài để quét", code="PAGE_TOO_LONG",
-                                  details={"max_bytes": cfg.page_match_max_html_bytes})
 
-        try:
-            extraction = await extract_blocks(
-                html, timeout_seconds=cfg.page_match_extract_timeout_seconds,
-                max_block_chars=cfg.page_match_max_block_chars, max_chars=cfg.page_match_max_chars,
-            )
-        except ExtractError as e:
-            raise Unprocessable("Không trích được nội dung chính của trang", code="PAGE_NO_CONTENT",
-                                details={"reason": e.reason}) from e
+        if text is not None:
+            source = "text"
+            html_bytes = 0
+            try:
+                extraction = extract_text_blocks(
+                    text, max_block_chars=cfg.page_match_max_block_chars,
+                    max_chars=cfg.page_match_max_chars,
+                    min_block_chars=cfg.page_match_min_block_chars,
+                )
+            except ExtractError as e:
+                raise Unprocessable("Không có nội dung để quét", code="PAGE_NO_CONTENT",
+                                    details={"reason": e.reason}) from e
+        else:
+            source = "html"
+            html = html or ""
+            html_bytes = len(html.encode("utf-8", errors="ignore"))
+            if html_bytes > cfg.page_match_max_html_bytes:
+                raise PayloadTooLarge("Trang quá dài để quét", code="PAGE_TOO_LONG",
+                                      details={"max_bytes": cfg.page_match_max_html_bytes})
+            try:
+                extraction = await extract_blocks(
+                    html, timeout_seconds=cfg.page_match_extract_timeout_seconds,
+                    max_block_chars=cfg.page_match_max_block_chars, max_chars=cfg.page_match_max_chars,
+                )
+            except ExtractError as e:
+                raise Unprocessable("Không trích được nội dung chính của trang", code="PAGE_NO_CONTENT",
+                                    details={"reason": e.reason}) from e
         blocks = extraction.blocks
 
         # --- Lease 1: embed truy vấn + mọi khối trong MỘT batch
@@ -151,9 +175,10 @@ class PageMatchService:
         full_text = "\n\n".join(b.text for b in blocks) if mode == "full_page" else None
 
         log.info("page_match_done", extra={
-            "html_bytes": html_bytes, "blocks": len(blocks), "chars": extraction.total_chars,
-            "truncated": extraction.truncated, "candidates": len(candidates), "matched": len(items),
-            "mode": mode, "match_ratio": ratio, "warning": warning, "has_url": bool(url),
+            "source": source, "html_bytes": html_bytes, "blocks": len(blocks),
+            "chars": extraction.total_chars, "truncated": extraction.truncated,
+            "candidates": len(candidates), "matched": len(items), "mode": mode,
+            "match_ratio": ratio, "warning": warning, "has_url": bool(url),
             "duration_ms": round((time.perf_counter() - started) * 1000, 1),
         })
         return PageMatchResult(mode, ratio, warning, items, extraction.total_chars, extraction.truncated,

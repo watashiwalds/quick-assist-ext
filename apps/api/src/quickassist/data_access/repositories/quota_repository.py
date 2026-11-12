@@ -75,6 +75,23 @@ class QuotaRepository:
                     used_tokens=QuotaAccount.used_tokens + actual)
         )
 
+    async def release_reserved_ledgers(self, user_id: uuid.UUID) -> None:
+        """Đánh dấu RELEASED mọi giữ chỗ đang mở — dùng khi tạo lại hạn mức ở môi trường demo."""
+        await self.s.execute(
+            update(QuotaLedger)
+            .where(QuotaLedger.user_id == user_id, QuotaLedger.status == "RESERVED")
+            .values(status="RELEASED", actual_tokens=0, settled_at=datetime.now(UTC))
+        )
+
+    async def reset_account(self, user_id: uuid.UUID, limit_tokens: int) -> None:
+        """Đưa số dư về 0 và cấp lại hạn mức mặc định (demo)."""
+        await self.s.execute(
+            update(QuotaAccount)
+            .where(QuotaAccount.user_id == user_id)
+            .values(limit_tokens=limit_tokens, used_tokens=0, reserved_tokens=0,
+                    period_start=datetime.now(UTC))
+        )
+
     async def release_stale_ledgers(self, older_than: datetime) -> list[StaleReservation]:
         """Đánh dấu RELEASED các giữ chỗ bị treo (tiến trình chết giữa reserve và commit)."""
         rows = await self.s.execute(

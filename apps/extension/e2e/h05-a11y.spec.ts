@@ -4,7 +4,7 @@ import { expect, test } from './fixtures'
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']
 
-for (const tab of ['Thư viện', 'Tìm kiếm', 'Hỏi AI', 'Cài đặt']) {
+for (const tab of ['Thư viện', 'Tìm trong trang', 'Hỏi AI', 'Cài đặt']) {
   test(`axe: màn "${tab}" không có vi phạm WCAG AA`, async ({ panel, api }) => {
     await api.send('POST', '/notes', { content: 'Ghi chú mẫu để có nội dung', title: 'Mẫu', url: 'https://a.example/x' })
     await panel.reload()
@@ -29,8 +29,9 @@ test('bàn phím: chuyển tab bằng mũi tên, Esc đóng editor và trả foc
   await panel.reload()
   await panel.getByRole('tab', { name: 'Thư viện' }).focus()
   await panel.keyboard.press('ArrowRight')
-  await expect(panel.getByRole('tab', { name: 'Tìm kiếm' })).toHaveAttribute('aria-selected', 'true')
-  await expect(panel.getByRole('tab', { name: 'Tìm kiếm' })).toBeFocused()
+  // tab "Tìm kiếm" ẩn mặc định (đã gộp vào thanh tìm của Thư viện) → tab kế tiếp là "Tìm trong trang"
+  await expect(panel.getByRole('tab', { name: 'Tìm trong trang' })).toHaveAttribute('aria-selected', 'true')
+  await expect(panel.getByRole('tab', { name: 'Tìm trong trang' })).toBeFocused()
   await panel.keyboard.press('ArrowLeft')
   await panel.locator('.note-list').getByRole('heading', { name: 'Mẫu' }).click()
   const edit = panel.getByRole('button', { name: 'Sửa' })

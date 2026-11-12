@@ -1,6 +1,7 @@
 /**
- * AutoChunk — "Tìm trong trang" (ADR-0013): chụp HTML tab đang xem → POST /ai/page-match → kết quả cho
- * side panel; click đoạn → tìm lại + làm nổi bật trên trang. Background là gateway duy nhất (ADR-0007).
+ * AutoChunk — "Tìm trong trang" (ADR-0013, ADR-0015): chụp HTML tab đang xem (hoặc nhận nội dung người
+ * dùng dán) → POST /ai/page-match → kết quả cho side panel; click đoạn → tìm lại + làm nổi bật trên trang.
+ * Background là gateway duy nhất (ADR-0007).
  */
 import { config } from '@/shared/config'
 import { getRawHtml, type HighlightResult, type HighlightTarget, highlightBlocksByText, type RawPage } from '@/content/injected'
@@ -27,7 +28,15 @@ async function capture(tabId: number): Promise<RawPage> {
   }
 }
 
-export async function runPageMatch(query: string): Promise<PageMatchRun> {
+export async function runPageMatch({ query, text }: { query: string; text?: string }): Promise<PageMatchRun> {
+  if (text !== undefined) {
+    // Nguồn dán: không cần tab/quyền đọc trang; tiến độ nhảy thẳng sang bước phân tích.
+    if (!text.trim()) throw new AppError('PAGE_NO_CONTENT', 'Nội dung dán đang trống', 422)
+    broadcast({ channel: 'qa-event', type: 'pageMatch/progress', phase: 'analyzing' })
+    const result = await api.ai.pageMatch({ query, text, url: null })
+    return { ...result, url: null, title: null }
+  }
+
   const tabId = await activeTabId()
   const page = await capture(tabId)
   if (page.tooLong) {

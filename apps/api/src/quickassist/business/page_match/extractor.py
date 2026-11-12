@@ -1,8 +1,11 @@
-"""Business Layer — Page Match: HTML trang → các đoạn (block) để embed + thẩm định (ADR-0013).
+"""Business Layer — Page Match: nội dung nguồn → các đoạn (block) để embed + thẩm định (ADR-0013).
 
-- Trafilatura chạy trong ProcessPoolExecutor (spawn) — lazy singleton, timeout cứng; treo → kill cả pool
-  và tạo lại ở lần gọi sau; crash parse (lxml) không lan vào event loop của API.
-- Khối > `max_block_chars` được tách theo câu (`split_long_block`).
+- HTML: Trafilatura chạy trong ProcessPoolExecutor (spawn) — lazy singleton, timeout cứng; treo → kill cả
+  pool và tạo lại ở lần gọi sau; crash parse (lxml) không lan vào event loop của API.
+- Text dán (PDF/Word/chat…): bỏ qua Trafilatura, tách đoạn thuần Python (`split_paragraphs`); dòng đơn
+  trong mỗi đoạn là hard-wrap của PDF/Word → nối lại bằng khoảng trắng (reflow).
+- Khối > `max_block_chars` được tách theo câu (`split_long_block`); khối < `min_block_chars` (chỉ nguồn
+  text dán) được gộp với khối liền kề — copy từ PDF thường cắt theo dòng hiển thị hoặc theo câu đơn lẻ.
 - `occ` = số lần đúng text đó đã xuất hiện trước → extension highlight đúng lần xuất hiện thứ n.
 - Cap tổng ký tự theo biên khối → giới hạn chi phí embed.
 """
@@ -21,6 +24,7 @@ from quickassist.infrastructure.logging import get_logger
 log = get_logger(__name__)
 
 _SENTENCE_END = re.compile(r"(?<=[.!?…;:])\s+")
+_BLANK_LINE = re.compile(r"\n\s*\n")
 
 
 @dataclass(frozen=True)
@@ -82,24 +86,82 @@ def split_long_block(text: str, max_chars: int) -> list[str]:
     return pieces
 
 
-def build_blocks(texts: list[str], *, max_block_chars: int, max_chars: int) -> Extraction:
-    """Text khối thô (thứ tự tài liệu) → Block có id/occ, đã tách câu và cap tổng ký tự."""
+def split_paragraphs(text: str) -> list[str]:
+    """Văn bản người dùng dán → các đoạn liền mạch, giữ thứ tự tài liệu.
+
+    - Chuẩn hoá xuống dòng (CRLF/CR → LF), bỏ NUL; tách theo dòng trống (`\\n\\n`).
+    - Reflow: bên trong mỗi đoạn, `\\n` đơn là hard-wrap theo chiều rộng trang (copy từ PDF/Word)
+      → nối lại bằng một khoảng trắng. Không có dòng trống → cả tài liệu là một đoạn;
+      `build_blocks` sẽ tách theo câu và gộp tới ngưỡng khối tối thiểu.
+    """
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n").replace("\x00", "").strip()
+    if not normalized:
+        return []
+    paragraphs = []
+    for p in _BLANK_LINE.split(normalized):
+        p = " ".join(line.strip() for line in p.split("\n") if line.strip())
+        if p:
+            paragraphs.append(p)
+    return paragraphs
+
+
+def build_blocks(
+    texts: list[str], *, max_block_chars: int, max_chars: int, min_block_chars: int = 0,
+) -> Extraction:
+    """Text khối thô (thứ tự tài liệu) → Block có id/occ, đã tách câu, gộp khối ngắn và cap tổng ký tự.
+
+    `min_block_chars` > 0 (nguồn text dán): khối ngắn hơn ngưỡng được gộp với khối liền kề — cosine,
+    thẩm định LLM và ghi chú cần đoạn đủ ngữ cảnh. Giới hạn mỗi lần gộp là `min(max_block_chars,
+    max_chars)` để khối gộp không vượt ngân sách tổng; đường dẫn HTML giữ `min_block_chars=0` vì
+    "Xem trên trang" cần khối khớp nguyên văn nội dung trang.
+    """
     blocks: list[Block] = []
     seen: dict[str, int] = {}
     total = 0
     truncated = False
+    group_limit = min(max_block_chars, max_chars)
+    buf = ""
+
+    def flush(text: str) -> bool:
+        """Thêm một block; False = vượt cap tổng ký tự → dừng, phần còn lại bị bỏ (truncated)."""
+        nonlocal total, truncated
+        if not text:
+            return True
+        if total + len(text) > max_chars:
+            truncated = True
+            return False
+        occ = seen.get(text, 0)
+        seen[text] = occ + 1
+        blocks.append(Block(f"b{len(blocks):02d}", text, occ))
+        total += len(text)
+        return True
+
     for raw in texts:
         for piece in split_long_block(raw, max_block_chars):
-            if total + len(piece) > max_chars:
-                truncated = True
-                break
-            occ = seen.get(piece, 0)
-            seen[piece] = occ + 1
-            blocks.append(Block(f"b{len(blocks):02d}", piece, occ))
-            total += len(piece)
-        if truncated:
-            break
+            if buf and len(buf) + 1 + len(piece) > group_limit:
+                if not flush(buf):
+                    return Extraction(blocks, total, truncated)
+                buf = ""
+            buf = f"{buf} {piece}" if buf else piece
+            if len(buf) >= min_block_chars:
+                if not flush(buf):
+                    return Extraction(blocks, total, truncated)
+                buf = ""
+    flush(buf)  # đuôi tài liệu chưa đủ ngưỡng gộp → vẫn thành block cuối
     return Extraction(blocks, total, truncated)
+
+
+def extract_text_blocks(
+    text: str, *, max_block_chars: int, max_chars: int, min_block_chars: int = 0,
+) -> Extraction:
+    """Text dán → Extraction, không qua Trafilatura/process pool. Rỗng → ExtractError("empty")."""
+    extraction = build_blocks(
+        split_paragraphs(text),
+        max_block_chars=max_block_chars, max_chars=max_chars, min_block_chars=min_block_chars,
+    )
+    if not extraction.blocks:
+        raise ExtractError("empty")
+    return extraction
 
 
 # ---------------------------------------------------------------- process pool

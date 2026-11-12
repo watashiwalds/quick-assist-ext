@@ -18,5 +18,8 @@ Theo khung "System Design Trade-offs": luôn nêu ≥ 2 phương án, chọn 1, 
 | [0011](0011-outbox-failed-store-and-shortcuts.md) | Store "failed" cho ghi chú gửi lỗi; phím tắt Alt+Shift | Chấp nhận |
 | [0012](0012-chat-history-client-side.md) | Chat RAG: lịch sử do client gửi kèm, server không lưu nội dung chat | Chấp nhận |
 | [0013](0013-page-extraction-trafilatura.md) | AutoChunk: trích nội dung trang bằng Trafilatura ở backend (process pool), LLM thẩm định 2 tầng | Chấp nhận |
+| [0015](0015-page-match-pasted-text-source.md) | AutoChunk: nội dung dán là nguồn hạng nhất song song HTML trang | Chấp nhận |
+
+> Số **0014** được dành cho kế hoạch UI Evolution (`upgrade-plan/ui-evolution/`) và chưa ban hành tại thời điểm này.
 
 Thêm ADR mới: copy file gần nhất, tăng số, mở PR cho cả nhóm duyệt.

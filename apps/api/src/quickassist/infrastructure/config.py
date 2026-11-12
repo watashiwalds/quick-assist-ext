@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     # biến một yêu cầu hợp lệ thành AI_UNAVAILABLE/502 trên máy người dùng.
     ai_timeout_seconds: float = 90.0
     ai_max_retries: int = 2
+    # Ngân sách token ước tính cho MỖI request embedding — batch theo cả số mục lẫn tổng token;
+    # một request vượt giới hạn input của provider sẽ 400 (không retryable) và làm chết cả lần quét.
+    ai_embed_batch_tokens: int = 16_000
 
     # --- Indexing / Search ---
     chunk_size_chars: int = 1200
@@ -72,6 +75,8 @@ class Settings(BaseSettings):
     page_match_extract_timeout_seconds: float = 10.0  # Trafilatura trong process pool
     page_match_max_chars: int = 50_000  # tổng ký tự khối sau khi trích (bound chi phí embed)
     page_match_max_block_chars: int = 1200  # khối dài hơn → tách theo câu
+    # khối ngắn hơn → gộp với khối liền kề (chỉ nguồn text dán; 0 = tắt)
+    page_match_min_block_chars: int = 400
     page_match_top_candidates: int = 15  # số ứng viên tối đa đưa LLM thẩm định
     page_match_min_score: float = 0.35  # ngưỡng cosine vào vòng thẩm định
     page_match_full_page_ratio: float = 0.6  # match_ratio ≥ ngưỡng → mode "full_page"

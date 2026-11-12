@@ -1,6 +1,7 @@
 /**
  * R05 — nghiệm thu tìm kiếm trên extension: bộ câu hỏi mẫu (có dấu / không dấu), lọc thư mục,
  * mở nguồn, không lộ dữ liệu người khác, hết quota.
+ * Tab "Tìm kiếm" đã gộp vào thanh tìm của Thư viện: gõ → lọc nhanh, Enter → tìm sâu bằng AI.
  */
 import { expect, sql, test } from './fixtures'
 
@@ -23,18 +24,18 @@ for (const [q, title] of [
 ] as const) {
   test(`câu hỏi "${q}" → top-1 là "${title}"`, async ({ panel, api }) => {
     await seedAndIndex(api)
-    await panel.getByRole('tab', { name: 'Tìm kiếm' }).click()
-    await panel.getByLabel('Câu hỏi tìm kiếm').fill(q)
-    await panel.getByRole('button', { name: 'Tìm', exact: true }).click()
+    const input = panel.getByLabel('Tìm kiếm hoặc lọc ghi chú')
+    await input.fill(q)
+    await input.press('Enter')
     await expect(panel.locator('ol.list > li').first().getByRole('heading')).toHaveText(`1. ${title}`)
   })
 }
 
-test('kết quả có nguồn + "Mở ghi chú" mở đúng ghi chú trong thư viện', async ({ panel, api }) => {
+test('kết quả có nguồn + "Mở ghi chú" mở đúng ghi chú ngay trong khung đọc', async ({ panel, api }) => {
   await seedAndIndex(api)
-  await panel.getByRole('tab', { name: 'Tìm kiếm' }).click()
-  await panel.getByLabel('Câu hỏi tìm kiếm').fill('phở bò')
-  await panel.getByRole('button', { name: 'Tìm', exact: true }).click()
+  const input = panel.getByLabel('Tìm kiếm hoặc lọc ghi chú')
+  await input.fill('phở bò')
+  await input.press('Enter')
   const first = panel.locator('ol.list > li').first()
   await expect(first.getByRole('link', { name: /Mở trang nguồn/ })).toHaveAttribute('href', 'https://amthuc.example/pho')
   await first.getByRole('button', { name: 'Mở ghi chú' }).click()
@@ -44,10 +45,11 @@ test('kết quả có nguồn + "Mở ghi chú" mở đúng ghi chú trong thư 
 test('lọc thư mục + không thấy dữ liệu của người khác', async ({ panel, api, email }) => {
   await seedAndIndex(api)
   const f = (await api.send('POST', '/folders', { name: 'Trống' })).body
-  await panel.getByRole('tab', { name: 'Tìm kiếm' }).click()
-  await panel.getByLabel('Tìm trong thư mục').selectOption(f.id)
-  await panel.getByLabel('Câu hỏi tìm kiếm').fill('phở bò')
-  await panel.getByRole('button', { name: 'Tìm', exact: true }).click()
+  // viewport mặc định rộng → rail thư mục hiện (ô chọn thư mục chỉ hiện ở panel hẹp)
+  await panel.locator('.folder-nav').getByText('Trống').click()
+  const input = panel.getByLabel('Tìm kiếm hoặc lọc ghi chú')
+  await input.fill('phở bò')
+  await input.press('Enter')
   await expect(panel.getByText('Không có kết quả phù hợp')).toBeVisible()
   // user khác có ghi chú "bí mật" trùng từ khoá → không bao giờ xuất hiện
   const other = await fetch(`${process.env.E2E_API_BASE_URL ?? 'http://localhost:8000/api/v1'}/auth/dev-login`, {
@@ -57,8 +59,8 @@ test('lọc thư mục + không thấy dữ liệu của người khác', async 
     method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${other.access_token}` },
     body: JSON.stringify({ content: 'phở bò bí mật của người khác' }),
   })
-  await panel.getByLabel('Tìm trong thư mục').selectOption('')
-  await panel.getByRole('button', { name: 'Tìm', exact: true }).click()
+  await panel.locator('.folder-nav').getByText('Tất cả ghi chú').click()
+  await input.press('Enter')
   await expect(panel.locator('ol.list > li').first()).toBeVisible()
   await expect(panel.getByText(/bí mật của người khác/)).toHaveCount(0)
 })
@@ -67,9 +69,9 @@ test('hết quota → thông báo rõ + nút xem hạn mức chuyển sang Cài 
   const me = await api.get('/me')
   await api.get('/me/quota')
   await sql('UPDATE quota_accounts SET limit_tokens = 0 WHERE user_id = $1', [me.id])
-  await panel.getByRole('tab', { name: 'Tìm kiếm' }).click()
-  await panel.getByLabel('Câu hỏi tìm kiếm').fill('bất kỳ')
-  await panel.getByRole('button', { name: 'Tìm', exact: true }).click()
+  const input = panel.getByLabel('Tìm kiếm hoặc lọc ghi chú')
+  await input.fill('bất kỳ')
+  await input.press('Enter')
   await expect(panel.getByText(/hết hạn mức AI/)).toBeVisible()
   await panel.getByRole('button', { name: 'Xem hạn mức' }).click()
   await expect(panel.getByText('Hạn mức AI')).toBeVisible()
