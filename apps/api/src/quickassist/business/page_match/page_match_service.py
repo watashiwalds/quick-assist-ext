@@ -1,8 +1,8 @@
 """Business Layer — PageMatchService (AutoChunk, ADR-0013): tìm các đoạn trên trang hiện tại khớp
 ý định người dùng. Operation STATELESS trả preview — không ghi DB; lưu bằng POST /notes như note thường.
 
-    HTML ─► Trafilatura (process pool) ─► blocks ─► embed([query, *blocks]) 1 batch (quota lease 1)
-    text ─► split_paragraphs ───────────► blocks ─┘
+    HTML ─► Trafilatura (process pool) ──────────► blocks ─► embed([query, *blocks]) 1 batch (quota lease 1)
+    text ─► split_paragraphs (reflow + gộp) ────► blocks ─┘
          ─► cosine ─► lọc min_score / top_candidates ─► LLM thẩm định JSON (quota lease 2)
          ─► match_ratio ─► mode "segments" | "full_page"
 
@@ -113,6 +113,7 @@ class PageMatchService:
                 extraction = extract_text_blocks(
                     text, max_block_chars=cfg.page_match_max_block_chars,
                     max_chars=cfg.page_match_max_chars,
+                    min_block_chars=cfg.page_match_min_block_chars,
                 )
             except ExtractError as e:
                 raise Unprocessable("Không có nội dung để quét", code="PAGE_NO_CONTENT",

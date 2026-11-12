@@ -5,7 +5,7 @@ nên Business Layer không đổi gì.
 Hỗ trợ 2 kiểu endpoint (chọn bằng GEMINI_BASE_URL):
   - Google AI Studio (mặc định): https://generativelanguage.googleapis.com/v1beta/models
       chat  → POST /{model}:generateContent | :streamGenerateContent?alt=sse
-      embed → POST /{model}:batchEmbedContents (≤100 đoạn/lần)
+      embed → POST /{model}:batchEmbedContents (≤100 đoạn và ≤ ai_embed_batch_tokens token/lần)
   - Vertex AI express mode:      https://aiplatform.googleapis.com/v1/publishers/google/models
       chat  → giống trên
       embed → POST /{model}:predict (gemini-embedding-001 nhận 1 đoạn/lần)
@@ -102,25 +102,41 @@ class GeminiClient:
                 vectors.append(emb.get("values") or [])
                 tokens += int((emb.get("statistics") or {}).get("token_count") or estimate_tokens(t))
         else:
-            for i in range(0, len(texts), _BATCH):
-                part = list(texts[i : i + _BATCH])
-                data = await self._post(
-                    f"/{model}:batchEmbedContents",
-                    {"requests": [
-                        {"model": f"models/{model}", "content": {"parts": [{"text": t}]},
-                         "outputDimensionality": dim}
-                        for t in part
-                    ]},
-                )
-                got = [e.get("values") or [] for e in data.get("embeddings") or []]
-                if len(got) != len(part):
-                    raise AIProviderError("embedding trả về sai số lượng", retryable=False)
-                vectors.extend(got)
-                tokens += sum(estimate_tokens(t) for t in part)  # API không trả usage cho embedding
+            # Batch theo cả số mục (cap 100 của batchEmbedContents) LẪN ngân sách token ước tính —
+            # một batch vượt giới hạn input của endpoint sẽ 400 (không retryable) và làm chết cả lần
+            # quét (AI_UNAVAILABLE) với tài liệu dài dù tổng ký tự vẫn nằm trong cap 50k.
+            budget = max(1, self._s.ai_embed_batch_tokens)
+            batch: list[str] = []
+            used = 0
+            for t in texts:
+                cost = estimate_tokens(t)
+                if batch and (len(batch) >= _BATCH or used + cost > budget):
+                    vectors.extend(await self._embed_batch(model, dim, batch))
+                    tokens += sum(estimate_tokens(x) for x in batch)
+                    batch, used = [], 0
+                batch.append(t)
+                used += cost
+            if batch:
+                vectors.extend(await self._embed_batch(model, dim, batch))
+                tokens += sum(estimate_tokens(x) for x in batch)
         if len(vectors) != len(texts) or any(len(v) != dim for v in vectors):
             raise AIProviderError("embedding trả về sai số lượng/số chiều", retryable=False)
         # Số chiều < 3072 (MRL) không được chuẩn hoá sẵn → chuẩn hoá L2 cho cosine ổn định.
         return EmbeddingResult([_l2(v) for v in vectors], Usage(tokens, 0), model)
+
+    async def _embed_batch(self, model: str, dim: int, part: list[str]) -> list[list[float]]:
+        data = await self._post(
+            f"/{model}:batchEmbedContents",
+            {"requests": [
+                {"model": f"models/{model}", "content": {"parts": [{"text": t}]},
+                 "outputDimensionality": dim}
+                for t in part
+            ]},
+        )
+        got = [e.get("values") or [] for e in data.get("embeddings") or []]
+        if len(got) != len(part):
+            raise AIProviderError("embedding trả về sai số lượng", retryable=False)
+        return got
 
     # ---------------------------------------------------------------- chat
     def _body(

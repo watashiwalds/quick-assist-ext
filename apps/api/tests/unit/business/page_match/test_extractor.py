@@ -98,17 +98,17 @@ def test_build_blocks_caps_total_chars_on_block_boundary() -> None:
 
 # ---------------------------------------------------------------- nguồn text dán
 
-def test_split_paragraphs_on_blank_lines_preserves_order_and_inner_line_breaks() -> None:
+def test_split_paragraphs_on_blank_lines_reflows_hard_wrapped_lines() -> None:
+    # `\n` đơn bên trong mỗi khối là hard-wrap của PDF/Word → nối lại bằng khoảng trắng.
     text = "Đoạn một.\n\nĐoạn hai\ndòng hai.\n\n\n  Đoạn ba.  \r\n"
-    assert split_paragraphs(text) == ["Đoạn một.", "Đoạn hai\ndòng hai.", "Đoạn ba."]
+    assert split_paragraphs(text) == ["Đoạn một.", "Đoạn hai dòng hai.", "Đoạn ba."]
 
 
-def test_split_paragraphs_without_blank_lines_falls_back_to_sentences() -> None:
-    # Copy từ PDF/Word thường chỉ có \n đơn → vẫn có ranh giới đoạn theo câu.
+def test_split_paragraphs_without_blank_lines_is_one_reflowed_text() -> None:
+    # Copy từ PDF/Word thường chỉ có \n đơn (hard-wrap theo chiều rộng trang) → cả tài liệu một đoạn;
+    # build_blocks sẽ tách theo câu và gộp tới ngưỡng khối tối thiểu.
     text = "Câu một về đất đai.\nCâu hai về quy hoạch!\nCâu ba về giao thông?"
-    assert split_paragraphs(text) == [
-        "Câu một về đất đai.", "Câu hai về quy hoạch!", "Câu ba về giao thông?",
-    ]
+    assert split_paragraphs(text) == ["Câu một về đất đai. Câu hai về quy hoạch! Câu ba về giao thông?"]
 
 
 def test_split_paragraphs_normalizes_and_drops_empty_input() -> None:
@@ -126,6 +126,44 @@ def test_extract_text_blocks_empty_raises() -> None:
     with pytest.raises(ExtractError) as e:
         extract_text_blocks(" \n\n ", max_block_chars=1200, max_chars=50_000)
     assert e.value.reason == "empty"
+
+
+def test_extract_text_blocks_merges_short_blocks_up_to_min() -> None:
+    ex = extract_text_blocks("A.\n\nB.\n\nC.", max_block_chars=1200, max_chars=10_000, min_block_chars=10)
+    assert [b.text for b in ex.blocks] == ["A. B. C."] and not ex.truncated
+
+
+def test_extract_text_blocks_pdf_copy_becomes_flow_paragraphs() -> None:
+    # Copy PDF: \n đơn giữa các dòng hiển thị + \n\n giữa khối → reflow rồi gộp tới ngưỡng tối thiểu,
+    # thay vì một block mảnh vụn vài từ (làm cosine và ghi chú phân rã).
+    text = (
+        "Nghị quyết 12/2023 về\n\nđất đai và quy hoạch.\n\nĐiều 5 quy định\nviệc thu hồi đất đối với dự án."
+        "\n\nĐiều 6 sửa đổi\nbồi thường hỗ trợ tái định cư."
+    )
+    ex = extract_text_blocks(text, max_block_chars=1200, max_chars=50_000, min_block_chars=60)
+    assert [b.text for b in ex.blocks] == [
+        "Nghị quyết 12/2023 về đất đai và quy hoạch. Điều 5 quy định việc thu hồi đất đối với dự án.",
+        "Điều 6 sửa đổi bồi thường hỗ trợ tái định cư.",
+    ]
+
+
+def test_build_blocks_merges_respecting_block_cap_keeps_tail() -> None:
+    texts = ["a" * 30, "b" * 30, "c" * 30]
+    ex = build_blocks(texts, max_block_chars=80, max_chars=10_000, min_block_chars=40)
+    assert [len(b.text) for b in ex.blocks] == [61, 30]  # cặp đầu đạt min → gộp; đuôi <min vẫn thành block
+    assert ex.blocks[0].text == "a" * 30 + " " + "b" * 30
+
+
+def test_merge_never_creates_block_over_total_cap() -> None:
+    # min_block_chars lớn hơn cap tổng (config đặt lệch) → không được tạo khối vượt cap rồi mất hết nội dung.
+    ex = build_blocks(["x" * 30] * 6, max_block_chars=1200, max_chars=100, min_block_chars=400)
+    assert ex.blocks and ex.truncated and 0 < ex.total_chars <= 100
+
+
+def test_build_blocks_without_min_keeps_html_path_unchanged() -> None:
+    # Đường dẫn HTML (min=0 mặc định): mỗi mảnh là một block nguyên văn — cần cho "Xem trên trang".
+    ex = build_blocks(["A lặp", "B", "A lặp", "C", "A lặp"], max_block_chars=1200, max_chars=10_000)
+    assert [b.text for b in ex.blocks] == ["A lặp", "B", "A lặp", "C", "A lặp"]
 
 
 # ---------------------------------------------------------------- process pool

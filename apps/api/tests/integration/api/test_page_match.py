@@ -98,7 +98,11 @@ async def test_text_source_skips_trafilatura(app, client, monkeypatch) -> None: 
 
 
 async def test_text_source_full_page_returns_whole_pasted_text(client) -> None:
-    text = "\n\n".join(f"Đoạn {i}: quy định về đất đai và bồi thường." for i in range(6))
+    # Mỗi đoạn > page_match_min_block_chars (mặc định 400) → không bị gộp; full_text giữ nguyên văn bản.
+    # Từ khoá "đất đai" lặp đậm đặc để mock embedding (bag-of-words) cho cosine ≥ min_score.
+    para = "Đoạn {i}: đất đai. " * 25
+    # split_paragraphs strip từng đoạn → kỳ vọng cũng ở dạng đã strip (không khoảng trắng đuôi dòng).
+    text = "\n\n".join(para.format(i=i).strip() for i in range(6))
     h = await login(client)
     r = await client.post("/ai/page-match", json={"query": "đất đai", "text": text}, headers=h)
     data = r.json()

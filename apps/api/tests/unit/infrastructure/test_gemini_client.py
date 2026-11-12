@@ -148,6 +148,26 @@ async def test_embed_batches_normalizes_and_sets_dimension() -> None:
     assert r.usage.prompt_tokens > 0
 
 
+async def test_embed_batches_by_token_budget_keeps_order() -> None:
+    reqs = []
+
+    def h(req: httpx.Request) -> httpx.Response:
+        b = json.loads(req.content)
+        reqs.append(b)
+        embs = [{"values": [3.0, 4.0, 0.0, 0.0]} for _ in b["requests"]]
+        return httpx.Response(200, json={"embeddings": embs})
+
+    texts = ["x" * 10_000] * 5  # ước tính 5 001 token/text → budget 16k gói tối đa 3 text/batch
+    r = await client(h).embed(texts)
+    sizes = [len(b["requests"]) for b in reqs]
+    assert sizes == [3, 2] and all(
+        sum(len(rq["content"]["parts"][0]["text"]) // 2 + 1 for rq in b["requests"]) <= 16_000
+        for b in reqs
+    )
+    assert len(r.vectors) == 5 and r.vectors[-1] == [0.6, 0.8, 0.0, 0.0]
+    assert r.usage.prompt_tokens == sum(len(t) // 2 + 1 for t in texts)
+
+
 async def test_embed_wrong_dimension_is_permanent_error() -> None:
     resp = httpx.Response(200, json={"embeddings": [{"values": [1.0] * (DIM + 1)}]})
     with pytest.raises(AIProviderError) as e:
