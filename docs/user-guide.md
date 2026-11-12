@@ -33,7 +33,9 @@ Bấm biểu tượng → **Mở thư viện ghi chú** (mở bảng bên phải
 - Dải đỏ "*n ghi chú chưa gửi được*": bấm **Xem** → **Gửi lại** hoặc **Bỏ ghi chú này**.
 
 ## 5. Tìm kiếm theo ý nghĩa
-Tab **Tìm kiếm** → gõ câu hỏi tự nhiên, **có thể gõ không dấu** ("cong thuc nau pho") → **Tìm**. Kết quả là 5 đoạn liên quan nhất kèm tên ghi chú; bấm **Mở ghi chú** hoặc **Mở trang nguồn ↗**. Có thể giới hạn trong một thư mục.
+Tìm kiếm đã gộp vào **thanh tìm kiếm của tab Thư viện**: gõ từ khoá để lọc nhanh danh sách; nhấn **Enter** để **tìm sâu bằng AI** — câu hỏi tự nhiên, **có thể gõ không dấu** ("cong thuc nau pho"). Kết quả là các đoạn liên quan nhất kèm tên ghi chú (mặc định tối đa 5, chọn được 10/20 ở ô cạnh thanh); bấm **Mở ghi chú** (mở ngay trong khung đọc) hoặc **Mở trang nguồn ↗**. Có thể giới hạn trong một thư mục.
+
+> Vẫn muốn tab riêng? Bật **Cài đặt → "Hiện tab Tìm kiếm trên thanh tab"**.
 
 ## 6. Tóm tắt bằng AI
 - **Ghi chú đã lưu:** bấm **Tóm tắt bằng AI** trên thẻ ghi chú → xem trước → **Lưu tóm tắt** hoặc **Huỷ**.

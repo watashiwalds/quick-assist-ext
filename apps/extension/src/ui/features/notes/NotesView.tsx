@@ -3,9 +3,10 @@
  * rail thư mục | danh sách | reader/editor (thay modal editor).
  * Cache-first, lọc thư mục + từ khoá, xoá một/nhiều (xác nhận),
  * quản lý thư mục, ghi chú chưa gửi (N06).
+ * Thanh tìm kiếm gộp cả tìm sâu AI (R04): gõ → lọc nhanh cục bộ, Enter → tìm kiếm ngữ nghĩa.
  */
-import { useEffect, useMemo, useState } from 'react'
-import type { Note } from '@/shared/api/types'
+import { type FormEvent, useEffect, useMemo, useState } from 'react'
+import type { Note, SearchHit } from '@/shared/api/types'
 import { rpc } from '@/shared/messaging/client'
 import { Button, ConfirmDialog, EmptyState, ErrorState, Icon, Input, Select, Spinner, useToast } from '../../components'
 import { useAction, useAsync, useBroadcast } from '../../lib/hooks'
@@ -17,6 +18,9 @@ import { PendingNotes } from './PendingNotes'
 export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?: string | null; onOpened?: () => void; onGoSettings: () => void }) {
   const [folderId, setFolderId] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
+  const [topK, setTopK] = useState(5)
+  const [hits, setHits] = useState<SearchHit[] | null>(null)
+  const [asked, setAsked] = useState('')
   const [selectMode, setSelectMode] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [active, setActive] = useState<Note | null>(null)
@@ -26,25 +30,54 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
   const folders = useAsync(() => rpc('folders/list'), [])
   const notes = useAsync(() => rpc('notes/list', { folderId }), [folderId])
   const del = useAction()
+  const search = useAction()
   const toast = useToast()
   useBroadcast((e) => {
     if (e.type === 'notes/changed') void notes.reload()
     if (e.type === 'folders/changed') void folders.reload()
   })
 
-  // Mở ghi chú được chọn từ màn Tìm kiếm (chế độ đọc, highlight hàng tương ứng).
-  useEffect(() => {
-    if (!openNoteId) return
-    void rpc('notes/get', { id: openNoteId })
+  // Mở ghi chú (từ kết quả tìm kiếm AI hoặc được chọn ở tab khác) — chế độ đọc, highlight hàng tương ứng.
+  const openNoteById = (id: string) =>
+    rpc('notes/get', { id })
       .then((n) => {
         setFolderId(null)
         setHighlight(n.id)
         setActive(n)
       })
       .catch(() => toast('Ghi chú không còn tồn tại', 'error'))
-      .finally(() => onOpened?.())
+  useEffect(() => {
+    if (!openNoteId) return
+    void openNoteById(openNoteId).finally(() => onOpened?.())
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openNoteId])
+
+  // Tìm sâu bằng AI (R04) với chính từ khoá đang gõ + thư mục đang chọn; kết quả thay vùng danh sách.
+  const showResults = !!hits || search.busy || !!search.error
+  async function runSearch(e?: FormEvent) {
+    e?.preventDefault()
+    const q = filter.trim()
+    if (!q || search.busy) return
+    const r = await search.run(() => rpc('search/query', { query: q, folderId, topK }))
+    if (r) {
+      setHits(r)
+      setAsked(q)
+    }
+  }
+  const exitResults = () => {
+    setHits(null)
+    search.clearError()
+  }
+  // Gõ tiếp sau khi có kết quả AI → quay về chế độ lọc nhanh cục bộ.
+  const changeFilter = (v: string) => {
+    setFilter(v)
+    if (showResults) exitResults()
+  }
+  // Đổi thư mục (rail hoặc ô chọn) cũng làm mới kết quả AI cũ.
+  const changeFolder = (id: string | null) => {
+    setFolderId(id)
+    if (showResults) exitResults()
+  }
 
   const folderName = useMemo(() => new Map((folders.data ?? []).map((f) => [f.id, f.name])), [folders.data])
   const visible = useMemo(() => {
@@ -84,7 +117,7 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
             aria-current={folderId === null || undefined}
             onClick={(e) => {
               e.preventDefault()
-              setFolderId(null)
+              changeFolder(null)
             }}
           >
             <Icon name="layers" size={15} />
@@ -99,7 +132,7 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
               aria-current={folderId === f.id || undefined}
               onClick={(e) => {
                 e.preventDefault()
-                setFolderId(f.id)
+                changeFolder(f.id)
               }}
             >
               <Icon name="folder" size={15} />
@@ -125,8 +158,16 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
       <div className="notes-pane" aria-label="Danh sách ghi chú">
         <div className="pane-head">
           <div className="pane-heading">
-            <h2 className="pane-title">{folderId ? (folderName.get(folderId) ?? 'Thư mục') : 'Tất cả ghi chú'}</h2>
-            {!notes.loading && !notes.error && <p className="pane-subtitle">{visible.length} ghi chú</p>}
+            <h2 className="pane-title">
+              {showResults ? 'Kết quả tìm kiếm AI' : folderId ? (folderName.get(folderId) ?? 'Thư mục') : 'Tất cả ghi chú'}
+            </h2>
+            {showResults ? (
+              <p className="pane-subtitle" aria-live="polite">
+                {search.busy ? 'Đang tìm nội dung tương đồng…' : hits ? `${hits.length} kết quả cho “${asked}”` : ''}
+              </p>
+            ) : (
+              !notes.loading && !notes.error && <p className="pane-subtitle">{visible.length} ghi chú</p>
+            )}
           </div>
           <div className="pane-actions">
             <Button variant="ghost" size="sm" aria-pressed={selectMode} onClick={() => (setSelectMode(!selectMode), setSelected(new Set()))}>
@@ -142,17 +183,35 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
           </div>
         </div>
         <div className="pane-tools">
-          <label className="search">
-            <Icon name="search" size={14} />
-            <Input
-              type="search"
-              aria-label="Lọc ghi chú theo từ khoá"
-              placeholder="Lọc nhanh trong thư viện…"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-            />
-          </label>
-          <Select className="folder-select" aria-label="Lọc theo thư mục" value={folderId ?? ''} onChange={(e) => setFolderId(e.target.value || null)}>
+          <form role="search" onSubmit={(e) => void runSearch(e)}>
+            <div className="search-row">
+              <label className="search">
+                <Icon name="search" size={14} />
+                <Input
+                  type="search"
+                  aria-label="Tìm kiếm hoặc lọc ghi chú"
+                  placeholder="Lọc nhanh trong thư viện…"
+                  value={filter}
+                  maxLength={1000}
+                  onChange={(e) => changeFilter(e.target.value)}
+                />
+              </label>
+              <Select className="topk-select" aria-label="Số kết quả tối đa" value={String(topK)} onChange={(e) => setTopK(Number(e.target.value))}>
+                <option value="5">Tối đa 5</option>
+                <option value="10">Tối đa 10</option>
+                <option value="20">Tối đa 20</option>
+              </Select>
+            </div>
+            <small className="search-hint">
+              Gõ để lọc nhanh trong thư viện · Nhấn <kbd>Enter</kbd> để tìm sâu bằng AI (có thể gõ không dấu).
+            </small>
+          </form>
+          <Select
+            className="folder-select"
+            aria-label="Lọc theo thư mục"
+            value={folderId ?? ''}
+            onChange={(e) => changeFolder(e.target.value || null)}
+          >
             <option value="">Tất cả thư mục</option>
             {folders.data?.map((f) => (
               <option key={f.id} value={f.id}>
@@ -162,42 +221,95 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
           </Select>
         </div>
         <div className="pane-scroll">
-          <PendingNotes />
-          {selectMode && (
-            <div className="row spread selection-bar">
-              <span>Đã chọn {selected.size}</span>
-              <div className="row">
-                <Button size="sm" variant="ghost" onClick={() => setSelected(new Set(visible.map((n) => n.id)))}>
-                  Chọn tất cả
-                </Button>
-                <Button size="sm" variant="danger" disabled={selected.size === 0} onClick={() => setConfirmIds([...selected])}>
-                  Xoá ({selected.size})
+          {showResults ? (
+            <div aria-label="Kết quả tìm kiếm bằng AI">
+              <div className="results-head">
+                <Button variant="ghost" size="sm" onClick={exitResults}>
+                  ← Về danh sách
                 </Button>
               </div>
+              {search.busy && <Spinner label="Đang tìm nội dung tương đồng cho bạn…" />}
+              {search.error && (
+                <ErrorState
+                  error={search.error}
+                  action={
+                    search.error.code === 'QUOTA_EXCEEDED' ? (
+                      <Button variant="link" size="sm" onClick={onGoSettings}>
+                        Xem hạn mức
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              )}
+              {!search.busy && hits?.length === 0 && (
+                <EmptyState title="Không có kết quả phù hợp">Thử diễn đạt khác, bỏ lọc thư mục, hoặc đợi ghi chú mới chuyển “Sẵn sàng tìm kiếm”.</EmptyState>
+              )}
+              <ol className="list hit-list">
+                {hits?.map((h, i) => (
+                  <li key={h.chunk_id} className="card">
+                    <div className="row spread">
+                      <h3 className="grow">
+                        {i + 1}. {h.note_title ?? 'Ghi chú'}
+                      </h3>
+                      <small className="muted" title="Điểm liên quan (RRF)">
+                        {h.score.toFixed(3)}
+                      </small>
+                    </div>
+                    <div className="clamp">{h.text}</div>
+                    <div className="row actions">
+                      <Button variant="ghost" size="sm" onClick={() => void openNoteById(h.note_id)}>
+                        Mở ghi chú
+                      </Button>
+                      {h.note_url && (
+                        <a className="btn btn-ghost btn-sm" href={h.note_url} target="_blank" rel="noreferrer noopener">
+                          Mở trang nguồn ↗
+                        </a>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ol>
             </div>
+          ) : (
+            <>
+              <PendingNotes />
+              {selectMode && (
+                <div className="row spread selection-bar">
+                  <span>Đã chọn {selected.size}</span>
+                  <div className="row">
+                    <Button size="sm" variant="ghost" onClick={() => setSelected(new Set(visible.map((n) => n.id)))}>
+                      Chọn tất cả
+                    </Button>
+                    <Button size="sm" variant="danger" disabled={selected.size === 0} onClick={() => setConfirmIds([...selected])}>
+                      Xoá ({selected.size})
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {del.error && <ErrorState error={del.error} />}
+              {notes.loading && !notes.data && <Spinner />}
+              {notes.error && <ErrorState error={notes.error} onRetry={notes.reload} />}
+              {notes.data?.length === 0 && (
+                <EmptyState title="Chưa có ghi chú">Bôi đen văn bản trên trang → chuột phải → “Ghi chú văn bản này” (hoặc Alt+Shift+N).</EmptyState>
+              )}
+              {!!notes.data?.length && visible.length === 0 && <EmptyState title="Không có ghi chú khớp bộ lọc" />}
+              <ul className="note-list" aria-live="polite">
+                {visible.map((n) => (
+                  <NoteCard
+                    key={n.id}
+                    note={n}
+                    folderName={folderId ? undefined : folderName.get(n.folder_id)}
+                    selectMode={selectMode}
+                    selected={selected.has(n.id)}
+                    active={active?.id === n.id}
+                    highlight={highlight === n.id}
+                    onToggle={() => toggle(n.id)}
+                    onOpen={() => setActive(n)}
+                  />
+                ))}
+              </ul>
+            </>
           )}
-          {del.error && <ErrorState error={del.error} />}
-          {notes.loading && !notes.data && <Spinner />}
-          {notes.error && <ErrorState error={notes.error} onRetry={notes.reload} />}
-          {notes.data?.length === 0 && (
-            <EmptyState title="Chưa có ghi chú">Bôi đen văn bản trên trang → chuột phải → “Ghi chú văn bản này” (hoặc Alt+Shift+N).</EmptyState>
-          )}
-          {!!notes.data?.length && visible.length === 0 && <EmptyState title="Không có ghi chú khớp bộ lọc" />}
-          <ul className="note-list" aria-live="polite">
-            {visible.map((n) => (
-              <NoteCard
-                key={n.id}
-                note={n}
-                folderName={folderId ? undefined : folderName.get(n.folder_id)}
-                selectMode={selectMode}
-                selected={selected.has(n.id)}
-                active={active?.id === n.id}
-                highlight={highlight === n.id}
-                onToggle={() => toggle(n.id)}
-                onOpen={() => setActive(n)}
-              />
-            ))}
-          </ul>
         </div>
       </div>
 

@@ -4,13 +4,13 @@
  */
 import { useState } from 'react'
 import { rpc } from '@/shared/messaging/client'
-import type { SessionInfo } from '@/shared/messaging/protocol'
+import type { Preferences, SessionInfo } from '@/shared/messaging/protocol'
 import { Banner, Button, ConfirmDialog, ErrorState, Field, ProgressBar, Select, Spinner, useToast } from '../../components'
 import { formatDate, useAction, useAsync, useBroadcast } from '../../lib/hooks'
 
 const fmt = (n: number) => n.toLocaleString('vi-VN')
 
-export function SettingsView({ session }: { session: SessionInfo }) {
+export function SettingsView({ session, onPrefsChanged }: { session: SessionInfo; onPrefsChanged?: (p: Preferences) => void }) {
   const quota = useAsync(() => rpc('quota/get'), [])
   const prefs = useAsync(() => rpc('prefs/get'), [])
   const folders = useAsync(() => rpc('folders/list'), [])
@@ -79,6 +79,26 @@ export function SettingsView({ session }: { session: SessionInfo }) {
           )}
         </Field>
         <small className="muted">Muốn chọn thư mục khác cho từng ghi chú: chuột phải → “Ghi chú vào thư mục”.</small>
+        <label className="row pref-check">
+          <input
+            type="checkbox"
+            checked={!!prefs.data?.showSearchTab}
+            disabled={!prefs.data}
+            onChange={(e) =>
+              void rpc('prefs/set', { showSearchTab: e.target.checked })
+                .then((p) => {
+                  prefs.setData(p)
+                  onPrefsChanged?.(p)
+                  toast(e.target.checked ? 'Đã hiện lại tab Tìm kiếm' : 'Đã ẩn tab Tìm kiếm')
+                })
+                .catch(() => toast('Không lưu được tuỳ chọn', 'error'))
+            }
+          />
+          <span>Hiện tab “Tìm kiếm” trên thanh tab</span>
+        </label>
+        <small className="muted">
+          Tab “Tìm kiếm” đã gộp vào thanh tìm kiếm của Thư viện: gõ để lọc nhanh, nhấn Enter để tìm sâu bằng AI. Bật lại nếu bạn vẫn muốn tab riêng.
+        </small>
       </div>
 
       <div className="card stack">

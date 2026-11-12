@@ -2,7 +2,7 @@
 import type { Preferences } from '@/shared/messaging/protocol'
 
 const KEY = 'qa.prefs'
-const DEFAULTS: Preferences = { defaultFolderId: null }
+const DEFAULTS: Preferences = { defaultFolderId: null, showSearchTab: false }
 
 export async function getPrefs(): Promise<Preferences> {
   const v = (await chrome.storage.local.get(KEY))[KEY] as Partial<Preferences> | undefined

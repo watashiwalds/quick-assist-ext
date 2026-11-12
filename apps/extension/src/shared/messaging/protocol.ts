@@ -40,6 +40,8 @@ export interface PendingSelection {
 export interface Preferences {
   /** Thư mục mặc định khi lưu nhanh bằng phím tắt / mục "Ghi chú văn bản này". null = Inbox */
   defaultFolderId: string | null
+  /** Tab "Tìm kiếm" đã gộp vào thanh tìm của Thư viện — ẩn mặc định, bật lại trong Cài đặt. */
+  showSearchTab: boolean
 }
 
 /** Kết quả quét trang (AutoChunk) + tab đã quét (để highlight đúng tab dù người dùng chuyển tab). */

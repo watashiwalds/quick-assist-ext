@@ -20,7 +20,7 @@ flowchart TB
     subgraph ChromeUI["Chrome UI"]
         CTX["Context menu — chỉ trên vùng chọn (background/menus.ts)<br/>1. Ghi chú văn bản này → thư mục mặc định (Inbox nếu chưa đặt)<br/>2. Ghi chú vào thư mục ▸ — tối đa 15 thư mục (từ cache, dùng được offline)<br/>3. Tóm tắt đoạn văn bản này → mở side panel ở tab Tóm tắt"]
         POPUP["Popup (toolbar) — src/ui/popup/Popup.tsx<br/>Lời chào · hạn mức AI · nút Mở thư viện ghi chú"]
-        SP["Side Panel — src/ui/sidepanel/App.tsx<br/>Thư viện · Tìm kiếm · Tóm tắt* · Cài đặt<br/>(* Tóm tắt chỉ hiện khi có vùng chọn chờ)"]
+        SP["Side Panel — src/ui/sidepanel/App.tsx<br/>Thư viện (tìm nhanh + tìm sâu AI) · Tìm trong trang · Hỏi AI · Tóm tắt* · Cài đặt<br/>(* Tóm tắt chỉ hiện khi có vùng chọn chờ · tab 'Tìm kiếm' ẩn mặc định, bật lại trong Cài đặt)"]
     end
 
     KB["Alt+Shift+N (command quick-note, đổi được ở<br/>chrome://extensions/shortcuts)"] --> TOAST
@@ -43,7 +43,7 @@ flowchart TB
 flowchart TB
     HDR["Header: QuickAssist + email đang đăng nhập"] --> AUTH{"AuthGate<br/>đã đăng nhập?"}
     AUTH -->|chưa| SIGNIN["Màn đăng nhập — AuthGate.tsx<br/>QuickAssist · giới thiệu · nút Đăng nhập bằng Google<br/>Google OAuth (chrome.identity + PKCE)<br/>lỗi có nút Thử lại · ghi chú privacy"]
-    AUTH -->|rồi| TABS["Tabs (Tabs.tsx): Thư viện · Tìm kiếm · (Tóm tắt) · Cài đặt<br/>'Tóm tắt' chỉ hiện khi có vùng chọn chờ"]
+    AUTH -->|rồi| TABS["Tabs (Tabs.tsx): Thư viện · Tìm trong trang · Hỏi AI · (Tóm tắt) · Cài đặt<br/>'Tóm tắt' chỉ hiện khi có vùng chọn chờ · 'Tìm kiếm' ẩn mặc định<br/>(đã gộp vào thanh tìm của Thư viện, bật lại trong Cài đặt)"]
 ```
 
 ---
@@ -53,9 +53,10 @@ flowchart TB
 ```mermaid
 flowchart TB
     PN["PendingNotes — banner 'ghi chú chưa gửi'<br/>khi có mục failed / queued đang thử lại<br/>Xem/Ẩn · Gửi lại · Bỏ (xác nhận)"] --> F1
-    F1["Lọc theo thư mục (Select) + nút Thư mục"] --> F2["Lọc nhanh từ khoá (không dấu cũng được) ·<br/>Chọn/Xong (multi-select) · ⟳ Đồng bộ (notes/sync)"]
+    F1["Lọc theo thư mục (Select) + nút Thư mục"] --> F2["Thanh tìm gộp (R04): gõ → lọc nhanh từ khoá (không dấu cũng được)<br/>Enter → tìm sâu bằng AI · số kết quả 5/10/20<br/>Chọn/Xong (multi-select) · ⟳ Đồng bộ (notes/sync)"]
     F2 --> MULTI["Chế độ chọn: Chọn tất cả · Xoá (n)<br/>→ ConfirmDialog xoá hàng loạt"]
     F2 --> CARDS
+    F2 -->|Enter| AIHITS["Kết quả tìm sâu AI thay vùng danh sách:<br/>thẻ xếp theo RRF (thứ hạng · tiêu đề · đoạn khớp · điểm)<br/>'Mở ghi chú' → mở ngay khung đọc · 'Mở trang nguồn ↗'<br/>QUOTA_EXCEEDED → 'Xem hạn mức' (→ Cài đặt)<br/>'← Về danh sách' · gõ tiếp → quay về lọc nhanh"]
 
     CARDS["Danh sách NoteCard<br/>StatusBadge: Đang xử lý / Sẵn sàng tìm kiếm / Bỏ qua (hết quota) / Lỗi xử lý AI<br/>tiêu đề · nội dung (clamp) · 'Tóm tắt đã lưu' · ngày · thư mục · tên miền"]
 
@@ -71,14 +72,19 @@ flowchart TB
 
 ---
 
-## 4. Tab Tìm kiếm — `SearchView.tsx`
+## 4. Tìm kiếm — gộp vào thanh tìm của Thư viện (R04)
+
+Tìm kiếm ngữ nghĩa đã gộp vào **thanh tìm kiếm của tab Thư viện**: gõ → lọc nhanh trong danh sách
+đã tải; nhấn **Enter** → gọi `search/query` (AI) với chính từ khoá đó + thư mục đang chọn.
+Tab "Tìm kiếm" riêng (`SearchView.tsx`) **ẩn mặc định** — bật lại bằng tuỳ chọn trong Cài đặt
+(`showSearchTab`), khi đó vẫn hành xử như mô tả dưới đây.
 
 ```mermaid
 flowchart TB
-    FORM["Form (role=search): câu hỏi ≤1000 ký tự<br/>lọc thư mục · số kết quả 5/10/20 · nút Tìm"] --> HITS
+    FORM["Form (role=search) trong Thư viện:<br/>câu hỏi ≤1000 ký tự · số kết quả 5/10/20 · Enter = Tìm"] --> HITS
     FORM --> ERR["Lỗi: QUOTA_EXCEEDED → 'Xem hạn mức'<br/>(nhảy sang tab Cài đặt)"]
     FORM --> EMPTY["Không có kết quả — gợi ý đổi diễn đạt /<br/>bỏ lọc thư mục / đợi ghi chú READY"]
-    HITS["Kết quả xếp theo RRF: thứ hạng · tiêu đề · đoạn khớp · điểm<br/>'Mở trang nguồn ↗' → link ngoài (rel=noreferrer)"] -->|Mở ghi chú| OPEN["Chuyển tab Thư viện<br/>mở đúng NoteEditor + highlight"]
+    HITS["Kết quả xếp theo RRF: thứ hạng · tiêu đề · đoạn khớp · điểm<br/>'Mở trang nguồn ↗' → link ngoài (rel=noreferrer)"] -->|Mở ghi chú| OPEN["Mở ngay khung đọc trong Thư viện<br/>(không cần chuyển tab) + highlight"]
 ```
 
 ---
@@ -103,7 +109,7 @@ flowchart TB
 flowchart TB
     ACC["Tài khoản: avatar · tên · email · ngày tham gia"]
     QUOTA["Hạn mức AI: thanh tiến trình (đã dùng + đặt trước / giới hạn)<br/>nút Làm mới · hết quota → ghi chú vẫn lưu,<br/>nhưng chưa tìm ngữ nghĩa / tóm tắt được"]
-    PREF["Thư mục mặc định cho lưu nhanh (Alt+Shift+N / 'Ghi chú văn bản này')<br/>Inbox hoặc một thư mục"]
+    PREF["Thư mục mặc định cho lưu nhanh (Alt+Shift+N / 'Ghi chú văn bản này')<br/>Inbox hoặc một thư mục<br/>+ Ô tick 'Hiện tab Tìm kiếm' (đã gộp vào Thư viện)"]
     LOGOUT["Đăng xuất — xoá cache ghi chú trên máy"]
     DEL["Xoá tài khoản — 2 bước:<br/>bước 1/2 ConfirmDialog (liệt kê hệ quả) → bước 2/2 gõ 'XOÁ'<br/>xoá vĩnh viễn ghi chú, thư mục, chỉ mục, lịch sử quota"]
     ACC --> QUOTA --> PREF --> LOGOUT --> DEL
@@ -162,16 +168,16 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     actor U as Người dùng
-    participant S as Tab Tìm kiếm
+    participant L as Thư viện (thanh tìm)
     participant B as Background
     participant A as API
-    participant L as Tab Thư viện
-    U->>S: gõ câu hỏi (không dấu được) → Tìm
-    S->>B: search/query (query, folderId?, topK)
+    U->>L: gõ từ khoá (không dấu được) → Enter (tìm sâu bằng AI)
+    L->>B: search/query (query, folderId?, topK)
     B->>A: POST /search (hybrid: vector + keyword, xếp theo RRF)
-    A-->>S: hits (chunk, điểm RRF, note_title, note_url)
-    U->>S: "Mở ghi chú" trên một kết quả
-    S->>L: chuyển tab Thư viện → mở NoteEditor + highlight
+    A-->>L: hits (chunk, điểm RRF, note_title, note_url)
+    L-->>L: thay vùng danh sách bằng thẻ kết quả
+    U->>L: "Mở ghi chú" trên một kết quả
+    L->>L: notes/get → mở ngay khung đọc + highlight
 ```
 
 ---
@@ -182,11 +188,11 @@ sequenceDiagram
 |---|---|---|
 | Auth | `auth/status` · `auth/login` · `auth/logout` · `account/delete` | AuthGate · Cài đặt |
 | Quota | `quota/get` | Popup · Cài đặt |
-| Tuỳ chọn | `prefs/get` · `prefs/set` | Cài đặt (thư mục mặc định) · background khi lưu nhanh |
-| Thư mục | `folders/list` · `folders/create` · `folders/rename` · `folders/delete` | Thư viện · Cài đặt · Tìm kiếm · context menu |
-| Ghi chú | `notes/list` · `notes/get` · `notes/sync` · `notes/update` · `notes/delete` · `notes/reindex` | Thư viện · Tìm kiếm |
+| Tuỳ chọn | `prefs/get` · `prefs/set` | Cài đặt (thư mục mặc định, hiện tab Tìm kiếm) · background khi lưu nhanh |
+| Thư mục | `folders/list` · `folders/create` · `folders/rename` · `folders/delete` | Thư viện · Cài đặt · Tìm kiếm (tuỳ chọn) · context menu |
+| Ghi chú | `notes/list` · `notes/get` · `notes/sync` · `notes/update` · `notes/delete` · `notes/reindex` | Thư viện · Tìm kiếm (tuỳ chọn) |
 | Outbox | `outbox/list` · `outbox/retry` · `outbox/discard` · `quickNote/undo` | PendingNotes · Toast |
-| Tìm kiếm | `search/query` | Tìm kiếm |
+| Tìm kiếm | `search/query` | Thư viện (Enter = tìm sâu) · Tìm kiếm (tuỳ chọn) |
 | Tóm tắt | `summary/preview` · `summary/save` · `summary/saveSelection` · `selection/takePending` | SummaryPanel · Tóm tắt · Side Panel shell |
 | E2E only | `e2e/devLogin` | Chỉ bản build E2E (bị loại khỏi bản phát hành) |
 
@@ -208,8 +214,8 @@ Broadcast (`qa-event`): `notes/changed` · `folders/changed` · `outbox/changed`
 | 8 | Quản lý thư mục | `src/ui/features/notes/FolderManager.tsx` | `07-quan-ly-thu-muc.png` |
 | 9 | Chọn nhiều & xoá hàng loạt | `src/ui/features/notes/NotesView.tsx` | `08-chon-nhieu.png` |
 | 10 | Tóm tắt — xem trước (trong thẻ) | `src/ui/features/summary/SummaryPanel.tsx` | `09-tom-tat-xem-truoc.png` |
-| 11 | Tìm kiếm | `src/ui/features/search/SearchView.tsx` | `10-tim-kiem.png` |
-| 12 | Tìm kiếm — không có kết quả | `src/ui/features/search/SearchView.tsx` | `11-tim-kiem-khong-co-ket-qua.png` |
+| 11 | Tìm sâu bằng AI trong Thư viện | `src/ui/features/notes/NotesView.tsx` | `10-tim-kiem.png` |
+| 12 | Tìm sâu — không có kết quả | `src/ui/features/notes/NotesView.tsx` | `11-tim-kiem-khong-co-ket-qua.png` |
 | 13 | Tóm tắt vùng chọn | `src/ui/features/summary/SelectionSummary.tsx` | `12-tom-tat-vung-chon.png` |
 | 14 | Toast trên trang | `src/content/injected.ts` | `13-toast-tren-trang.png` |
 | 15 | Toast — Hoàn tác | `src/content/injected.ts` | `14-toast-hoan-tac.png` |

@@ -248,7 +248,7 @@ Thử tay các luồng chính:
 | Lưu nhanh | Bôi đen chữ trên trang web → **Alt+Shift+N** (hoặc chuột phải → lưu ghi chú) | Toast "Đã lưu", có nút hoàn tác |
 | Hoàn tác | Bấm Hoàn tác trên toast hoặc **Alt+Shift+Z** | Ghi chú bị huỷ |
 | Thư viện | Mở side panel → tab Ghi chú | Thấy ghi chú, trạng thái chuyển sang READY sau vài giây |
-| Tìm kiếm | Tab Tìm kiếm, gõ câu hỏi có hoặc không dấu | Ra kết quả kèm nguồn |
+| Tìm kiếm | Tab Thư viện → gõ từ khoá (lọc nhanh); nhấn Enter để tìm sâu bằng AI (có hoặc không dấu) | Lọc ngay trong danh sách; Enter ra kết quả AI kèm nguồn |
 | Tóm tắt | Mở ghi chú → Tóm tắt, hoặc tóm tắt vùng chọn | Hiện bản tóm tắt (mock: văn bản mẫu) |
 | Offline | Tắt backend → mở panel → lưu ghi chú → bật lại backend | Panel vẫn hiện từ cache; ghi chú tự gửi lại, không bị trùng |
 

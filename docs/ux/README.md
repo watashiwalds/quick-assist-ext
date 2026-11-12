@@ -58,10 +58,14 @@ flowchart TD
 | ![](screens/05-sua-ghi-chu.png) | ![](screens/06-xung-dot-409.png) | ![](screens/07-quan-ly-thu-muc.png) | ![](screens/08-chon-nhieu.png) |
 
 ## Luồng 4 — Tìm kiếm ngữ nghĩa (SDS §5.1.3, kịch bản #4)
+
+Tìm kiếm đã **gộp vào thanh tìm kiếm của tab Thư viện**: gõ → lọc nhanh trong danh sách; nhấn
+**Enter** → tìm sâu bằng AI. Tab "Tìm kiếm" riêng ẩn mặc định, bật lại trong Cài đặt.
+
 ```mermaid
 flowchart LR
-  Q[Nhập câu hỏi, có thể không dấu] --> F[Lọc thư mục tuỳ chọn] --> R{POST /search}
-  R -->|có kết quả| H[Top 5 đoạn + tiêu đề + nguồn → Mở ghi chú / Mở trang nguồn]
+  Q[Gõ từ khoá vào thanh tìm của Thư viện, có thể không dấu] --> F[Lọc thư mục tuỳ chọn] --> R{Enter → POST /search}
+  R -->|có kết quả| H[Top N đoạn + tiêu đề + nguồn → Mở ghi chú ngay trong khung đọc / Mở trang nguồn]
   R -->|rỗng| E[“Không có kết quả phù hợp” + gợi ý]
   R -->|402| Z[Hết hạn mức → nút Xem hạn mức]
   R -->|429| W[Chờ N giây]
@@ -112,7 +116,7 @@ flowchart LR
 |---|---|---|---|---|---|---|
 | Lưu nhanh (toast) | — | toast "hãy bôi đen" | toast lỗi / failed store | ✅ | SKIPPED, vẫn lưu | outbox |
 | Thư viện | ✅ | ✅ | ✅ (Thử lại) | — | nhãn "Bỏ qua (hết quota)" + Thử lại AI | ✅ cache |
-| Tìm kiếm | ✅ | ✅ | ✅ | — | ✅ + link Cài đặt | thông báo mạng |
+| Tìm sâu (trong Thư viện) | ✅ | ✅ | ✅ | — | ✅ + link Cài đặt | thông báo mạng |
 | Tóm tắt | ✅ | ✅ | ✅ | Huỷ | ✅ + link Cài đặt | thông báo mạng |
 | Cài đặt | ✅ | — | ✅ | 2 bước | thanh hạn mức + cảnh báo | hồ sơ từ cache |
 | Tìm trong trang | ✅ 2 pha | ✅ | ✅ (413/422/quyền/Thử lại) | không tự lưu; hỏi lại khi lớn | ✅ + link Cài đặt | thông báo mạng |
