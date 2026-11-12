@@ -14,7 +14,11 @@ from jwt import PyJWKClient
 
 from quickassist.infrastructure.config import Settings
 from quickassist.infrastructure.errors import OAuthError
+from quickassist.infrastructure.logging import get_logger
 
+log = get_logger(__name__)
+
+CLOCK_SKEW_SECONDS = 60
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs"
 ISSUERS = ("https://accounts.google.com", "accounts.google.com")
@@ -66,10 +70,14 @@ class GoogleOIDCClient:
             claims = jwt.decode(
                 id_token, key, algorithms=["RS256"], audience=self._s.google_client_id,
                 options={"require": ["iss", "aud", "exp", "sub", "nonce"]},
+                # Đồng hồ server (đặc biệt Docker/WSL) có thể chậm hơn Google vài giây → token mới
+                # phát hành bị coi là iat "ở tương lai" (ImmatureSignatureError). Chấp nhận lệch nhỏ.
+                leeway=CLOCK_SKEW_SECONDS,
             )
         except jwt.PyJWKClientConnectionError as e:
             raise OAuthError("OAUTH_UPSTREAM", "Không tải được khoá ký của Google", upstream=True) from e
         except jwt.PyJWTError as e:
+            log.warning("id_token_rejected", extra={"reason": f"{type(e).__name__}: {e}"})
             raise OAuthError("OAUTH_ID_TOKEN_INVALID", "id_token không hợp lệ") from e
         if claims.get("iss") not in ISSUERS:
             raise OAuthError("OAUTH_ID_TOKEN_INVALID", "issuer không hợp lệ")

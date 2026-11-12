@@ -54,7 +54,7 @@ def test_valid_token_returns_identity() -> None:
 @pytest.mark.parametrize(("over", "code"), [
     ({"aud": "other-client"}, "OAUTH_ID_TOKEN_INVALID"),
     ({"iss": "https://evil.example.com"}, "OAUTH_ID_TOKEN_INVALID"),
-    ({"exp": int(time.time()) - 10}, "OAUTH_ID_TOKEN_INVALID"),
+    ({"exp": int(time.time()) - 120}, "OAUTH_ID_TOKEN_INVALID"),  # quá hạn, vượt leeway
     ({"nonce": "x" * 16}, "OAUTH_NONCE_MISMATCH"),
     ({"nonce": ...}, "OAUTH_ID_TOKEN_INVALID"),
     ({"email_verified": False}, "OAUTH_EMAIL_UNVERIFIED"),
@@ -63,6 +63,20 @@ def test_invalid_claims_rejected(over: dict, code: str) -> None:
     with pytest.raises(OAuthError) as e:
         make_client().verify_id_token(make_id_token(**over), nonce="n" * 16)
     assert e.value.code == code
+
+
+def test_small_clock_skew_tolerated() -> None:
+    """Đồng hồ server chậm hơn Google vài giây (Docker/WSL hay bị) → iat "ở tương lai" vẫn hợp lệ."""
+    now = int(time.time())
+    ident = make_client().verify_id_token(make_id_token(iat=now + 5), nonce="n" * 16)
+    assert ident.sub == "google-sub-1"
+
+
+def test_clock_skew_beyond_leeway_rejected() -> None:
+    now = int(time.time())
+    with pytest.raises(OAuthError) as e:
+        make_client().verify_id_token(make_id_token(iat=now + 300, exp=now + 900), nonce="n" * 16)
+    assert e.value.code == "OAUTH_ID_TOKEN_INVALID"
 
 
 def test_wrong_signature_rejected() -> None:
