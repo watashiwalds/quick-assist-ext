@@ -87,6 +87,7 @@ export const handlers: Handlers = {
     return signedOut()
   },
   'quota/get': () => api.me.quota(),
+  'quota/reset': () => api.me.resetQuota(),
 
   'prefs/get': () => getPrefs(),
   'prefs/set': (patch) => setPrefs(patch),

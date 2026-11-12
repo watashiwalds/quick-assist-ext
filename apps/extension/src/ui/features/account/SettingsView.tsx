@@ -3,6 +3,7 @@
  * đăng xuất, xoá tài khoản (xác nhận 2 bước: hộp thoại + gõ "XOÁ") — xoá cả dữ liệu trên máy.
  */
 import { useState } from 'react'
+import { config } from '@/shared/config'
 import { rpc } from '@/shared/messaging/client'
 import type { Preferences, SessionInfo } from '@/shared/messaging/protocol'
 import { Banner, Button, ConfirmDialog, ErrorState, Field, ProgressBar, Select, Spinner, useToast } from '../../components'
@@ -10,12 +11,22 @@ import { formatDate, useAction, useAsync, useBroadcast } from '../../lib/hooks'
 
 const fmt = (n: number) => n.toLocaleString('vi-VN')
 
-export function SettingsView({ session, onPrefsChanged }: { session: SessionInfo; onPrefsChanged?: (p: Preferences) => void }) {
+export function SettingsView({
+  session,
+  onPrefsChanged,
+  demo = config.e2e,
+}: {
+  session: SessionInfo
+  onPrefsChanged?: (p: Preferences) => void
+  /** Bản demo (build:e2e) hiện nút tạo lại hạn mức. */
+  demo?: boolean
+}) {
   const quota = useAsync(() => rpc('quota/get'), [])
   const prefs = useAsync(() => rpc('prefs/get'), [])
   const folders = useAsync(() => rpc('folders/list'), [])
   const [step, setStep] = useState<0 | 1 | 2>(0)
   const act = useAction()
+  const resetAct = useAction()
   const toast = useToast()
   useBroadcast((e) => e.type === 'folders/changed' && void folders.reload())
   const u = session.user
@@ -34,10 +45,29 @@ export function SettingsView({ session, onPrefsChanged }: { session: SessionInfo
       <div className="card stack">
         <div className="row spread">
           <strong>Hạn mức AI</strong>
-          <Button variant="link" size="sm" onClick={() => void quota.reload()}>
-            Làm mới
-          </Button>
+          <div className="row">
+            {demo && (
+              <Button
+                variant="soft"
+                size="sm"
+                busy={resetAct.busy}
+                onClick={() =>
+                  void resetAct.run(() => rpc('quota/reset')).then((q) => {
+                    if (!q) return
+                    quota.setData(q)
+                    toast('Đã tạo lại hạn mức AI')
+                  })
+                }
+              >
+                Tạo lại hạn mức
+              </Button>
+            )}
+            <Button variant="link" size="sm" onClick={() => void quota.reload()}>
+              Làm mới
+            </Button>
+          </div>
         </div>
+        {resetAct.error && <ErrorState error={resetAct.error} />}
         {quota.loading && !quota.data && <Spinner />}
         {quota.error && <ErrorState error={quota.error} onRetry={quota.reload} />}
         {quota.data && (

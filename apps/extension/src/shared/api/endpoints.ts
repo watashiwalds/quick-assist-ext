@@ -37,6 +37,7 @@ export function createApi(http: HttpRequest) {
       get: () => http<User>('/me'),
       delete: () => http<void>('/me', { method: 'DELETE' }),
       quota: () => http<Quota>('/me/quota'),
+      resetQuota: () => http<Quota>('/me/quota/reset', { method: 'POST' }),
     },
     folders: {
       list: () => http<Folder[]>('/folders'),

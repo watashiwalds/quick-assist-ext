@@ -14,3 +14,11 @@ async def get_quota(user_id: CurrentUserId, session: DbSession) -> QuotaOut:
     st = await QuotaService(session).status(user_id)
     return QuotaOut(limit_tokens=st.limit_tokens, used_tokens=st.used_tokens,
                     reserved_tokens=st.reserved_tokens, remaining_tokens=st.remaining)
+
+
+@router.post("/reset", response_model=QuotaOut)
+async def reset_quota(user_id: CurrentUserId, session: DbSession) -> QuotaOut:
+    """Tạo lại hạn mức cho demo (chỉ khi ENABLE_DEV_LOGIN bật ở dev/test)."""
+    st = await QuotaService(session).reset_demo(user_id)
+    return QuotaOut(limit_tokens=st.limit_tokens, used_tokens=st.used_tokens,
+                    reserved_tokens=st.reserved_tokens, remaining_tokens=st.remaining)

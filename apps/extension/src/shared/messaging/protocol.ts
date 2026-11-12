@@ -54,6 +54,8 @@ export interface RpcMap {
   'auth/logout': { req: void; res: SessionInfo }
   'account/delete': { req: void; res: SessionInfo }
   'quota/get': { req: void; res: Quota }
+  /** Tạo lại hạn mức (chỉ có ở môi trường demo). */
+  'quota/reset': { req: void; res: Quota }
 
   'prefs/get': { req: void; res: Preferences }
   'prefs/set': { req: Partial<Preferences>; res: Preferences }

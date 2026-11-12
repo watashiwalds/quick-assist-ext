@@ -124,3 +124,33 @@ async def test_quota_endpoint(client) -> None:
     h = await login(client)
     r = (await client.get("/me/quota", headers=h)).json()
     assert r == {"limit_tokens": 200_000, "used_tokens": 0, "reserved_tokens": 0, "remaining_tokens": 200_000}
+
+
+async def test_reset_demo_quota_clears_usage_and_open_reservations(client) -> None:
+    h = await login(client)
+    uid = uuid.UUID((await client.get("/me", headers=h)).json()["id"])
+    async with QuotaService.open() as q:
+        lease = await q.reserve(uid, "summary", 100, "reset-open")
+        settled = await q.reserve(uid, "summary", 50, "reset-done")
+        await q.commit(settled, 40)
+
+    r = await client.post("/me/quota/reset", headers=h)
+    assert r.status_code == 200, r.text
+    assert r.json() == {"limit_tokens": 200_000, "used_tokens": 0, "reserved_tokens": 0,
+                        "remaining_tokens": 200_000}
+
+    # Giữ chỗ mở từ trước khi tạo lại không được trừ âm số dư khi chốt sau đó.
+    async with QuotaService.open() as q:
+        await q.commit(lease, 100)
+    st = await _status(uid)
+    assert (st.used_tokens, st.reserved_tokens, st.remaining) == (0, 0, 200_000)
+
+
+async def test_reset_quota_is_dev_only(client, monkeypatch) -> None:
+    from quickassist.infrastructure.config import get_settings
+
+    h = await login(client)
+    monkeypatch.setattr(get_settings(), "enable_dev_login", False)
+    r = await client.post("/me/quota/reset", headers=h)
+    assert r.status_code == 403
+    assert r.json()["error"]["code"] == "DEMO_ONLY"

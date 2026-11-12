@@ -228,6 +228,22 @@ describe('cài đặt (A08)', () => {
     wrap(<SettingsView session={session} />)
     await screen.findByText(/còn lại/)
     expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('950')
+    expect(screen.queryByRole('button', { name: 'Tạo lại hạn mức' })).toBeNull()
+  })
+
+  it('bản demo: tạo lại hạn mức về mức mặc định', async () => {
+    rpc.mockImplementation(async (type: string) => {
+      if (type === 'quota/get') return { limit_tokens: 1000, used_tokens: 950, reserved_tokens: 0, remaining_tokens: 50 }
+      if (type === 'quota/reset') return { limit_tokens: 1000, used_tokens: 0, reserved_tokens: 0, remaining_tokens: 1000 }
+      if (type === 'prefs/get') return { defaultFolderId: null }
+      if (type === 'folders/list') return FOLDERS
+      throw new Error(type)
+    })
+    wrap(<SettingsView session={session} demo />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Tạo lại hạn mức' }))
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('quota/reset'))
+    await waitFor(() => expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('0'))
+    expect(screen.getByText(/còn lại/).textContent).toMatch(/1\.000/)
   })
 
   it('xoá tài khoản cần 2 bước + gõ XOÁ', async () => {
