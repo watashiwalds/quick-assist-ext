@@ -1,83 +1,76 @@
+/**
+ * Hàng ghi chú trong danh sách (W03): tiêu đề + trích đoạn + ngày/thư mục + trạng thái.
+ * Bấm hàng → mở reader; ở chế độ chọn, hàng trở thành checkbox (bấm cả hàng để chọn).
+ * Thao tác (Sửa/Xoá/Tóm tắt/Thử lại AI) nằm ở reader — xem NoteReader.
+ */
 import type { Note } from '@/shared/api/types'
-import { rpc } from '@/shared/messaging/client'
-import { Button, StatusBadge, useToast } from '../../components'
-import { userMessage, toSerialized } from '@/shared/errors'
+import { StatusBadge } from '../../components'
 import { formatDate } from '../../lib/hooks'
-import { SummaryPanel } from '../summary/SummaryPanel'
 
 export function NoteCard({
   note,
   folderName,
   selectMode,
   selected,
-  onToggle,
-  onEdit,
-  onDelete,
-  onChanged,
-  onGoSettings,
+  active,
   highlight,
+  onToggle,
+  onOpen,
 }: {
   note: Note
   folderName?: string
   selectMode: boolean
   selected: boolean
-  onToggle: () => void
-  onEdit: () => void
-  onDelete: () => void
-  onChanged: (n: Note) => void
-  onGoSettings: () => void
+  active?: boolean
   highlight?: boolean
+  onToggle: () => void
+  onOpen: () => void
 }) {
   const heading = note.title ?? note.domain ?? 'Ghi chú'
-  const toast = useToast()
-  return (
-    <li className={`card ${highlight ? 'card-highlight' : ''}`} id={`note-${note.id}`} aria-label={heading}>
-      <div className="row spread">
-        <div className="row grow">
-          {selectMode && <input type="checkbox" aria-label={`Chọn “${heading}”`} checked={selected} onChange={onToggle} />}
-          <h3 className="grow">{heading}</h3>
-        </div>
+  const body = (
+    <div className="note-item-body">
+      <h3 className="note-item-title">{heading}</h3>
+      <div className="note-item-excerpt">{note.content}</div>
+      <div className="note-item-meta">
+        <span>{formatDate(note.created_at)}</span>
+        {folderName && (
+          <>
+            <span className="meta-dot" aria-hidden />
+            <span>{folderName}</span>
+          </>
+        )}
         <StatusBadge status={note.index_status} />
       </div>
-      <div className="clamp">{note.content}</div>
-      {note.summary_text && (
-        <details className="saved-summary">
-          <summary>Tóm tắt đã lưu</summary>
-          <div className="prewrap">{note.summary_text}</div>
-        </details>
-      )}
-      <div className="row muted meta">
-        <span>{formatDate(note.created_at)}</span>
-        {folderName && <span>· {folderName}</span>}
-        {note.url && (
-          <a href={note.url} target="_blank" rel="noreferrer noopener">
-            · {note.domain ?? 'nguồn'}
-          </a>
-        )}
-      </div>
-      {!selectMode && (
-        <div className="row wrap actions">
-          <Button variant="ghost" size="sm" onClick={onEdit}>
-            Sửa
-          </Button>
-          {(note.index_status === 'FAILED' || note.index_status === 'SKIPPED') && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() =>
-                void rpc('notes/reindex', { id: note.id })
-                  .then(onChanged)
-                  .catch((e) => toast(userMessage(toSerialized(e)), 'error'))
-              }
-            >
-              Thử lại AI
-            </Button>
-          )}
-          <Button variant="ghost" size="sm" onClick={onDelete}>
-            Xoá
-          </Button>
-          <SummaryPanel note={note} onSaved={onChanged} onGoSettings={onGoSettings} />
+    </div>
+  )
+  return (
+    <li className={`note-row${highlight ? ' note-row-highlight' : ''}`} id={`note-${note.id}`} aria-label={heading}>
+      {selectMode ? (
+        <div
+          className="note-item"
+          onClick={onToggle}
+          role="presentation"
+        >
+          <input
+            type="checkbox"
+            aria-label={`Chọn “${heading}”`}
+            checked={selected}
+            onClick={(e) => e.stopPropagation()}
+            onChange={onToggle}
+          />
+          {body}
         </div>
+      ) : (
+        <a
+          className={`note-item${active ? ' is-active' : ''}`}
+          href="#"
+          onClick={(e) => {
+            e.preventDefault()
+            onOpen()
+          }}
+        >
+          {body}
+        </a>
       )}
     </li>
   )

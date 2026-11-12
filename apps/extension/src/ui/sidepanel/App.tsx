@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { rpc } from '@/shared/messaging/client'
 import type { PendingSelection } from '@/shared/messaging/protocol'
-import { type TabItem, Tabs, ToastProvider } from '../components'
+import { type TabItem, Icon, Tabs, ToastProvider } from '../components'
 import { SettingsView } from '../features/account/SettingsView'
 import { AuthGate } from '../features/auth/AuthGate'
 import { NotesView } from '../features/notes/NotesView'
@@ -51,8 +51,19 @@ function Shell({ session }: { session: Parameters<typeof SettingsView>[0]['sessi
   return (
     <>
       <header className="header">
-        <strong>QuickAssist</strong>
-        <span className="muted ellipsis">{session.user?.email}</span>
+        <span className="brand">
+          <span className="brand-mark" aria-hidden>
+            <Icon name="note" size={16} />
+          </span>
+          <strong className="brand-name">QuickAssist</strong>
+        </span>
+        <span className="grow" />
+        <span className="user" title={session.user?.email}>
+          <span className="avatar" aria-hidden>
+            <Icon name="user" size={14} />
+          </span>
+          <span className="email">{session.user?.email}</span>
+        </span>
       </header>
       <Tabs items={items} value={tab} onChange={setTab} />
       <main className="content" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>

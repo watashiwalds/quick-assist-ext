@@ -49,7 +49,8 @@ test('chụp các màn chính', async ({ context, sw, panel, api, extId }) => {
   await shot('04-ghi-chu-chua-gui')
   await panel.getByRole('button', { name: 'Ẩn' }).click()
 
-  await panel.getByRole('listitem', { name: 'Phở bò Hà Nội' }).getByRole('button', { name: 'Sửa' }).click()
+  await panel.locator('.note-list').getByRole('heading', { name: 'Phở bò Hà Nội' }).click()
+  await panel.getByRole('button', { name: 'Sửa' }).click()
   await shot('05-sua-ghi-chu')
   const pho = (await api.notes()).find((n) => n.title === 'Phở bò Hà Nội')
   await panel.getByLabel('Nội dung').fill('Bản tôi sửa trên máy này.')
@@ -57,7 +58,7 @@ test('chụp các màn chính', async ({ context, sw, panel, api, extId }) => {
   await panel.getByRole('button', { name: 'Lưu' }).click()
   await expect(panel.getByText(/đã được sửa ở nơi khác/)).toBeVisible()
   await shot('06-xung-dot-409')
-  await panel.keyboard.press('Escape')
+  await panel.getByRole('button', { name: 'Huỷ' }).click()
 
   await panel.getByRole('button', { name: 'Thư mục', exact: true }).click()
   await shot('07-quan-ly-thu-muc')
@@ -68,7 +69,8 @@ test('chụp các màn chính', async ({ context, sw, panel, api, extId }) => {
   await shot('08-chon-nhieu')
   await panel.getByRole('button', { name: 'Xong' }).click()
 
-  await panel.getByRole('listitem', { name: 'Kubernetes Deployment' }).getByRole('button', { name: 'Tóm tắt bằng AI' }).click()
+  await panel.locator('.note-list').getByRole('heading', { name: 'Kubernetes Deployment' }).click()
+  await panel.getByRole('button', { name: 'Tóm tắt bằng AI' }).click()
   await expect(panel.getByText('Bản xem trước — chưa lưu')).toBeVisible()
   await shot('09-tom-tat-xem-truoc')
 

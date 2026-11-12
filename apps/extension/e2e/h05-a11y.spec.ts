@@ -15,15 +15,16 @@ for (const tab of ['Thư viện', 'Tìm kiếm', 'Cài đặt']) {
   })
 }
 
-test('axe: hộp thoại sửa ghi chú', async ({ panel, api }) => {
+test('axe: màn sửa ghi chú (editor nhúng trong reader)', async ({ panel, api }) => {
   await api.send('POST', '/notes', { content: 'abc', title: 'Mẫu' })
   await panel.reload()
+  await panel.locator('.note-list').getByRole('heading', { name: 'Mẫu' }).click()
   await panel.getByRole('button', { name: 'Sửa' }).click()
   const r = await new AxeBuilder({ page: panel }).withTags(TAGS).analyze()
   expect(r.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([])
 })
 
-test('bàn phím: chuyển tab bằng mũi tên, Esc đóng hộp thoại và trả focus', async ({ panel, api }) => {
+test('bàn phím: chuyển tab bằng mũi tên, Esc đóng editor và trả focus', async ({ panel, api }) => {
   await api.send('POST', '/notes', { content: 'abc', title: 'Mẫu' })
   await panel.reload()
   await panel.getByRole('tab', { name: 'Thư viện' }).focus()
@@ -31,12 +32,13 @@ test('bàn phím: chuyển tab bằng mũi tên, Esc đóng hộp thoại và tr
   await expect(panel.getByRole('tab', { name: 'Tìm kiếm' })).toHaveAttribute('aria-selected', 'true')
   await expect(panel.getByRole('tab', { name: 'Tìm kiếm' })).toBeFocused()
   await panel.keyboard.press('ArrowLeft')
+  await panel.locator('.note-list').getByRole('heading', { name: 'Mẫu' }).click()
   const edit = panel.getByRole('button', { name: 'Sửa' })
   await edit.focus()
   await panel.keyboard.press('Enter')
-  await expect(panel.getByRole('dialog')).toBeVisible()
+  await expect(panel.getByRole('heading', { name: 'Sửa ghi chú' })).toBeVisible()
   await panel.keyboard.press('Escape')
-  await expect(panel.getByRole('dialog')).toHaveCount(0)
+  await expect(panel.getByRole('button', { name: 'Lưu' })).toHaveCount(0)
   await expect(edit).toBeFocused()
 })
 

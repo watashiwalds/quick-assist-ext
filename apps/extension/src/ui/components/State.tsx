@@ -56,6 +56,7 @@ export function StatusBadge({ status }: { status: string }) {
   const s = STATUS_LABEL[status] ?? { text: status, hint: '' }
   return (
     <span className={`badge badge-${status.toLowerCase()}`} title={s.hint}>
+      <span className="status-dot" aria-hidden />
       {s.text}
     </span>
   )

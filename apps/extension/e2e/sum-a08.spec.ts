@@ -1,14 +1,15 @@
 /** SUM-03/SUM-04 (UI) + A08 — tóm tắt ghi chú & vùng chọn, cài đặt, xoá tài khoản xoá cả dữ liệu máy. */
 import { expect, openArticleAndSelect, test } from './fixtures'
 
-test('tóm tắt ghi chú: xem trước → Lưu → hiện "Tóm tắt đã lưu"', async ({ panel, api }) => {
+test('tóm tắt ghi chú: xem trước → Lưu → hiện card "Tóm tắt AI" đã lưu', async ({ panel, api }) => {
   const n = (await api.send('POST', '/notes', { content: 'Đoạn văn dài về pgvector và chỉ mục HNSW.', title: 'pgvector' })).body
   await panel.reload()
+  await panel.locator('.note-list').getByRole('heading', { name: 'pgvector' }).click()
   await panel.getByRole('button', { name: 'Tóm tắt bằng AI' }).click()
   await expect(panel.getByText('Bản xem trước — chưa lưu')).toBeVisible()
   expect((await api.get(`/notes/${n.id}`)).summary_text).toBeNull() // preview không ghi DB
   await panel.getByRole('button', { name: 'Lưu tóm tắt' }).click()
-  await expect(panel.getByText('Tóm tắt đã lưu')).toBeVisible()
+  await expect(panel.locator('.summary-card')).toBeVisible()
   expect((await api.get(`/notes/${n.id}`)).summary_text).toBeTruthy()
 })
 

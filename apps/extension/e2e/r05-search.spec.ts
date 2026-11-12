@@ -38,8 +38,7 @@ test('kết quả có nguồn + "Mở ghi chú" mở đúng ghi chú trong thư 
   const first = panel.locator('ol.list > li').first()
   await expect(first.getByRole('link', { name: /Mở trang nguồn/ })).toHaveAttribute('href', 'https://amthuc.example/pho')
   await first.getByRole('button', { name: 'Mở ghi chú' }).click()
-  await expect(panel.getByRole('dialog', { name: 'Sửa ghi chú' })).toBeVisible()
-  await expect(panel.getByLabel('Tiêu đề')).toHaveValue('Phở bò Hà Nội')
+  await expect(panel.locator('.reader-title')).toHaveText('Phở bò Hà Nội')
 })
 
 test('lọc thư mục + không thấy dữ liệu của người khác', async ({ panel, api, email }) => {

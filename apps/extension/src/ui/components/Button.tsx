@@ -1,6 +1,6 @@
-import type { ButtonHTMLAttributes } from 'react'
+import type { ButtonHTMLAttributes, Ref } from 'react'
 
-type Variant = 'primary' | 'ghost' | 'danger' | 'link'
+type Variant = 'primary' | 'ghost' | 'soft' | 'danger' | 'danger-ghost' | 'link'
 
 export function Button({
   variant = 'primary',
@@ -8,11 +8,13 @@ export function Button({
   busy = false,
   className,
   children,
+  ref,
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: 'sm' | 'md'; busy?: boolean }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: 'sm' | 'md'; busy?: boolean; ref?: Ref<HTMLButtonElement> }) {
   return (
     <button
       type="button"
+      ref={ref}
       {...props}
       disabled={props.disabled || busy}
       aria-busy={busy || undefined}
