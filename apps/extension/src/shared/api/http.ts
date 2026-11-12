@@ -12,7 +12,7 @@ export interface HttpOptions {
   query?: Record<string, string | number | undefined | null>
   headers?: Record<string, string>
   signal?: AbortSignal
-  /** Ghi đè timeout mặc định cho endpoint có tác vụ AI lâu hơn. */
+  /** Ghi đè config.requestTimeoutMs cho endpoint chậm (vd. /ai/page-match). */
   timeoutMs?: number
 }
 
@@ -49,7 +49,8 @@ export function createHttp(auth?: AuthHooks) {
     const token = auth ? await auth.getAccessToken() : null
     if (token) headers.Authorization = `Bearer ${token}`
 
-    const timeout = AbortSignal.timeout(opts.timeoutMs ?? config.requestTimeoutMs)
+    const signals = [opts.signal, withTimeout ? AbortSignal.timeout(opts.timeoutMs ?? config.requestTimeoutMs) : undefined]
+      .filter((s): s is AbortSignal => s !== undefined)
     let res: Response
     try {
       res = await fetch(buildUrl(path, opts.query), {

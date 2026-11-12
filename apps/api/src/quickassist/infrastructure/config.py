@@ -67,10 +67,22 @@ class Settings(BaseSettings):
     max_note_chars: int = 20_000
     max_summary_input_chars: int = 30_000
 
+    # --- AutoChunk / Page Match (POST /ai/page-match, ADR-0013) ---
+    page_match_max_html_bytes: int = 2_000_000  # HTML extension gửi lên — vượt → 413 PAGE_TOO_LONG
+    page_match_extract_timeout_seconds: float = 10.0  # Trafilatura trong process pool
+    page_match_max_chars: int = 50_000  # tổng ký tự khối sau khi trích (bound chi phí embed)
+    page_match_max_block_chars: int = 1200  # khối dài hơn → tách theo câu
+    page_match_top_candidates: int = 15  # số ứng viên tối đa đưa LLM thẩm định
+    page_match_min_score: float = 0.35  # ngưỡng cosine vào vòng thẩm định
+    page_match_full_page_ratio: float = 0.6  # match_ratio ≥ ngưỡng → mode "full_page"
+    page_match_verify_max_output_tokens: int = 500
+    page_match_verify_timeout_seconds: float = 20.0  # quá → trả theo điểm (VERIFY_UNAVAILABLE)
+
     # --- Giới hạn tần suất theo user (request/phút; 0 = tắt) — H02, R03 ---
     rate_limit_search_per_minute: int = 30
     rate_limit_ai_per_minute: int = 10
     rate_limit_write_per_minute: int = 120
+    rate_limit_page_match_per_minute: int = 6
 
     # --- Lưu trữ dữ liệu (SDS §3.2, RET-01) ---
     retention_inactive_days: int = 365

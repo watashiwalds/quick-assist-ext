@@ -10,6 +10,10 @@ export const config = {
   maxNoteChars: 20_000,
   /** = MAX_SUMMARY_INPUT_CHARS của backend (SUM-01). */
   maxSummaryChars: 30_000,
+  /** = PAGE_MATCH_MAX_HTML_BYTES của backend: trang lớn hơn → dừng ở máy, không tải lên (AutoChunk). */
+  pageMatchMaxHtmlBytes: 2_000_000,
+  /** Quét trang = trích nội dung + embed + LLM thẩm định (timeout server 10s + 20s) → nới hơn mặc định. */
+  pageMatchRequestTimeoutMs: 45_000,
   /** Bản build E2E (VITE_E2E=true) mới có đăng nhập thử & hook kiểm thử — bản phát hành KHÔNG có. */
   e2e: import.meta.env.VITE_E2E === 'true',
 } as const

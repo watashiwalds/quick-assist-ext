@@ -8,6 +8,7 @@ from quickassist.presentation.api.v1.controllers import (
     folders_controller,
     health_controller,
     notes_controller,
+    page_match_controller,
     quota_controller,
     rag_controller,
     search_controller,
@@ -16,5 +17,6 @@ from quickassist.presentation.api.v1.controllers import (
 
 api_v1 = APIRouter()
 for c in (health_controller, auth_controller, account_controller, quota_controller, folders_controller,
-          notes_controller, search_controller, summary_controller, rag_controller):
+          notes_controller, search_controller, summary_controller, rag_controller,
+          page_match_controller):
     api_v1.include_router(c.router)

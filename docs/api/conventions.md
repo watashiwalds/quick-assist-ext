@@ -25,9 +25,9 @@ Bản nháp P02 ban đầu (YAML viết tay) và các câu hỏi mở được l
 | 402 | hết quota AI (không retry tự động) | `QUOTA_EXCEEDED` |
 | 404 | không tồn tại / không thuộc user | `NOTE_NOT_FOUND`, `FOLDER_NOT_FOUND` |
 | 409 | xung đột | `NOTE_VERSION_CONFLICT`, `IDEMPOTENCY_KEY_REUSED`, `FOLDER_EXISTS` |
-| 413 | vượt giới hạn | `NOTE_TOO_LONG`, `SUMMARY_INPUT_TOO_LONG` |
+| 413 | vượt giới hạn | `NOTE_TOO_LONG`, `SUMMARY_INPUT_TOO_LONG`, `PAGE_TOO_LONG` (HTML trang > 2 MB) |
 | 429 | gọi quá nhanh (theo user, cửa sổ 1 phút) — kèm header `Retry-After` | `RATE_LIMITED` |
-| 422 | sai định dạng đầu vào | `VALIDATION_ERROR` |
+| 422 | sai định dạng đầu vào · dữ liệu đúng dạng nhưng không xử lý được | `VALIDATION_ERROR`, `PAGE_NO_CONTENT` (trang không có nội dung chính / trích quá thời gian), `PAGE_MATCH_QUERY_INVALID` |
 | 502 | dịch vụ ngoài lỗi | `AI_UNAVAILABLE`, `OAUTH_UPSTREAM` |
 | 501 | chưa làm | `CHAT_NOT_IMPLEMENTED` |
 
@@ -52,6 +52,7 @@ Extension map `code` → câu thông báo tại `apps/extension/src/shared/error
 | `POST /search` | `search_controller` → `semantic_search.SemanticSearchService` | **thay cho** `/search/ranking` (SDS §5.1.3) |
 | `POST /ai/summaries` | `summary_controller` → `summary.SummaryService` | trả preview, không ghi DB (SDS §5.1.4) |
 | `POST /ai/chat` | `rag_controller` → `rag.RAGService` | SSE — Nice-to-have (SDS §5.1.6, ADR-0009) |
+| `POST /ai/page-match` | `page_match_controller` → `page_match.PageMatchService` | AutoChunk "Tìm trong trang" (ADR-0013): `{query, html, url?, title?}` → `{mode: segments\|full_page, match_ratio, warning: null\|VERIFY_UNAVAILABLE, items[{id, occ, text, score, verified}], total_chars, truncated, full_text}`. Stateless, không ghi DB, không cần Idempotency-Key; rate limit riêng 6/phút; lưu kết quả bằng `POST /notes` |
 
 Vì sao `POST /notes` trả **201** chứ không phải 202 như SDS: bản ghi note đã được tạo xong (đó là tài nguyên client cần); chỉ phần index AI là bất đồng bộ và được phản ánh qua `index_status`.
 
