@@ -39,6 +39,12 @@ export function installChrome() {
     scripting: { executeScript: vi.fn(async (_opts: any): Promise<any> => [{ result: undefined }]) },
     contextMenus: { create: vi.fn(), removeAll: vi.fn(async () => undefined) },
     identity: { getRedirectURL: () => 'https://test-ext.chromiumapp.org/', launchWebAuthFlow: vi.fn() },
+    tabs: {
+      query: vi.fn(async () => [{ id: 1, title: 'Example', url: 'https://example.com/page' }]),
+      onActivated: { addListener: vi.fn(), removeListener: vi.fn() },
+      onUpdated: { addListener: vi.fn(), removeListener: vi.fn() },
+    },
+    permissions: { contains: vi.fn(async () => true), request: vi.fn(async () => false) },
   }
   ;(globalThis as Record<string, unknown>).chrome = chromeFake
   return { chrome: chromeFake, sent }

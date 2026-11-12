@@ -67,6 +67,42 @@ const PATHS = {
       <path d="M12 17h.01" />
     </>
   ),
+  scan: (
+    <>
+      <path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8" />
+      <path d="M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8" />
+      <path d="M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16" />
+      <path d="M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16" />
+      <path d="M7 12h10" />
+    </>
+  ),
+  clipboard: (
+    <>
+      <rect x="5" y="5" width="14" height="16" rx="2" />
+      <path d="M9 5V3.5h6V5" />
+      <path d="M9 10h6M9 14h6M9 18h4" />
+    </>
+  ),
+  lock: (
+    <>
+      <rect x="5" y="10" width="14" height="10" rx="2" />
+      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+    </>
+  ),
+  info: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 11v5" />
+      <path d="M12 8h.01" />
+    </>
+  ),
+  locate: (
+    <>
+      <circle cx="12" cy="12" r="6.5" />
+      <circle cx="12" cy="12" r="2" />
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+    </>
+  ),
   'chevron-down': <path d="m6 9 6 6 6-6" />,
   user: (
     <>

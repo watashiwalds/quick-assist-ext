@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Demo tĩnh cho màn Tìm trong trang của QuickAssist: nhập truy vấn, rà các đoạn AI tìm được và lưu thành một ghi chú."
+    />
+    <title>QuickAssist — Tìm trong trang</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <h1 class="sr-only">QuickAssist — Tìm trong trang</h1>
+
+    <svg class="icon-sprite" aria-hidden="true">
+      <symbol id="i-note" viewBox="0 0 24 24">
+        <path d="M7 3h7l5 5v13H7z" />
+        <path d="M14 3v5h5" />
+        <path d="M10 13h6M10 17h4" />
+      </symbol>
+      <symbol id="i-user" viewBox="0 0 24 24">
+        <circle cx="12" cy="8" r="3.5" />
+        <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+      </symbol>
+      <symbol id="i-sync" viewBox="0 0 24 24">
+        <path d="M20 7v5h-5" />
+        <path d="M4 17v-5h5" />
+        <path d="M6.1 9A7 7 0 0 1 18.5 7.5L20 12" />
+        <path d="M17.9 15A7 7 0 0 1 5.5 16.5L4 12" />
+      </symbol>
+      <symbol id="i-scan" viewBox="0 0 24 24">
+        <path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8" />
+        <path d="M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8" />
+        <path d="M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16" />
+        <path d="M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16" />
+        <path d="M7 12h10" />
+      </symbol>
+      <symbol id="i-clipboard" viewBox="0 0 24 24">
+        <rect x="5" y="5" width="14" height="16" rx="2" />
+        <path d="M9 5V3.5h6V5" />
+        <path d="M9 10h6M9 14h6M9 18h4" />
+      </symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24">
+        <rect x="5" y="10" width="14" height="10" rx="2" />
+        <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+      </symbol>
+      <symbol id="i-info" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M12 11v5" />
+        <path d="M12 8h.01" />
+      </symbol>
+      <symbol id="i-locate" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="6.5" />
+        <circle cx="12" cy="12" r="2" />
+        <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24">
+        <path d="m5 12.5 4.5 4.5L19 7.5" />
+      </symbol>
+      <symbol id="i-layers" viewBox="0 0 24 24">
+        <path d="m12 3 8 4.5-8 4.5-8-4.5z" />
+        <path d="m4 12 8 4.5 8-4.5" />
+        <path d="m4 16.5 8 4.5 8-4.5" />
+      </symbol>
+      <symbol id="i-chevron-down" viewBox="0 0 24 24">
+        <path d="m6 9 6 6 6-6" />
+      </symbol>
+    </svg>
+
+    <div class="app">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="QuickAssist — Tìm trong trang">
+          <span class="brand-mark" aria-hidden="true">
+            <svg class="icon"><use href="#i-note" /></svg>
+          </span>
+          <span class="brand-name">QuickAssist</span>
+        </a>
+
+        <span class="topbar-spacer"></span>
+
+        <div class="topbar-actions">
+          <span class="sync-chip" title="Đồng bộ lần cuối: 2 phút trước">
+            <span class="sync-dot" aria-hidden="true"></span>
+            Đã đồng bộ
+          </span>
+          <a class="user" href="#" aria-label="Tài khoản demo@quickassist.local">
+            <span class="avatar" aria-hidden="true">
+              <svg class="icon"><use href="#i-user" /></svg>
+            </span>
+            <span class="email">demo@quickassist.local</span>
+          </a>
+        </div>
+      </header>
+
+      <nav class="tabbar" aria-label="Chức năng">
+        <a class="tab" href="#">Thư viện</a>
+        <a class="tab" href="#" aria-current="page">Tìm trong trang</a>
+        <a class="tab" href="#">Hỏi AI</a>
+        <a class="tab" href="#">Cài đặt</a>
+      </nav>
+
+      <div class="workspace">
+        <aside class="query-rail" aria-labelledby="query-title">
+          <div class="rail-top">
+            <h2 class="rail-headline" id="query-title">
+              Nêu câu hỏi, nội dung trên trang sẽ trả lời cho bạn
+            </h2>
+            <p class="rail-lede">
+              QuickAssist đọc trang đang mở, gom các đoạn liên quan và để bạn chọn lưu thành một ghi chú.
+            </p>
+          </div>
+
+          <div class="rail-composer" role="search" aria-label="Tìm trong trang">
+            <p class="page-status" title="QuickAssist chỉ đọc trang khi bạn bấm Quét trang.">
+              <span class="status-dot" aria-hidden="true"></span>
+              <span>Trang có thể quét tự động</span>
+            </p>
+
+            <label class="sr-only" for="page-query">Mô tả nội dung cần tìm trên trang</label>
+            <div class="query-box">
+              <textarea id="page-query" rows="2" maxlength="500" spellcheck="false">Có những tương tác nào giữa ông Trump và Jensen Huang?</textarea>
+            </div>
+
+            <div class="composer-actions">
+              <button class="btn btn-primary" type="button">
+                <svg class="icon" aria-hidden="true"><use href="#i-scan" /></svg>
+                Quét trang
+              </button>
+              <button class="btn-quiet" type="button">
+                <svg class="icon" aria-hidden="true"><use href="#i-clipboard" /></svg>
+                Dán thủ công
+              </button>
+            </div>
+
+            <p class="reassure">
+              <svg class="icon" aria-hidden="true"><use href="#i-lock" /></svg>
+              Không tự lưu — bạn chọn đoạn và bấm Lưu.
+            </p>
+          </div>
+        </aside>
+
+        <section class="results" aria-labelledby="results-title">
+          <div class="results-head">
+            <div class="notice" role="status">
+              <svg class="icon" aria-hidden="true"><use href="#i-info" /></svg>
+              <p>
+                Lượng lớn nội dung khớp với truy vấn (<strong>71%</strong>) — đề xuất lưu toàn bộ.
+              </p>
+            </div>
+
+            <div class="results-title-row">
+              <div class="results-title-group">
+                <h2 class="results-title" id="results-title">Kết quả truy vấn</h2>
+                <p class="results-meta" aria-live="polite">
+                  <span>Thấy <strong>11</strong> đoạn</span>
+                  <span class="meta-dot" aria-hidden="true"></span>
+                  <span>đã chọn <strong>11</strong></span>
+                </p>
+              </div>
+
+              <div class="results-actions">
+                <button class="link-action" type="button">
+                  <svg class="icon" aria-hidden="true"><use href="#i-locate" /></svg>
+                  Xem tất cả trên trang
+                </button>
+                <button class="btn btn-ghost btn-sm" type="button">Bỏ chọn</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="results-scroll">
+            <ol class="para-list" aria-label="Các đoạn tìm thấy">
+              <li class="para-card">
+                <div class="para-head">
+                  <label class="para-select">
+                    <input type="checkbox" checked aria-label="Chọn đoạn 1" />
+                    <span class="para-index" aria-hidden="true">Đoạn 1</span>
+                  </label>
+                  <span class="sim-badge" title="Độ tương đồng 94% — AI đã xác nhận"><span class="sr-only">Độ tương đồng </span>94%</span>
+                  <button class="link-action" type="button">
+                    <svg class="icon" aria-hidden="true"><use href="#i-locate" /></svg>
+                    Xem trên trang
+                  </button>
+                </div>
+                <p class="para-text">
+                  Là CEO Nvidia và có quan hệ gần gũi với ông Trump, Jensen Huang giữ vai trò quan trọng
+                  trong cuộc đua AI, trước khi bị nghi “ngoại tình với gián điệp Trung Quốc”.
+                </p>
+              </li>
+
+              <li class="para-card">
+                <div class="para-head">
+                  <label class="para-select">
+                    <input type="checkbox" checked aria-label="Chọn đoạn 2" />
+                    <span class="para-index" aria-hidden="true">Đoạn 2</span>
+                  </label>
+                  <span class="sim-badge" title="Độ tương đồng 92% — AI đã xác nhận"><span class="sr-only">Độ tương đồng </span>92%</span>
+                  <button class="link-action" type="button">
+                    <svg class="icon" aria-hidden="true"><use href="#i-locate" /></svg>
+                    Xem trên trang
+                  </button>
+                </div>
+                <p class="para-text">
+                  Là gương mặt đại diện cho sự bùng nổ của AI, Huang cũng trở nên thân thiết với Tổng thống
+                  Donald Trump, người muốn Mỹ duy trì vị trí thống trị công nghệ trước Trung Quốc.
+                </p>
+              </li>
+
+              <li class="para-card">
+                <div class="para-head">
+                  <label class="para-select">
+                    <input type="checkbox" checked aria-label="Chọn đoạn 3" />
+                    <span class="para-index" aria-hidden="true">Đoạn 3</span>
+                  </label>
+                  <span class="sim-badge" title="Độ tương đồng 90% — AI đã xác nhận"><span class="sr-only">Độ tương đồng </span>90%</span>
+                  <button class="link-action" type="button">
+                    <svg class="icon" aria-hidden="true"><use href="#i-locate" /></svg>
+                    Xem trên trang
+                  </button>
+                </div>
+                <p class="para-text">
+                  Tổng thống Mỹ nhiều lần khen ông Huang là người “thông minh”, “tuyệt vời” và muốn doanh
+                  nhân này tháp tùng trong các chuyến công du nước ngoài. Khi ông Trump thăm Trung Quốc hồi
+                  tháng 5, danh sách đoàn tháp tùng ban đầu không có tên ông Huang. Sau đó, chuyên cơ Không
+                  lực Một của ông Trump đã ghé Alaska, đón CEO Nvidia cùng tới Bắc Kinh.
+                </p>
+              </li>
+
+              <li class="para-card">
+                <div class="para-head">
+                  <label class="para-select">
+                    <input type="checkbox" checked aria-label="Chọn đoạn 4" />
+                    <span class="para-index" aria-hidden="true">Đoạn 4</span>
+                  </label>
+                  <span class="sim-badge" title="Độ tương đồng 88% — AI đã xác nhận"><span class="sr-only">Độ tương đồng </span>88%</span>
+                  <button class="link-action" type="button">
+                    <svg class="icon" aria-hidden="true"><use href="#i-locate" /></svg>
+                    Xem trên trang
+                  </button>
+                </div>
+                <p class="para-text">
+                  Mối quan hệ của họ bắt đầu từ năm 2025, khi ông Trump mời Huang tới ăn tối tại dinh thự
+                  Mar-a-Lago ở Florida. Thời điểm đó, Huang đang có mặt tại bang này để nhận Giải thưởng
+                  Thành tựu Edison về những đóng góp cho ngành AI.
+                </p>
+              </li>
+
+              <li class="para-card">
+                <div class="para-head">
+                  <label class="para-select">
+                    <input type="checkbox" checked aria-label="Chọn đoạn 5" />
+                    <span class="para-index" aria-hidden="true">Đoạn 5</span>
+                  </label>
+                  <span class="sim-badge" title="Độ tương đồng 85% — AI đã xác nhận"><span class="sr-only">Độ tương đồng </span>85%</span>
+                  <button class="link-action" type="button">
+                    <svg class="icon" aria-hidden="true"><use href="#i-locate" /></svg>
+                    Xem trên trang
+                  </button>
+                </div>
+                <p class="para-text">
+                  Trước khi trở thành tâm điểm chú ý, Huang nổi tiếng với phong cách làm việc kín đáo và
+                  những lần xuất hiện tại các hội nghị công nghệ lớn. Ông thường nhấn mạnh rằng chip đồ họa
+                  là nền tảng của kỷ nguyên điện toán mới, nơi mọi quyết định kinh doanh đều bắt đầu từ dữ
+                  liệu.
+                </p>
+              </li>
+
+              <li class="para-card">
+                <div class="para-head">
+                  <label class="para-select">
+                    <input type="checkbox" checked aria-label="Chọn đoạn 6" />
+                    <span class="para-index" aria-hidden="true">Đoạn 6</span>
+                  </label>
+                  <span class="sim-badge" title="Độ tương đồng 83% — AI đã xác nhận"><span class="sr-only">Độ tương đồng </span>83%</span>
+                  <button class="link-action" type="button">
+                    <svg class="icon" aria-hidden="true"><use href="#i-locate" /></svg>
+                    Xem trên trang
+                  </button>
+                </div>
+                <p class="para-text">
+                  Nvidia hiện là một trong những công ty giá trị nhất thế giới. Sự tăng trưởng của hãng gắn
+                  liền với nhu cầu chip AI, khi các ông lớn công nghệ đua nhau xây dựng trung tâm dữ liệu
+                  phục vụ mô hình ngôn ngữ lớn và các ứng dụng tạo sinh.
+                </p>
+              </li>
+
+              <li class="para-card">
+                <div class="para-head">
+                  <label class="para-select">
+                    <input type="checkbox" checked aria-label="Chọn đoạn 7" />
+                    <span class="para-index" aria-hidden="true">Đoạn 7</span>
+                  </label>
+                  <span class="sim-badge" title="Độ tương đồng 81% — AI đã xác nhận"><span class="sr-only">Độ tương đồng </span>81%</span>
+                  <button class="link-action" type="button">
+                    <svg class="icon" aria-hidden="true"><use href="#i-locate" /></svg>
+                    Xem trên trang
+                  </button>
+                </div>
+                <p class="para-text">
+                  Theo giới phân tích, mối quan hệ giữa Huang và chính quyền Trump có thể ảnh hưởng đến các
+                  quy định xuất khẩu chip sang Trung Quốc. Washington đã nhiều lần siết chặt kiểm soát đối
+                  với các sản phẩm bán dẫn tiên tiến, trong khi Bắc Kinh tìm cách tự chủ công nghệ.
+                </p>
+              </li>
+
+              <li class="para-card">
+                <div class="para-head">
+                  <label class="para-select">
+                    <input type="checkbox" checked aria-label="Chọn đoạn 8" />
+                    <span class="para-index" aria-hidden="true">Đoạn 8</span>
+                  </label>
+                  <span class="sim-badge" title="Độ tương đồng 78% — AI đã xác nhận"><span class="sr-only">Độ tương đồng </span>78%</span>
+                  <button class="link-action" type="button">
+                    <svg class="icon" aria-hidden="true"><use href="#i-locate" /></svg>
+                    Xem trên trang
+                  </button>
+                </div>
+                <p class="para-text">
+                  Hồi tháng 4, Nvidia cảnh báo doanh thu quý có thể bị ảnh hưởng khoảng 5,5 tỷ USD do các
+                  biện pháp hạn chế mới. Cổ phiếu hãng phản ứng mạnh trước thông tin này, kéo theo đà giảm
+                  của nhóm cổ phiếu bán dẫn trên thị trường Mỹ.
+                </p>
+              </li>
+
+              <li class="para-card">
+                <div class="para-head">
+                  <label class="para-select">
+                    <input type="checkbox" checked aria-label="Chọn đoạn 9" />
+                    <span class="para-index" aria-hidden="true">Đoạn 9</span>
+                  </label>
+                  <span class="sim-badge" title="Độ tương đồng 76% — AI đã xác nhận"><span class="sr-only">Độ tương đồng </span>76%</span>
+                  <button class="link-action" type="button">
+                    <svg class="icon" aria-hidden="true"><use href="#i-locate" /></svg>
+                    Xem trên trang
+                  </button>
+                </div>
+                <p class="para-text">
+                  Trong khi đó, các quan chức Trung Quốc kêu gọi doanh nghiệp nội địa giảm phụ thuộc vào chip
+                  Mỹ. Bắc Kinh cũng thúc đẩy các giải pháp thay thế do Huawei và các công ty trong nước phát
+                  triển, đồng thời mở rộng ưu đãi cho các dự án trí tuệ nhân tạo.
+                </p>
+              </li>
+
+              <li class="para-card">
+                <div class="para-head">
+                  <label class="para-select">
+                    <input type="checkbox" checked aria-label="Chọn đoạn 10" />
+                    <span class="para-index" aria-hidden="true">Đoạn 10</span>
+                  </label>
+                  <span class="sim-badge" title="Độ tương đồng 74% — AI đã xác nhận"><span class="sr-only">Độ tương đồng </span>74%</span>
+                  <button class="link-action" type="button">
+                    <svg class="icon" aria-hidden="true"><use href="#i-locate" /></svg>
+                    Xem trên trang
+                  </button>
+                </div>
+                <p class="para-text">
+                  Câu chuyện về chuyến công du của ông Trump cho thấy mức độ gắn kết giữa chính trị và công
+                  nghệ. Các CEO hàng đầu ngày càng đóng vai trò như những đặc phái viên không chính thức
+                  trong các cuộc đàm phán kinh tế, và mỗi chuyến đi đều có thể trở thành tín hiệu cho thị
+                  trường.
+                </p>
+              </li>
+
+              <li class="para-card">
+                <div class="para-head">
+                  <label class="para-select">
+                    <input type="checkbox" checked aria-label="Chọn đoạn 11" />
+                    <span class="para-index" aria-hidden="true">Đoạn 11</span>
+                  </label>
+                  <span class="sim-badge" title="Độ tương đồng 72% — AI đã xác nhận"><span class="sr-only">Độ tương đồng </span>72%</span>
+                  <button class="link-action" type="button">
+                    <svg class="icon" aria-hidden="true"><use href="#i-locate" /></svg>
+                    Xem trên trang
+                  </button>
+                </div>
+                <p class="para-text">
+                  Hiện chưa có bình luận chính thức từ Nvidia về thông tin liên quan đến chuyến đi. Nhà
+                  Trắng cũng chưa đưa ra phản hồi khi được đề nghị bình luận. Giới quan sát cho rằng câu
+                  chuyện sẽ còn tiếp diễn trong bối cảnh cuộc đua AI giữa Washington và Bắc Kinh ngày càng
+                  căng thẳng.
+                </p>
+              </li>
+            </ol>
+          </div>
+
+          <!--
+            Chế độ full_page: hiện cả “Lưu lựa chọn” và “Lưu toàn bộ”.
+            Chế độ segments: chỉ hiện “Lưu lựa chọn”; “Lưu toàn bộ” không xuất hiện.
+          -->
+          <footer class="save-bar" aria-label="Lưu kết quả">
+            <div class="save-folder">
+              <label for="save-folder">Lưu vào thư mục</label>
+              <div class="select-wrap">
+                <select id="save-folder">
+                  <option selected>Tin tức quốc tế</option>
+                  <option>Inbox</option>
+                  <option>Chứng khoán</option>
+                  <option>Học tập</option>
+                  <option>Thời sự</option>
+                </select>
+                <svg class="icon" aria-hidden="true"><use href="#i-chevron-down" /></svg>
+              </div>
+            </div>
+
+            <div class="save-actions">
+              <div class="save-primary-group">
+                <button class="btn btn-primary" type="button">
+                  <svg class="icon" aria-hidden="true"><use href="#i-check" /></svg>
+                  Lưu lựa chọn
+                </button>
+                <span class="count-chip">11 đoạn</span>
+              </div>
+
+              <div class="save-secondary-group">
+                <button class="btn btn-ghost" type="button">
+                  <svg class="icon" aria-hidden="true"><use href="#i-layers" /></svg>
+                  Lưu toàn bộ
+                </button>
+                <span class="chars">~ 7.517 ký tự</span>
+              </div>
+            </div>
+          </footer>
+        </section>
+      </div>
+    </div>
+  </body>
+</html>
