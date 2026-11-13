@@ -81,6 +81,11 @@ Lỗi ghi trong GitHub Issues: tiêu đề `[P0][N07] …`, kèm `request_id` (m
 | E2E | `e2e/x02-chat.spec.ts` | trả lời + chip/chi tiết nguồn; không có ghi chú liên quan; giữ hội thoại khi chuyển tab, "Cuộc trò chuyện mới" rồi mở lại phiên từ rail; panel hẹp (400px) rail thành drawer |
 | Cần người thật | — | đóng panel giữa stream, mở lại kiểm tra; đo `chrome.storage.local.getBytesInUse` sau một buổi dùng dày (giả định quota 10 MB) |
 
+### 7.3 Hỏi AI — render Markdown câu trả lời (13/11/2026)
+| Lớp | Bộ test | Phủ |
+|---|---|---|
+| UI (vitest) | `tests/ui/chat.test.tsx` — "Markdown trong câu trả lời AI" (`src/ui/features/chat/MarkdownAnswer.tsx`) | tiêu đề/chữ đậm/danh sách/bảng GFM render đúng thẻ; `[n]` trùng nguồn bấm được mở ghi chú, số không có nguồn giữ nguyên chữ; code block/inline code giữ nguyên `[n]`; link `javascript:` bị gỡ href (defaultUrlTransform); HTML thô không thành thẻ; các test stream/trích dẫn cũ vẫn chạy qua pipeline react-markdown |
+
 ## 8. Việc còn lại cần người thật / tài khoản thật
 - Đăng nhập Google thật (cần OAuth client của nhóm) — checklist demo bước 4.
 - `tests.eval.summary_injection` và `run_eval` với OpenAI thật (SUM-04, H03 phần OpenAI).

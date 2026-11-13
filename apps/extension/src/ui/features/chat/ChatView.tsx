@@ -5,18 +5,20 @@
  *
  * Ngôn ngữ thị giác trùng Thư viện / Tìm trong trang: chỉ dùng token A05, radius 8px, system font.
  * Tái dùng component sẵn có (Button, Select, TextArea, Modal, ConfirmDialog, ProgressBar, Icon).
+ * Câu trả lời AI render Markdown qua `MarkdownAnswer` — trích dẫn `[n]` vẫn bấm được mở ghi chú.
  *
  * Tầng dữ liệu vẫn ở `useChatSessions` (không đổi luồng hỏi/đáp): rail chỉ gọi `switchSession`,
  * `newSession`, `renameSession`, `deleteSession`, `clearSessions`; dung lượng lấy qua RPC
  * `chatSessions/usage` (background sở hữu key — UI không đọc storage trực tiếp).
  */
-import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react'
+import { type FormEvent, type KeyboardEvent, useEffect, useId, useRef, useState } from 'react'
 import type { ChatSource } from '@/shared/api/types'
 import { type ChatMessageItem, type ChatSession } from '@/shared/chat'
 import { type SerializedError, userMessage } from '@/shared/errors'
 import { rpc } from '@/shared/messaging/client'
 import { Button, ConfirmDialog, Icon, Modal, ProgressBar, Select, TextArea, useToast } from '../../components'
 import { useAsync } from '../../lib/hooks'
+import { MarkdownAnswer } from './MarkdownAnswer'
 import type { ChatState } from './useChat'
 
 const EXAMPLES = ['Tóm tắt những gì mình đã lưu tuần này', 'Ghi chú nào nói về cách nấu phở?', 'So sánh các ý chính trong ghi chú về Kubernetes']
@@ -742,7 +744,7 @@ function AssistantMessage({
       ) : (
         <div className="ai-bubble">
           {msg.text ? (
-            <div className="ai-text prewrap">{withCitations(msg.text, sources, onOpenNote)}</div>
+            <MarkdownAnswer text={msg.text} sources={sources} onOpenNote={onOpenNote} />
           ) : (
             streaming && <span className="muted">Đang tìm trong ghi chú…</span>
           )}
@@ -874,24 +876,3 @@ function ErrorCard({ error, onGoSettings, onRetry }: { error: SerializedError; o
   )
 }
 
-/** Thay "[n]" trong câu trả lời bằng nút mở ghi chú nguồn tương ứng (nếu n là nguồn có thật). */
-export function withCitations(text: string, sources: ChatSource[], onOpenNote: (noteId: string) => void): ReactNode[] {
-  const byIndex = new Map(sources.map((s) => [s.index, s]))
-  return text.split(/(\[\d+\])/g).map((part, i) => {
-    const m = /^\[(\d+)\]$/.exec(part)
-    const src = m ? byIndex.get(Number(m[1])) : undefined
-    if (!src) return part
-    return (
-      <button
-        key={i}
-        type="button"
-        className="cite"
-        title={`Mở ghi chú: ${src.title ?? 'Ghi chú'}`}
-        aria-label={`Mở ghi chú nguồn ${src.index}: ${src.title ?? 'Ghi chú'}`}
-        onClick={() => onOpenNote(src.note_id)}
-      >
-        [{src.index}]
-      </button>
-    )
-  })
-}

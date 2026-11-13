@@ -265,6 +265,24 @@ textarea { resize: vertical; }
 .status-pill .status-dot { width: 5px; height: 5px; animation: live-pulse 1.2s ease-in-out infinite; }
 .ai-bubble { padding: 12px 16px; background: var(--surface); border: 1px solid var(--border-soft); border-radius: var(--radius); }
 .ai-text { font-size: 14px; line-height: 1.65; color: var(--fg); text-wrap: pretty; overflow-wrap: anywhere; }
+/* Markdown câu trả lời AI (react-markdown + remark-gfm) — chỉ dùng token, không hard-code màu. */
+.ai-text > :first-child { margin-top: 0; }
+.ai-text > :last-child { margin-bottom: 0; }
+.ai-text p { margin: 0 0 8px; }
+.ai-text h1, .ai-text h2, .ai-text h3, .ai-text h4, .ai-text h5, .ai-text h6 { margin: 14px 0 6px; font-size: 14px; line-height: 1.45; color: var(--fg-strong); }
+.ai-text h1 { font-size: 16px; }
+.ai-text h2 { font-size: 15px; }
+.ai-text ul, .ai-text ol { display: grid; gap: 3px; margin: 4px 0 8px; padding-left: 22px; }
+.ai-text li > p { margin: 0; }
+.ai-text blockquote { margin: 6px 0; padding: 2px 12px; color: var(--muted); border-left: 3px solid var(--border); }
+.ai-text code { padding: 1px 5px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; color: var(--fg); background: var(--surface-hover); border-radius: 4px; }
+.ai-text pre { margin: 6px 0 8px; padding: 10px 12px; overflow-x: auto; background: var(--surface-hover); border: 1px solid var(--border-soft); border-radius: var(--radius-sm); }
+.ai-text pre code { padding: 0; font-size: 12px; line-height: 1.55; background: transparent; }
+.ai-text table { width: 100%; margin: 6px 0 8px; border-collapse: collapse; font-size: 13px; }
+.ai-text th, .ai-text td { padding: 5px 8px; border: 1px solid var(--border-soft); text-align: left; }
+.ai-text th { font-weight: 600; background: var(--surface); }
+.ai-text hr { margin: 10px 0; border: none; border-top: 1px solid var(--border-soft); }
+.ai-text img { max-width: 100%; }
 .ai-bubble > .muted { font-size: 12px; }
 .answer-foot { display: flex; align-items: center; gap: 6px; margin-top: 10px; padding-top: 9px; font-size: 11px; line-height: 1.5; color: var(--muted); border-top: 1px solid var(--border-soft); }
 .answer-foot .icon { width: 13px; height: 13px; color: var(--ok); }

@@ -2,6 +2,7 @@
 /** X02 — giao diện Hỏi AI: stream từng phần, trích dẫn [n] mở ghi chú, nút Dừng, lỗi hết quota. */
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ChatSource } from '../../src/shared/api/types'
 import type { ChatPortEvent } from '../../src/shared/messaging/protocol'
 import { installChrome } from '../helpers/chrome'
 
@@ -150,5 +151,53 @@ describe('ChatView', () => {
     act(() => emit({ type: 'error', error: { code: 'QUOTA_EXCEEDED', message: 'x', status: 402 } }))
     expect(screen.getByRole('alert').textContent).toContain('hết hạn mức')
     expect(screen.getByRole('button', { name: 'Xem hạn mức' })).toBeTruthy()
+  })
+})
+
+describe('Markdown trong câu trả lời AI', () => {
+  const SOURCE: ChatSource = { index: 1, note_id: 'n1', chunk_id: 'c1', title: 'Phở bò', url: null, snippet: 'hầm xương' }
+
+  /** Hỏi rồi đẩy nguyên một câu trả lời (kèm nguồn) vào hội thoại. */
+  async function answerWith(text: string, sources: ChatSource[] = []) {
+    await ask('hỏi')
+    act(() => {
+      emit({ type: 'sources', sources })
+      emit({ type: 'delta', text })
+      emit({ type: 'done', tokensUsed: 1 })
+    })
+  }
+
+  it('render tiêu đề, chữ đậm, danh sách thay vì cú pháp thô', async () => {
+    await answerWith('## Kết luận\n\nNước dùng **rất quan trọng**.\n\n- ý một\n- ý hai')
+    expect(screen.getByRole('heading', { name: 'Kết luận' })).toBeTruthy()
+    expect(screen.getByText('rất quan trọng').tagName).toBe('STRONG')
+    expect(document.querySelectorAll('.ai-text ul li')).toHaveLength(2)
+  })
+
+  it('trích dẫn [n] trùng nguồn bấm được; số không có nguồn giữ nguyên chữ', async () => {
+    await answerWith('Theo [1] nhưng [9] thì không.', [SOURCE])
+    fireEvent.click(screen.getByRole('button', { name: 'Mở ghi chú nguồn 1: Phở bò' }))
+    expect(onOpenNote).toHaveBeenCalledWith('n1')
+    expect(screen.getByText(/\[9\] thì không/)).toBeTruthy()
+  })
+
+  it('code block và inline code giữ nguyên [n]; link javascript: bị gỡ href', async () => {
+    await answerWith('Chạy `x [1]` rồi:\n\n```bash\nkubectl get [1]\n```\n\n[bấm](javascript:alert(1))', [SOURCE])
+    expect(screen.getByText('kubectl get [1]').closest('pre')).toBeTruthy()
+    expect(screen.getByText('x [1]').closest('code')).toBeTruthy()
+    const link = screen.getByText('bấm').closest('a')
+    expect(link).toBeTruthy()
+    expect(link?.getAttribute('href') ?? '').not.toContain('javascript')
+    expect(screen.queryByRole('button', { name: 'Mở ghi chú nguồn 1: Phở bò' })).toBeNull()
+  })
+
+  it('HTML thô trong câu trả lời không được render thành thẻ', async () => {
+    await answerWith('Xin chào <img src=x onerror="window.__pwned = 1"> bạn')
+    expect(document.querySelector('.ai-text img')).toBeNull()
+  })
+
+  it('bảng GFM render thành bảng thật', async () => {
+    await answerWith('| Thứ | Món |\n| --- | --- |\n| 1 | phở |')
+    expect(screen.getByRole('table')).toBeTruthy()
   })
 })

@@ -45,7 +45,7 @@ Bản tóm tắt chỉ được lưu khi bạn bấm Lưu.
 ## 7. Hỏi AI về ghi chú
 Tab **Hỏi AI** trả lời câu hỏi dựa trên chính những ghi chú bạn đã lưu:
 1. Chọn thư mục muốn hỏi (hoặc **Tất cả thư mục**), gõ câu hỏi rồi **Gửi**.
-2. Câu trả lời hiện dần và ghi rõ nguồn `[1]`, `[2]`… — bấm số để mở ghi chú nguồn; **Chi tiết nguồn** hiện đoạn trích và liên kết trang gốc. Bấm **Dừng** nếu muốn dừng giữa chừng (phần đã trả lời được giữ lại, gắn nhãn *Đã dừng*).
+2. Câu trả lời hiện dần và ghi rõ nguồn `[1]`, `[2]`… — bấm số để mở ghi chú nguồn; **Chi tiết nguồn** hiện đoạn trích và liên kết trang gốc. Câu trả lời hiển thị dạng Markdown: tiêu đề, chữ đậm/nghiêng, danh sách, bảng, đoạn code có định dạng riêng. Bấm **Dừng** nếu muốn dừng giữa chừng (phần đã trả lời được giữ lại, gắn nhãn *Đã dừng*).
 3. **Lịch sử theo phiên:** câu hỏi và câu trả lời được lưu **trên máy này**, nên đóng side panel rồi mở lại vẫn còn. Cột **Hội thoại** bên trái liệt kê các phiên gần đây (tên là câu hỏi đầu tiên, có ô tìm và số lượt); bấm một phiên để mở lại, **Mới** để bắt đầu phiên khác. Ở panel hẹp, cột này thu thành drawer — mở bằng nút ở góc trái tiêu đề hội thoại. Đổi tên hoặc xoá phiên ngay trên tiêu đề; **Quản lý** ở cuối cột hiện dung lượng đã dùng và cho xoá từng phiên hoặc tất cả (gõ "XOÁ"). Tối đa 20 phiên gần nhất — phiên cũ nhất tự bị xoá.
 4. Lịch sử chat **không gửi lên máy chủ** và bị xoá khi bạn **Đăng xuất** hoặc **Xoá tài khoản**. Đóng panel giữa lúc AI đang trả lời thì câu trả lời dừng lại, phần đã hiện vẫn được giữ (đánh dấu *Đã dừng*).
 
