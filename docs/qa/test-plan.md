@@ -76,8 +76,9 @@ Lỗi ghi trong GitHub Issues: tiêu đề `[P0][N07] …`, kèm `request_id` (m
 ### 7.2 Hỏi AI — lịch sử phiên cục bộ (13/11/2026, ADR-0012)
 | Lớp | Bộ test | Phủ |
 |---|---|---|
-| Unit (vitest) | `tests/chat-sessions.test.ts` | `sessionTitle` (gộp khoảng trắng, cắt 60); `capMessages` giữ trọn cặp hỏi–đáp; `normalizeRestored` (streaming → stopped, bỏ trả lời rỗng, giữ lỗi, không sửa mảng gốc); `evictSessions` 20 phiên; storage round-trip, `activeId: null` hợp lệ, activeId mất → phiên mới nhất, dữ liệu hỏng/sai `v`, evict khi đọc, `clear` |
-| UI (vitest) | `tests/ui/chat-sessions.test.tsx` | lưu khi trả lời xong → mở lại panel khôi phục; tạo phiên mới + chuyển phiên qua dropdown; stream dở khôi phục thành "(đã dừng)"; `pagehide` giữ phần đã stream; **không ghi mỗi delta**; `folderId` đã bị xoá rơi về "Trong mọi thư mục" |
+| Unit (vitest) | `tests/chat-sessions.test.ts` | `sessionTitle` (gộp khoảng trắng, cắt 60); `capMessages` giữ trọn cặp hỏi–đáp; `normalizeRestored` (streaming → stopped, bỏ trả lời rỗng, giữ lỗi, không sửa mảng gốc); `evictSessions` 20 phiên; storage round-trip, `activeId: null` hợp lệ, activeId mất → phiên mới nhất, dữ liệu hỏng/sai `v`, evict khi đọc, `clear`, `chatStorageUsage` (byte + hạn mức) |
+| UI (vitest) | `tests/ui/chat-sessions.test.tsx` | lưu khi trả lời xong → mở lại panel khôi phục; tạo phiên mới + chuyển phiên trong rail; chuyển phiên khi đang stream (dừng, chốt phần đã nhận → "Đã dừng"); stream dở khôi phục thành "Đã dừng"; `pagehide` giữ phần đã stream; **không ghi mỗi delta**; `folderId` đã bị xoá rơi về "Tất cả thư mục"; đổi tên, xoá một phiên (confirm), xoá tất cả (gõ XOÁ), lọc phiên |
+| E2E | `e2e/x02-chat.spec.ts` | trả lời + chip/chi tiết nguồn; không có ghi chú liên quan; giữ hội thoại khi chuyển tab, "Cuộc trò chuyện mới" rồi mở lại phiên từ rail; panel hẹp (400px) rail thành drawer |
 | Cần người thật | — | đóng panel giữa stream, mở lại kiểm tra; đo `chrome.storage.local.getBytesInUse` sau một buổi dùng dày (giả định quota 10 MB) |
 
 ## 8. Việc còn lại cần người thật / tài khoản thật

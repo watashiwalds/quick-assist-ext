@@ -3,6 +3,8 @@
 > One-pager từ buổi idea-refine (13/11/2026). Tính năng nền: Hỏi đáp AI trên ghi chú (X02, ADR-0012 — server không lưu nội dung chat). UI tạm giản đơn; vòng redesign UI (kiểu Thư viện / Tìm trong trang) làm sau, ngoài phạm vi.
 >
 > **Trạng thái (13/11/2026): đã triển khai.** Khác plan một điểm: UI **không** đọc/ghi storage trực tiếp — thêm RPC `chatSessions/load|save` để giữ luật phân tầng (`tests/architecture.test.ts` cấm `ui/` import `shared/storage/`); background sở hữu key `qa.chatSessions`.
+>
+> **Cập nhật (13/11/2026): đã xong vòng redesign UI** theo demo `upgrade-plan/redesign/aichat` — xem mục cuối.
 
 ## Problem Statement
 > Làm sao để hội thoại tab "Hỏi AI" không mất khi đóng side panel — lưu **nhiều phiên song song** ngay trên trình duyệt (`chrome.storage.local`, xoá khi đăng xuất), không đổi backend, và chuẩn bị sẵn tầng dữ liệu cho vòng redesign UI sau?
@@ -38,8 +40,8 @@ UI tạm: **Select chọn phiên** trong toolbar `ChatView` (tên = câu hỏi �
 - `docs/user-guide.md`; `docs/qa/rtm.md` + `test-plan.md` (thêm case); `docs/architecture/README.md` (bản đồ storage).
 
 ## Not Doing (and Why)
-- **Redesign UI phiên** (sidebar, đổi tên, ghim, tìm kiếm phiên) — phạm vi vòng sau; tầng dữ liệu đã sẵn sàng.
-- **Xoá từng phiên trong UI** — logout xoá sạch là đủ cho MVP; redesign bổ sung.
+- **Redesign UI phiên** (sidebar, đổi tên, ghim, tìm kiếm phiên) — *đã làm ở vòng redesign bên dưới* (chưa ghim).
+- **Xoá từng phiên trong UI** — *đã làm ở vòng redesign bên dưới.*
 - **Đồng bộ đa thiết bị / lưu server** — vi phạm ADR-0012.
 - **Tiếp tục stream sau khi mở lại panel** — Port SSE chết theo panel; giới hạn có chủ ý.
 - **Auto-title bằng AI** — câu hỏi đầu cắt 60 ký tự là đủ, không tốn hạn mức.
@@ -47,6 +49,27 @@ UI tạm: **Select chọn phiên** trong toolbar `ChatView` (tên = câu hỏi �
 - **IndexedDB / key-riên-mỗi-phiên** — over-engineering với cap hiện tại; xem lại chỉ khi getBytesInUse cảnh báo.
 
 ## Open Questions (đã chốt 13/11/2026)
-- Tin nhắn dở khi khôi phục: **`stopped`** (tái dùng nhãn "(đã dừng)") — không thêm trạng thái/nhánh UI mới.
+- Tin nhắn dở khi khôi phục: **`stopped`** (nhãn "Đã dừng") — không thêm trạng thái/nhánh UI mới.
 - Đổi thư mục hỏi giữa phiên: **giữ cùng phiên**, chỉ cập nhật `folderId` và lưu kèm.
 - Cap: **20 phiên** × **40 tin nhắn/phiên** (20 cặp); chỉnh sau khi đo `getBytesInUse` nếu cần.
+
+## Cập nhật 13/11/2026 — redesign UI (đã triển khai)
+
+Áp demo `upgrade-plan/redesign/aichat/demo` vào `ChatView`, giữ đúng ngôn ngữ thị giác của Thư viện / Tìm trong trang
+(chỉ token A05, radius 8px, system font) và tái dùng component sẵn có (`Button`, `Select`, `TextArea`, `Modal`,
+`ConfirmDialog`, `ProgressBar`, `Icon`). Tầng dữ liệu `useChatSessions` chỉ được **mở rộng**, không đổi luồng hỏi/đáp.
+
+- Bố cục: rail phiên | hội thoại khi ≥ 881px; ≤ 880px rail thành drawer trượt (nút trong header, scrim, Esc).
+  Breakpoint 1100/980/880/720/480 dùng viewport media query cho khớp hai màn còn lại.
+- Rail: tìm theo tiêu đề, "Mới", số lượt + ngày, chỉ báo "Đang trả lời", footer `n phiên` + dung lượng (**RPC mới
+  `chatSessions/usage`** → `chatStorageUsage()` ở background), modal **Quản lý** (dung lượng + danh sách + xoá từng phiên).
+- Hội thoại: header đổi tên inline / xoá phiên (confirm), empty state có câu hỏi mẫu, turn người dùng/AI, pill
+  "Đang trả lời"/"Đã dừng", sao chép, "Hỏi lại", chip nguồn + "Chi tiết nguồn" (khoá khi đang stream), `ErrorCard`.
+- API hook thêm `renameSession` / `deleteSession` / `clearSessions`; rename/delete/clear đi qua state + RPC
+  `chatSessions/save` sẵn có (một đường ghi duy nhất, không thêm RPC ghi). Đổi phiên giữa stream: dừng stream, chốt
+  phần đã nhận ở phiên cũ dạng `stopped`.
+- Xoá tất cả dùng `ConfirmDialog` với `confirmText="XOÁ"` (2 bước); xoá một phiên chỉ cần confirm thường.
+- Select phạm vi chỉ hiện tên thư mục (không kèm số ghi chú); option rỗng đổi thành "Tất cả thư mục".
+- Test: `tests/ui/chat.test.tsx`, `tests/ui/chat-sessions.test.tsx` (rail thay select, thêm đổi tên/xoá/quản lý/lọc,
+  chuyển phiên khi đang stream), `tests/chat-sessions.test.ts` (`chatStorageUsage`), `e2e/x02-chat.spec.ts`
+  (selector mới + case drawer ở panel hẹp).

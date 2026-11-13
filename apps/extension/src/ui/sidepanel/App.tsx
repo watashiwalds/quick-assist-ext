@@ -101,10 +101,14 @@ function Shell({ session }: { session: Parameters<typeof SettingsView>[0]['sessi
         {tab === 'chat' && (
           <ChatView
             chat={chat}
+            ready={chat.ready}
             sessions={chat.sessions}
             activeId={chat.activeId}
             onSwitchSession={chat.switchSession}
             onNewSession={chat.newSession}
+            onRenameSession={chat.renameSession}
+            onDeleteSession={chat.deleteSession}
+            onClearSessions={chat.clearSessions}
             onGoSettings={goSettings}
             onOpenNote={(id) => {
               setOpenNoteId(id)

@@ -69,3 +69,12 @@ export async function saveChatSessions(sessions: ChatSession[], activeId: string
 export async function clearChatSessions(): Promise<void> {
   await chrome.storage.local.remove(CHAT_SESSIONS_KEY)
 }
+
+/**
+ * Dung lượng lịch sử chat đã dùng và hạn mức của `chrome.storage.local` (mặc định 10 MB — manifest
+ * không xin `unlimitedStorage`). Dùng cho footer rail + modal Quản lý của màn Hỏi AI.
+ */
+export async function chatStorageUsage(): Promise<{ bytes: number; quota: number }> {
+  const bytes = await chrome.storage.local.getBytesInUse([CHAT_SESSIONS_KEY])
+  return { bytes, quota: chrome.storage.local.QUOTA_BYTES }
+}

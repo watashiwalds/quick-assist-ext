@@ -19,6 +19,12 @@ function area() {
     clear: vi.fn(async () => {
       data = {}
     }),
+    /** Xấp xỉ Chrome: số byte JSON của các key được hỏi (đủ để test logic UI/background). */
+    getBytesInUse: vi.fn(async (key?: string | string[] | null) => {
+      const keys = key === undefined || key === null ? Object.keys(data) : Array.isArray(key) ? key : [key]
+      return keys.reduce((n, k) => n + (k in data ? new TextEncoder().encode(JSON.stringify(data[k])).length : 0), 0)
+    }),
+    QUOTA_BYTES: 10 * 1024 * 1024,
     _dump: () => data,
   }
 }

@@ -95,6 +95,8 @@ export interface RpcMap {
   /** Lịch sử chat theo phiên (X02) — UI không đọc/ghi storage trực tiếp; background sở hữu key. */
   'chatSessions/load': { req: void; res: { sessions: ChatSession[]; activeId: string | null } }
   'chatSessions/save': { req: { sessions: ChatSession[]; activeId: string | null }; res: void }
+  /** Dung lượng key lịch sử chat trên `chrome.storage.local` (footer rail + modal Quản lý). */
+  'chatSessions/usage': { req: void; res: { bytes: number; quota: number } }
 
   /** Chỉ có trong bản build E2E (VITE_E2E=true) — bản phát hành trả lỗi E2E_ONLY. */
   'e2e/devLogin': { req: { email: string }; res: SessionInfo }

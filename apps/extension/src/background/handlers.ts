@@ -7,7 +7,7 @@ import type { TokenPair } from '@/shared/api/types'
 import { config } from '@/shared/config'
 import { AppError } from '@/shared/errors'
 import type { RpcMap, RpcReq, RpcRes, RpcType, SessionInfo } from '@/shared/messaging/protocol'
-import { clearChatSessions, loadChatSessions, saveChatSessions } from '@/shared/storage/chat-sessions'
+import { chatStorageUsage, clearChatSessions, loadChatSessions, saveChatSessions } from '@/shared/storage/chat-sessions'
 import { notesCache } from '@/shared/storage/db'
 import { api } from './api'
 import { loginWithGoogle } from './auth/google'
@@ -179,6 +179,7 @@ export const handlers: Handlers = {
   'chatSessions/save': async ({ sessions, activeId }) => {
     await saveChatSessions(sessions, activeId)
   },
+  'chatSessions/usage': () => chatStorageUsage(),
 
   'e2e/devLogin': async ({ email }) => {
     if (import.meta.env.VITE_E2E !== 'true') throw new AppError('E2E_ONLY', 'Chỉ có trong bản build kiểm thử')

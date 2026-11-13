@@ -28,7 +28,7 @@ Khung ban đầu (`business/rag`) dự kiến thêm bảng `chat_sessions` / `ch
 
 Quyết định ở trên vẫn giữ nguyên: **server không lưu nội dung chat**. Phần "không xem lại được sau khi đóng panel" được cải thiện ở phía client:
 
-- Lịch sử lưu trong `chrome.storage.local`, key `qa.chatSessions` (`v: 1`, tối đa 20 phiên × 40 tin nhắn/phiên), có dropdown chọn phiên trong tab "Hỏi AI".
-- UI vẫn **không** đọc/ghi storage trực tiếp: hook `useChatSessions` gọi RPC `chatSessions/load|save`; background sở hữu key (ADR-0007, luật phân tầng extension).
+- Lịch sử lưu trong `chrome.storage.local`, key `qa.chatSessions` (`v: 1`, tối đa 20 phiên × 40 tin nhắn/phiên); tab "Hỏi AI" có rail phiên (tìm, đổi tên, xoá, quản lý — bản đầu chỉ là dropdown chọn phiên).
+- UI vẫn **không** đọc/ghi storage trực tiếp: hook `useChatSessions` gọi RPC `chatSessions/load|save` (đọc thêm `chatSessions/usage` để hiện dung lượng); background sở hữu key (ADR-0007, luật phân tầng extension).
 - `signedOut()` xoá sạch key (R-10) như cache/prefs. Đồng bộ đa thiết bị vẫn ngoài phạm vi.
-- Câu trả lời đang stream khi đóng panel không thể tiếp tục (Port SSE chết theo panel); khi mở lại được đánh dấu `stopped` ("(đã dừng)") và giữ phần text đã nhận.
+- Câu trả lời đang stream khi đóng panel không thể tiếp tục (Port SSE chết theo panel); khi mở lại được đánh dấu `stopped` (nhãn "Đã dừng") và giữ phần text đã nhận.

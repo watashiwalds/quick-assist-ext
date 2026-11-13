@@ -26,7 +26,7 @@
 | FR-AC6 | AutoChunk: giới hạn & lỗi — 413 `PAGE_TOO_LONG`, 422 `PAGE_NO_CONTENT`, 402, 429, 502, chưa có quyền đọc trang | AC T2–T4 | `test_page_match.py` (413/422/402/429/502/401); `ext/tests/page-match.test.ts › background page-match`; `page-finder.test.tsx › lỗi …`, `chưa có quyền đọc trang…` | Vinh, Sơn | ✅ |
 | FR-AC7 | AutoChunk: kháng prompt injection từ nội dung trang | AC T2 | `test_prompts_and_ratio.py::test_prompt_wraps_untrusted_blocks_and_neutralises_fake_tags`, `test_mock_provider_is_not_steered_by_injected_instruction` | Vinh | ✅ · 🔶 LLM thật |
 | FR-14 | Ghi log hoạt động & lỗi | A07 | `api/unit/infrastructure/test_logging.py` (request_id, che token/nội dung) | Quang | ✅ |
-| FR-X02 | Hỏi AI: lịch sử hội thoại theo phiên lưu cục bộ, khôi phục sau khi đóng panel, xoá khi đăng xuất; stream dở → "đã dừng" | X02 | `ext/tests/chat-sessions.test.ts` (hàm thuần, cap/evict, storage, khôi phục); `ext/tests/ui/chat-sessions.test.tsx` (lưu/khôi phục, chuyển phiên, pagehide, không ghi mỗi delta, thư mục đã xoá) | Dương | ✅ |
+| FR-X02 | Hỏi AI: lịch sử hội thoại theo phiên lưu cục bộ, khôi phục sau khi đóng panel, xoá khi đăng xuất; stream dở → "Đã dừng"; rail phiên (đổi tên/xoá/quản lý) + drawer ở panel hẹp | X02 | `ext/tests/chat-sessions.test.ts` (hàm thuần, cap/evict, storage, dung lượng, khôi phục); `ext/tests/ui/chat-sessions.test.tsx` (lưu/khôi phục, chuyển phiên, pagehide, không ghi mỗi delta, đổi tên/xoá/quản lý, thư mục đã xoá); `ext/e2e/x02-chat.spec.ts` | Dương | ✅ |
 
 ## Phi chức năng (SDS §3.2)
 | ID | Yêu cầu | Ca kiểm thử / bằng chứng | KQ |

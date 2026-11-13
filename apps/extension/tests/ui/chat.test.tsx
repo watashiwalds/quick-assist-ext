@@ -59,6 +59,11 @@ describe('ChatView', () => {
     expect(screen.getByRole('button', { name: 'Gửi' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Nguồn 1: Phở bò' }))
     expect(onOpenNote).toHaveBeenCalledWith('n1')
+    expect(onOpenNote).toHaveBeenCalledTimes(1)
+
+    // Chip nguồn và trích dẫn [1] là hai lối mở cùng một ghi chú.
+    fireEvent.click(screen.getByRole('button', { name: 'Mở ghi chú nguồn 1: Phở bò' }))
+    expect(onOpenNote).toHaveBeenCalledTimes(2)
   })
 
   it('nút Dừng gọi stop; trả lời bị dừng vẫn giữ phần đã sinh', async () => {
@@ -68,7 +73,61 @@ describe('ChatView', () => {
     expect(stop).toHaveBeenCalled()
     act(() => emit({ type: 'stopped' }))
     expect(screen.getByText('một phần')).toBeTruthy()
-    expect(screen.getByText('(đã dừng)')).toBeTruthy()
+    expect(screen.getByText('Đã dừng')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Hỏi lại' })).toBeTruthy()
+  })
+
+  it('nhãn Nguồn (n) + chi tiết nguồn chỉ mở sau khi trả lời xong', async () => {
+    await ask('phở?')
+    act(() => {
+      emit({ type: 'sources', sources: [{ index: 1, note_id: 'n1', chunk_id: 'c1', title: 'Phở bò', url: null, snippet: 'hầm xương 8 tiếng' }] })
+      emit({ type: 'delta', text: 'Nội dung [1]' })
+    })
+    expect(screen.getByText('Nguồn (1)')).toBeTruthy()
+    expect(screen.getByText(/chi tiết mở khi câu trả lời hoàn tất/)).toBeTruthy()
+    expect(screen.queryByText('Chi tiết nguồn')).toBeNull()
+
+    act(() => emit({ type: 'done', tokensUsed: 3 }))
+    expect(screen.getByText('Chi tiết nguồn')).toBeTruthy()
+    expect(screen.getByText('hầm xương 8 tiếng')).toBeTruthy()
+  })
+
+  it('sao chép câu trả lời vào clipboard', async () => {
+    const original = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    try {
+      await ask('hỏi')
+      act(() => {
+        emit({ type: 'delta', text: 'đáp án' })
+        emit({ type: 'done', tokensUsed: 1 })
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Sao chép câu trả lời' }))
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith('đáp án'))
+    } finally {
+      if (original) Object.defineProperty(navigator, 'clipboard', original)
+      else Reflect.deleteProperty(navigator, 'clipboard')
+    }
+  })
+
+  it('trạng thái trống gợi ý câu hỏi mẫu và gửi ngay khi bấm', async () => {
+    render(<Harness />)
+    expect(screen.getByRole('heading', { name: 'Hỏi AI về ghi chú của bạn' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Tóm tắt những gì mình đã lưu tuần này' }))
+    await waitFor(() => expect(askChat).toHaveBeenCalled())
+    expect(askChat.mock.calls[0]![0]).toMatchObject({ question: 'Tóm tắt những gì mình đã lưu tuần này' })
+  })
+
+  it('không gọi lặp RPC dung lượng khi không truyền phiên (deps ổn định)', async () => {
+    render(<Harness />)
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('chatSessions/usage'))
+    const input = screen.getByLabelText('Câu hỏi về ghi chú')
+    fireEvent.change(input, { target: { value: 'a' } })
+    fireEvent.change(input, { target: { value: 'ab' } })
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(rpc.mock.calls.filter((c) => c[0] === 'chatSessions/usage')).toHaveLength(1)
   })
 
   it('câu hỏi tiếp theo gửi kèm lịch sử', async () => {

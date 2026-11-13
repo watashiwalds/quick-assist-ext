@@ -25,6 +25,12 @@ export interface ChatSessionsState extends ChatState {
   ready: boolean
   switchSession: (id: string) => void
   newSession: () => void
+  /** Đổi tên phiên (gộp khoảng trắng, cắt `SESSION_TITLE_MAX`); phiên đang mở vẫn giữ tên mới khi ghi. */
+  renameSession: (id: string, title: string) => void
+  /** Xoá một phiên; xoá phiên đang mở → mở phiên mới nhất còn lại (hoặc "Cuộc trò chuyện mới"). */
+  deleteSession: (id: string) => void
+  /** Xoá toàn bộ lịch sử lưu trên máy này (đưa về hội thoại mới). */
+  clearSessions: () => void
   /** Ghi ngay hội thoại hiện tại (gọi từ `pagehide` khi đóng panel). */
   flush: () => void
 }
@@ -144,9 +150,8 @@ export function useChatSessions(): ChatSessionsState {
       const target = sessionsRef.current.find((s) => s.id === id)
       if (!target) return
 
-      // Dừng stream (nếu có) và chốt phần đã nhận vào phiên cũ, nhưng ghi activeId mới trong cùng 1 lần.
+      // Chốt phần đã nhận vào phiên cũ; `replace()` dừng stream đang chạy trước khi nạp phiên mới.
       const streaming = chatRef.current.streaming
-      if (streaming) chatRef.current.stop()
       const frozen = streaming ? normalizeRestored(chatRef.current.messages) : chatRef.current.messages
       const merged = merge(frozen, chatRef.current.folderId, activeIdRef.current)
 
@@ -160,8 +165,8 @@ export function useChatSessions(): ChatSessionsState {
 
   const newSession = useCallback(() => {
     if (!ready) return
+    // `reset()` dừng stream đang chạy; chốt phần đã nhận vào phiên cũ trước khi xoá hội thoại.
     const streaming = chatRef.current.streaming
-    if (streaming) chatRef.current.stop()
     const frozen = streaming ? normalizeRestored(chatRef.current.messages) : chatRef.current.messages
     const merged = merge(frozen, chatRef.current.folderId, activeIdRef.current)
 
@@ -170,5 +175,61 @@ export function useChatSessions(): ChatSessionsState {
     apply(merged.sessions, null)
   }, [apply, merge, ready])
 
-  return { ...chat, sessions, activeId, ready, switchSession, newSession, flush }
+  /**
+   * Đổi tên phiên. Chỉ sửa state cục bộ rồi ghi qua `chatSessions/save` (một đường ghi duy nhất);
+   * `merge()` giữ `existing.title` nên lần ghi kế tiếp của phiên đang mở không trả lại tên cũ.
+   * Tên rỗng bị bỏ qua — UI đã khoá nút Lưu, đây là chốt chặn ở tầng dữ liệu.
+   */
+  const renameSession = useCallback(
+    (id: string, title: string) => {
+      if (!ready || !title.trim()) return
+      if (!sessionsRef.current.some((s) => s.id === id)) return
+      const clean = sessionTitle(title)
+      apply(
+        sessionsRef.current.map((s) => (s.id === id ? { ...s, title: clean } : s)),
+        activeIdRef.current,
+      )
+    },
+    [apply, ready],
+  )
+
+  /**
+   * Xoá một phiên. Xoá phiên đang mở: dừng stream (nếu có), mở phiên mới nhất còn lại hoặc về
+   * "Cuộc trò chuyện mới" — không tự gửi lại câu hỏi.
+   */
+  const deleteSession = useCallback(
+    (id: string) => {
+      if (!ready) return
+      const remaining = sessionsRef.current.filter((s) => s.id !== id)
+      if (remaining.length === sessionsRef.current.length) return
+
+      if (id !== activeIdRef.current) {
+        apply(remaining, activeIdRef.current)
+        return
+      }
+
+      const next = remaining[0]
+      if (next) {
+        const restored = normalizeRestored(next.messages)
+        chatRef.current.replace(restored, next.folderId)
+        signatureRef.current = signatureOf(restored)
+        apply(remaining, next.id)
+      } else {
+        chatRef.current.reset()
+        signatureRef.current = signatureOf([])
+        apply([], null)
+      }
+    },
+    [apply, ready],
+  )
+
+  /** Xoá toàn bộ lịch sử trên máy này: dừng stream, đưa hội thoại về trạng thái mới, ghi mảng rỗng. */
+  const clearSessions = useCallback(() => {
+    if (!ready) return
+    chatRef.current.reset()
+    signatureRef.current = signatureOf([])
+    apply([], null)
+  }, [apply, ready])
+
+  return { ...chat, sessions, activeId, ready, switchSession, newSession, renameSession, deleteSession, clearSessions, flush }
 }

@@ -9,7 +9,7 @@ import {
   normalizeRestored,
   sessionTitle,
 } from '../src/shared/chat'
-import { CHAT_SESSIONS_KEY, clearChatSessions, loadChatSessions, saveChatSessions } from '../src/shared/storage/chat-sessions'
+import { CHAT_SESSIONS_KEY, chatStorageUsage, clearChatSessions, loadChatSessions, saveChatSessions } from '../src/shared/storage/chat-sessions'
 import { installChrome } from './helpers/chrome'
 
 installChrome()
@@ -116,6 +116,14 @@ describe('storage chat-sessions', () => {
   it('activeId không còn tồn tại → rơi về phiên mới nhất', async () => {
     await saveChatSessions([session('s1', 100), session('s2', 200)], 'missing')
     expect((await loadChatSessions()).activeId).toBe('s2')
+  })
+
+  it('chatStorageUsage: 0 khi chưa có, tăng sau khi lưu, kèm hạn mức 10 MB', async () => {
+    expect(await chatStorageUsage()).toEqual({ bytes: 0, quota: 10 * 1024 * 1024 })
+    await saveChatSessions([session('s1', 100)], 's1')
+    const usage = await chatStorageUsage()
+    expect(usage.bytes).toBeGreaterThan(0)
+    expect(usage.quota).toBe(10 * 1024 * 1024)
   })
 
   it('dữ liệu hỏng/sai phiên bản → kho rỗng, không ném lỗi', async () => {

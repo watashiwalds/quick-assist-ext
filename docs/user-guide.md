@@ -44,10 +44,10 @@ Bản tóm tắt chỉ được lưu khi bạn bấm Lưu.
 
 ## 7. Hỏi AI về ghi chú
 Tab **Hỏi AI** trả lời câu hỏi dựa trên chính những ghi chú bạn đã lưu:
-1. Chọn thư mục muốn hỏi (hoặc **Trong mọi thư mục**), gõ câu hỏi rồi **Gửi**.
-2. Câu trả lời hiện dần và ghi rõ nguồn `[1]`, `[2]`… — bấm số để mở ghi chú nguồn. Bấm **Dừng** nếu muốn dừng giữa chừng (phần đã trả lời được giữ lại).
-3. **Lịch sử theo phiên:** câu hỏi và câu trả lời được lưu **trên máy này**, nên đóng side panel rồi mở lại vẫn còn. Ô chọn phía trên liệt kê các phiên gần đây (tên là câu hỏi đầu tiên); bấm **Cuộc trò chuyện mới** để bắt đầu phiên khác. Tối đa 20 phiên gần nhất — phiên cũ nhất tự bị xoá.
-4. Lịch sử chat **không gửi lên máy chủ** và bị xoá khi bạn **Đăng xuất** hoặc **Xoá tài khoản**. Đóng panel giữa lúc AI đang trả lời thì câu trả lời dừng lại, phần đã hiện vẫn được giữ (đánh dấu *đã dừng*).
+1. Chọn thư mục muốn hỏi (hoặc **Tất cả thư mục**), gõ câu hỏi rồi **Gửi**.
+2. Câu trả lời hiện dần và ghi rõ nguồn `[1]`, `[2]`… — bấm số để mở ghi chú nguồn; **Chi tiết nguồn** hiện đoạn trích và liên kết trang gốc. Bấm **Dừng** nếu muốn dừng giữa chừng (phần đã trả lời được giữ lại, gắn nhãn *Đã dừng*).
+3. **Lịch sử theo phiên:** câu hỏi và câu trả lời được lưu **trên máy này**, nên đóng side panel rồi mở lại vẫn còn. Cột **Hội thoại** bên trái liệt kê các phiên gần đây (tên là câu hỏi đầu tiên, có ô tìm và số lượt); bấm một phiên để mở lại, **Mới** để bắt đầu phiên khác. Ở panel hẹp, cột này thu thành drawer — mở bằng nút ở góc trái tiêu đề hội thoại. Đổi tên hoặc xoá phiên ngay trên tiêu đề; **Quản lý** ở cuối cột hiện dung lượng đã dùng và cho xoá từng phiên hoặc tất cả (gõ "XOÁ"). Tối đa 20 phiên gần nhất — phiên cũ nhất tự bị xoá.
+4. Lịch sử chat **không gửi lên máy chủ** và bị xoá khi bạn **Đăng xuất** hoặc **Xoá tài khoản**. Đóng panel giữa lúc AI đang trả lời thì câu trả lời dừng lại, phần đã hiện vẫn được giữ (đánh dấu *Đã dừng*).
 
 > Mỗi câu hỏi dùng hạn mức AI. AI chỉ trả lời dựa trên ghi chú của bạn, không đọc lịch sử duyệt web.
 
@@ -67,7 +67,7 @@ Tab **Cài đặt**: xem hạn mức AI đã dùng/còn lại, chọn thư mục
 |---|---|
 | Phím tắt không chạy? | Có thể trùng phím với ứng dụng khác — đổi tại `chrome://extensions/shortcuts`. |
 | Ghi chú mới không tìm thấy? | Đợi nhãn chuyển *Sẵn sàng tìm kiếm* (vài giây). Nhãn *Bỏ qua (hết quota)* → xem Cài đặt. |
-| Đóng side panel có mất hội thoại Hỏi AI không? | Không — lịch sử lưu trên máy theo phiên. Câu trả lời đang viết dở sẽ dừng và giữ phần đã hiện; mở lại chọn phiên cũ ở ô phía trên. |
+| Đóng side panel có mất hội thoại Hỏi AI không? | Không — lịch sử lưu trên máy theo phiên. Câu trả lời đang viết dở sẽ dừng và giữ phần đã hiện; mở lại chọn phiên cũ ở cột **Hội thoại**. |
 | "Bạn thao tác quá nhanh"? | Giới hạn 30 lần tìm/phút, 10 lần tóm tắt/phút, 6 lần quét trang/phút — đợi số giây được báo. |
 | Báo lỗi cho nhóm? | Gửi kèm **Mã lỗi** hiện dưới thông báo lỗi để nhóm tra log. |
 | QuickAssist có đọc lịch sử duyệt web? | **Không.** Chỉ đọc đoạn bạn chủ động bôi đen và lưu/tóm tắt. |
