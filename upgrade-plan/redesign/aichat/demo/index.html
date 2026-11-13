@@ -1,0 +1,847 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Demo tĩnh cho màn Hỏi AI của QuickAssist: danh sách phiên, hội thoại có trích dẫn nguồn, composer theo thư mục và các trạng thái trả lời."
+    />
+    <title>QuickAssist — Hỏi AI</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <h1 class="sr-only">QuickAssist — Hỏi AI</h1>
+
+    <svg class="icon-sprite" aria-hidden="true">
+      <symbol id="i-note" viewBox="0 0 24 24">
+        <path d="M7 3h7l5 5v13H7z" />
+        <path d="M14 3v5h5" />
+        <path d="M10 13h6M10 17h4" />
+      </symbol>
+      <symbol id="i-search" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="6.5" />
+        <path d="m16 16 4 4" />
+      </symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24">
+        <path d="M12 5v14M5 12h14" />
+      </symbol>
+      <symbol id="i-sparkles" viewBox="0 0 24 24">
+        <path d="m12 3 1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z" />
+        <path d="m19 14 .8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8z" />
+      </symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24">
+        <path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17z" />
+        <path d="m13.5 6.5 4 4" />
+      </symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24">
+        <path d="M4 7h16M9 7V4h6v3M6.5 7l1 13h9l1-13" />
+        <path d="M10 11v5M14 11v5" />
+      </symbol>
+      <symbol id="i-chevron-down" viewBox="0 0 24 24">
+        <path d="m6 9 6 6 6-6" />
+      </symbol>
+      <symbol id="i-chevron-right" viewBox="0 0 24 24">
+        <path d="m9 6 6 6-6 6" />
+      </symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24">
+        <path d="M3.5 7.5A2.5 2.5 0 0 1 6 5h4l2 2h6a2.5 2.5 0 0 1 2.5 2.5v7A2.5 2.5 0 0 1 18 19H6a2.5 2.5 0 0 1-2.5-2.5z" />
+      </symbol>
+      <symbol id="i-database" viewBox="0 0 24 24">
+        <ellipse cx="12" cy="6" rx="7" ry="3" />
+        <path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" />
+        <path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" />
+      </symbol>
+      <symbol id="i-close" viewBox="0 0 24 24">
+        <path d="M6 6l12 12M18 6 6 18" />
+      </symbol>
+      <symbol id="i-send" viewBox="0 0 24 24">
+        <path d="M4 12 20 4l-4 16-4-6z" />
+        <path d="m12 14 8-10" />
+      </symbol>
+      <symbol id="i-stop" viewBox="0 0 24 24">
+        <rect x="7" y="7" width="10" height="10" rx="2" />
+      </symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24">
+        <rect x="9" y="9" width="11" height="11" rx="2" />
+        <path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3" />
+      </symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24">
+        <path d="M12 3 2.5 20h19z" />
+        <path d="M12 9v5" />
+        <path d="M12 17h.01" />
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24">
+        <path d="m5 12.5 4.5 4.5L19 7.5" />
+      </symbol>
+      <symbol id="i-external" viewBox="0 0 24 24">
+        <path d="M14 4h6v6" />
+        <path d="M20 4 11 13" />
+        <path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5" />
+      </symbol>
+      <symbol id="i-sidebar" viewBox="0 0 24 24">
+        <rect x="3.5" y="4" width="17" height="16" rx="2" />
+        <path d="M9 4v16" />
+      </symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24">
+        <rect x="5" y="10" width="14" height="10" rx="2" />
+        <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+      </symbol>
+      <symbol id="i-message" viewBox="0 0 24 24">
+        <path d="M20 12a7.5 7.5 0 0 1-10.9 6.7L4 20l1.3-5.1A7.5 7.5 0 1 1 20 12z" />
+      </symbol>
+      <symbol id="i-user" viewBox="0 0 24 24">
+        <circle cx="12" cy="8" r="3.5" />
+        <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+      </symbol>
+      <symbol id="i-sync" viewBox="0 0 24 24">
+        <path d="M20 7v5h-5" />
+        <path d="M4 17v-5h5" />
+        <path d="M6.1 9A7 7 0 0 1 18.5 7.5L20 12" />
+        <path d="M17.9 15A7 7 0 0 1 5.5 16.5L4 12" />
+      </symbol>
+    </svg>
+
+    <div class="demo-root">
+      <!-- Thanh review: chỉ tồn tại trong demo, không thuộc sản phẩm. -->
+      <div class="demo-bar" role="region" aria-label="Điều khiển trạng thái demo">
+        <span class="demo-badge">DEMO</span>
+        <span class="demo-title">Hỏi AI</span>
+
+        <fieldset class="state-switch">
+          <legend class="sr-only">Chọn trạng thái để review</legend>
+          <label class="state-option" title="Câu trả lời hoàn chỉnh kèm nguồn">
+            <input type="radio" name="demo-state" id="state-done" checked />
+            <span>Đã trả lời</span>
+          </label>
+          <label class="state-option" title="Đang stream câu trả lời, có nút Dừng">
+            <input type="radio" name="demo-state" id="state-streaming" />
+            <span>Đang trả lời</span>
+          </label>
+          <label class="state-option" title="Người dùng dừng giữa chừng">
+            <input type="radio" name="demo-state" id="state-stopped" />
+            <span>Đã dừng</span>
+          </label>
+          <label class="state-option" title="Hết hạn mức AI">
+            <input type="radio" name="demo-state" id="state-error" />
+            <span>Lỗi hạn mức</span>
+          </label>
+          <label class="state-option" title="Cuộc trò chuyện mới, chưa có tin nhắn">
+            <input type="radio" name="demo-state" id="state-empty" />
+            <span>Trống</span>
+          </label>
+        </fieldset>
+
+        <span class="demo-note">Chỉ để review bố cục &amp; trạng thái</span>
+      </div>
+
+      <div class="app">
+        <header class="topbar">
+          <a class="brand" href="#" aria-label="QuickAssist — Hỏi AI">
+            <span class="brand-mark" aria-hidden="true">
+              <svg class="icon"><use href="#i-note" /></svg>
+            </span>
+            <span class="brand-name">QuickAssist</span>
+          </a>
+
+          <span class="topbar-spacer"></span>
+
+          <div class="topbar-actions">
+            <span class="sync-chip" title="Lịch sử hội thoại chỉ lưu trên máy này">
+              <span class="sync-dot" aria-hidden="true"></span>
+              Đã đồng bộ
+            </span>
+            <a class="user" href="#" aria-label="Tài khoản demo@quickassist.local">
+              <span class="avatar" aria-hidden="true">
+                <svg class="icon"><use href="#i-user" /></svg>
+              </span>
+              <span class="email">demo@quickassist.local</span>
+            </a>
+          </div>
+        </header>
+
+        <nav class="tabbar" aria-label="Chức năng">
+          <a class="tab" href="#">Thư viện</a>
+          <a class="tab" href="#">Tìm trong trang</a>
+          <a class="tab" href="#" aria-current="page">Hỏi AI</a>
+          <a class="tab" href="#">Cài đặt</a>
+        </nav>
+
+        <div class="workspace">
+          <input type="checkbox" id="drawer-open" class="toggle-input" />
+          <label class="drawer-scrim" for="drawer-open" aria-label="Đóng danh sách phiên"></label>
+
+          <!-- Phiên hội thoại: rail tĩnh ở màn rộng, drawer ở màn hẹp. -->
+          <aside class="session-pane" aria-labelledby="sessions-title">
+            <div class="session-head">
+              <div class="session-title-row">
+                <h2 id="sessions-title">Hội thoại</h2>
+                <span class="grow"></span>
+                <label for="drawer-open" class="icon-btn drawer-close" aria-label="Đóng danh sách phiên" title="Đóng">
+                  <svg class="icon"><use href="#i-close" /></svg>
+                </label>
+                <button class="btn btn-soft btn-sm new-session" type="button">
+                  <svg class="icon" aria-hidden="true"><use href="#i-plus" /></svg>
+                  Mới
+                </button>
+              </div>
+
+              <label class="search">
+                <svg class="icon" aria-hidden="true"><use href="#i-search" /></svg>
+                <span class="sr-only">Tìm phiên hội thoại</span>
+                <input type="search" placeholder="Tìm phiên…" />
+              </label>
+            </div>
+
+            <nav class="session-list-wrap" aria-label="Các phiên hội thoại">
+              <ol class="session-list">
+                <li>
+                  <button class="session-item is-active" type="button" aria-current="true">
+                    <span class="session-item-title" title="Tổng hợp các thông tin liên quan đến giáo dục?">
+                      Tổng hợp các thông tin liên quan đến giáo dục?
+                    </span>
+                    <span class="session-item-meta">
+                      <span>13/11/26</span>
+                      <span class="meta-dot" aria-hidden="true"></span>
+                      <span>1 lượt</span>
+                      <span class="session-live"><span class="live-dot" aria-hidden="true"></span>Đang trả lời</span>
+                    </span>
+                  </button>
+                </li>
+                <li>
+                  <button class="session-item" type="button">
+                    <span class="session-item-title" title="Viết bài báo ngắn về bê bối của công ty công nghệ">
+                      Viết bài báo ngắn về bê bối của công ty…
+                    </span>
+                    <span class="session-item-meta">
+                      <span>11/11/26</span>
+                      <span class="meta-dot" aria-hidden="true"></span>
+                      <span>3 lượt</span>
+                    </span>
+                  </button>
+                </li>
+                <li>
+                  <button class="session-item" type="button">
+                    <span class="session-item-title" title="Có lợi ích gì khi sử dụng kiến trúc hướng sự kiện?">
+                      Có lợi ích gì khi sử dụng kiến trúc hướng…
+                    </span>
+                    <span class="session-item-meta">
+                      <span>09/11/26</span>
+                      <span class="meta-dot" aria-hidden="true"></span>
+                      <span>16 lượt</span>
+                    </span>
+                  </button>
+                </li>
+              </ol>
+            </nav>
+
+            <footer class="session-foot">
+              <div class="storage">
+                <div class="storage-row">
+                  <span><strong>3</strong> phiên thảo luận</span>
+                  <span class="storage-size">4,9 / 10 MB</span>
+                </div>
+                <div
+                  class="meter"
+                  role="progressbar"
+                  aria-label="Dung lượng lịch sử hội thoại"
+                  aria-valuemin="0"
+                  aria-valuemax="10"
+                  aria-valuenow="4.9"
+                >
+                  <span style="width: 49%"></span>
+                </div>
+                <p class="storage-note">
+                  <svg class="icon" aria-hidden="true"><use href="#i-lock" /></svg>
+                  Lịch sử chỉ lưu trên máy này.
+                </p>
+              </div>
+
+              <label for="manage-open" class="btn btn-ghost btn-block manage-trigger" aria-haspopup="dialog">
+                Quản lý
+                <svg class="icon" aria-hidden="true"><use href="#i-chevron-right" /></svg>
+              </label>
+            </footer>
+          </aside>
+
+          <!-- Hội thoại -->
+          <section class="conversation" aria-labelledby="conv-title">
+            <div class="conv-head">
+              <input type="checkbox" id="rename-open" class="toggle-input" />
+
+              <label for="drawer-open" class="icon-btn conv-drawer-toggle" aria-label="Mở danh sách phiên" title="Phiên">
+                <svg class="icon"><use href="#i-sidebar" /></svg>
+              </label>
+
+              <div class="conv-title-wrap">
+                <h2 class="conv-title conv-title-session" id="conv-title" title="Tổng hợp các thông tin liên quan đến giáo dục?">
+                  Tổng hợp các thông tin liên quan đến giáo dục?
+                </h2>
+                <h2 class="conv-title conv-title-new">Cuộc trò chuyện mới</h2>
+                <p class="conv-meta conv-meta-session">
+                  <span class="meta-saved">
+                    <svg class="icon" aria-hidden="true"><use href="#i-check" /></svg>
+                    Đã lưu trên máy
+                  </span>
+                  <span class="meta-dot" aria-hidden="true"></span>
+                  <span>13/11/26</span>
+                  <span class="meta-dot" aria-hidden="true"></span>
+                  <span>1 lượt hỏi–đáp</span>
+                </p>
+                <p class="conv-meta conv-meta-new">Chưa lưu · Bắt đầu bằng một câu hỏi về ghi chú của bạn.</p>
+              </div>
+
+              <div class="rename-form">
+                <label class="sr-only" for="rename-input">Tên cuộc trò chuyện</label>
+                <input
+                  id="rename-input"
+                  class="rename-input"
+                  type="text"
+                  value="Tổng hợp các thông tin liên quan đến giáo dục?"
+                />
+                <div class="rename-actions">
+                  <label for="rename-open" class="btn btn-ghost btn-sm">Huỷ</label>
+                  <label for="rename-open" class="btn btn-primary btn-sm">Lưu</label>
+                </div>
+              </div>
+
+              <div class="conv-actions">
+                <label for="rename-open" class="btn btn-ghost btn-sm action-rename" title="Đổi tên cuộc trò chuyện">
+                  <svg class="icon" aria-hidden="true"><use href="#i-edit" /></svg>
+                  <span>Đổi tên</span>
+                </label>
+                <label for="delete-open" class="btn btn-danger-outline btn-sm action-delete" title="Xoá cuộc trò chuyện">
+                  <svg class="icon" aria-hidden="true"><use href="#i-trash" /></svg>
+                  <span>Xoá</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="conv-scroll">
+              <div class="conv-body">
+                <!-- Trạng thái trống -->
+                <div class="conv-empty">
+                  <span class="empty-mark" aria-hidden="true">
+                    <svg class="icon"><use href="#i-sparkles" /></svg>
+                  </span>
+                  <h2>Hỏi AI về ghi chú của bạn</h2>
+                  <p class="empty-lede">
+                    AI chỉ trả lời dựa trên ghi chú bạn đã lưu và ghi rõ nguồn
+                    <span class="cite-static">[1]</span>, <span class="cite-static">[2]</span>… để bạn kiểm tra lại.
+                    Không dùng kiến thức bên ngoài.
+                  </p>
+
+                  <p class="empty-label">Thử một câu hỏi</p>
+                  <div class="example-list">
+                    <button class="example" type="button">
+                      Tóm tắt những gì mình đã lưu tuần này
+                      <svg class="icon" aria-hidden="true"><use href="#i-chevron-right" /></svg>
+                    </button>
+                    <button class="example" type="button">
+                      Ghi chú nào nói về cách nấu phở?
+                      <svg class="icon" aria-hidden="true"><use href="#i-chevron-right" /></svg>
+                    </button>
+                    <button class="example" type="button">
+                      So sánh các ý chính trong ghi chú về Kubernetes
+                      <svg class="icon" aria-hidden="true"><use href="#i-chevron-right" /></svg>
+                    </button>
+                  </div>
+
+                  <p class="empty-foot">
+                    <svg class="icon" aria-hidden="true"><use href="#i-lock" /></svg>
+                    Câu trả lời không tự thành ghi chú — bạn quyết định lưu nếu thấy hữu ích.
+                  </p>
+                </div>
+
+                <ol class="conv-log" role="log" aria-label="Hội thoại" aria-live="off">
+                  <li class="turn turn-user">
+                    <span class="sr-only">Bạn hỏi: </span>
+                    <div class="user-bubble">Tổng hợp các thông tin liên quan đến giáo dục?</div>
+                  </li>
+
+                  <!-- Trạng thái 1: đã trả lời xong -->
+                  <li class="turn turn-ai view-done">
+                    <div class="ai-head">
+                      <span class="ai-mark" aria-hidden="true">
+                        <svg class="icon"><use href="#i-sparkles" /></svg>
+                      </span>
+                      <span class="ai-name">QuickAssist</span>
+                      <span class="ai-time">09:41</span>
+                      <span class="grow"></span>
+                      <button class="icon-btn icon-btn-sm" type="button" aria-label="Sao chép câu trả lời" title="Sao chép câu trả lời">
+                        <svg class="icon" aria-hidden="true"><use href="#i-copy" /></svg>
+                      </button>
+                    </div>
+
+                    <div class="ai-bubble">
+                      <p>Dựa trên 5 ghi chú bạn đã lưu, đây là các thông tin liên quan đến giáo dục:</p>
+
+                      <ul class="answer-list">
+                        <li>
+                          <strong>Cải cách thi cử và xếp môn:</strong> Nhiều ý kiến cho rằng “xổ số môn thi” không nên
+                          là công cụ chính để thúc đẩy học đều; cần tránh học lệch và giảm căng thẳng cho học sinh
+                          <button class="cite" type="button" title="Mở ghi chú: Ý kiến của phụ huynh về kỳ thi vào lớp 10" aria-label="Nguồn 1: Ý kiến của phụ huynh về kỳ thi vào lớp 10">[1]</button><button class="cite" type="button" title="Mở ghi chú: Cải cách thi cử — giảm áp lực, tăng công bằng" aria-label="Nguồn 4: Cải cách thi cử — giảm áp lực, tăng công bằng">[4]</button>.
+                        </li>
+                        <li>
+                          <strong>Thời gian công bố tuyển sinh:</strong> Bộ yêu cầu các trường công bố thông tin trước
+                          31/12/2026, nhưng thời hạn này có thể quá ngắn để học sinh điều chỉnh kiến thức, chuẩn bị
+                          chứng chỉ hoặc chuyển sang kỳ thi khác
+                          <button class="cite" type="button" title="Mở ghi chú: Bộ GD&amp;ĐT yêu cầu công bố thông tin tuyển sinh trước 31/12/2026" aria-label="Nguồn 2: Bộ GD&amp;ĐT yêu cầu công bố thông tin tuyển sinh trước 31/12/2026">[2]</button>.
+                        </li>
+                        <li>
+                          <strong>Phương thức thi vào lớp 10 và đại học:</strong> Một số phụ huynh và nhà quản lý đề
+                          xuất thay đổi môn thi vào lớp 10, siết xét tuyển đại học và bỏ điểm cộng IELTS
+                          <button class="cite" type="button" title="Mở ghi chú: Cải cách thi cử — giảm áp lực, tăng công bằng" aria-label="Nguồn 4: Cải cách thi cử — giảm áp lực, tăng công bằng">[4]</button>.
+                        </li>
+                        <li>
+                          <strong>Công bằng trong tuyển sinh:</strong> Cần bù đắp chênh lệch giữa gia đình có điều kiện
+                          và ít nguồn lực khi tuyển sinh thay đổi
+                          <button class="cite" type="button" title="Mở ghi chú: Ý kiến của phụ huynh về kỳ thi vào lớp 10" aria-label="Nguồn 1: Ý kiến của phụ huynh về kỳ thi vào lớp 10">[1]</button>.
+                        </li>
+                        <li>
+                          <strong>Duy trì chất lượng giáo dục:</strong> Học toàn diện cần được duy trì bằng chương
+                          trình, phương pháp giảng dạy và đánh giá thường xuyên trong cả cấp học
+                          <button class="cite" type="button" title="Mở ghi chú: Duy trì chất lượng giáo dục toàn diện" aria-label="Nguồn 5: Duy trì chất lượng giáo dục toàn diện">[5]</button>.
+                        </li>
+                      </ul>
+
+                      <div class="answer-foot">
+                        <svg class="icon" aria-hidden="true"><use href="#i-check" /></svg>
+                        Chỉ dùng nội dung trong ghi chú của bạn — không thêm kiến thức ngoài.
+                      </div>
+
+                      <div class="sources">
+                        <div class="source-row">
+                          <span class="source-label">Nguồn (5)</span>
+                          <div class="source-chips">
+                            <button class="source-chip is-cited" type="button" title="Ý kiến của phụ huynh về kỳ thi vào lớp 10" aria-label="Nguồn 1: Ý kiến của phụ huynh về kỳ thi vào lớp 10">
+                              <span class="chip-index">[1]</span><span class="chip-title">Ý kiến của phụ huynh…</span>
+                            </button>
+                            <button class="source-chip is-cited" type="button" title="Bộ GD&amp;ĐT yêu cầu công bố thông tin tuyển sinh trước 31/12/2026" aria-label="Nguồn 2: Bộ GD&amp;ĐT yêu cầu công bố thông tin tuyển sinh trước 31/12/2026">
+                              <span class="chip-index">[2]</span><span class="chip-title">Công bố tuyển sinh…</span>
+                            </button>
+                            <button class="source-chip" type="button" title="Bỏ điểm cộng IELTS — đề xuất và phản ứng" aria-label="Nguồn 3: Bỏ điểm cộng IELTS — đề xuất và phản ứng">
+                              <span class="chip-index">[3]</span><span class="chip-title">Bỏ điểm cộng IELTS</span>
+                            </button>
+                            <button class="source-chip is-cited" type="button" title="Cải cách thi cử — giảm áp lực, tăng công bằng" aria-label="Nguồn 4: Cải cách thi cử — giảm áp lực, tăng công bằng">
+                              <span class="chip-index">[4]</span><span class="chip-title">Cải cách thi cử…</span>
+                            </button>
+                            <button class="source-chip is-cited" type="button" title="Duy trì chất lượng giáo dục toàn diện" aria-label="Nguồn 5: Duy trì chất lượng giáo dục toàn diện">
+                              <span class="chip-index">[5]</span><span class="chip-title">Chất lượng giáo dục</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        <details class="source-more">
+                          <summary>
+                            <svg class="icon" aria-hidden="true"><use href="#i-chevron-right" /></svg>
+                            Chi tiết nguồn
+                          </summary>
+                          <ul class="source-cards">
+                            <li class="source-card">
+                              <span class="source-index" aria-hidden="true">[1]</span>
+                              <div class="source-body">
+                                <p class="source-title">Ý kiến của phụ huynh về kỳ thi vào lớp 10</p>
+                                <p class="source-snippet">
+                                  Nhiều phụ huynh cho rằng phương án xổ số môn thi tạo thêm áp lực và không phản ánh đúng
+                                  năng lực học sinh.
+                                </p>
+                                <div class="source-actions">
+                                  <button class="link-quiet" type="button">Mở ghi chú</button>
+                                  <button class="link-quiet" type="button">
+                                    Trang nguồn
+                                    <svg class="icon" aria-hidden="true"><use href="#i-external" /></svg>
+                                  </button>
+                                </div>
+                              </div>
+                            </li>
+                            <li class="source-card">
+                              <span class="source-index" aria-hidden="true">[2]</span>
+                              <div class="source-body">
+                                <p class="source-title">Bộ GD&amp;ĐT yêu cầu công bố thông tin tuyển sinh trước 31/12/2026</p>
+                                <p class="source-snippet">
+                                  Các trường phải công bố phương án tuyển sinh sớm để học sinh có thời gian chuẩn bị kiến
+                                  thức và chứng chỉ.
+                                </p>
+                                <div class="source-actions">
+                                  <button class="link-quiet" type="button">Mở ghi chú</button>
+                                  <button class="link-quiet" type="button">
+                                    Trang nguồn
+                                    <svg class="icon" aria-hidden="true"><use href="#i-external" /></svg>
+                                  </button>
+                                </div>
+                              </div>
+                            </li>
+                            <li class="source-card">
+                              <span class="source-index" aria-hidden="true">[3]</span>
+                              <div class="source-body">
+                                <p class="source-title">Bỏ điểm cộng IELTS — đề xuất và phản ứng</p>
+                                <p class="source-snippet">
+                                  Đề xuất bỏ điểm cộng chứng chỉ ngoại ngữ trong xét tuyển đại học nhận được nhiều ý kiến
+                                  trái chiều từ phụ huynh và chuyên gia.
+                                </p>
+                                <div class="source-actions">
+                                  <button class="link-quiet" type="button">Mở ghi chú</button>
+                                  <button class="link-quiet" type="button">
+                                    Trang nguồn
+                                    <svg class="icon" aria-hidden="true"><use href="#i-external" /></svg>
+                                  </button>
+                                </div>
+                              </div>
+                            </li>
+                            <li class="source-card">
+                              <span class="source-index" aria-hidden="true">[4]</span>
+                              <div class="source-body">
+                                <p class="source-title">Cải cách thi cử — giảm áp lực, tăng công bằng</p>
+                                <p class="source-snippet">
+                                  Các chuyên gia đề nghị thay đổi cách xếp môn thi, siết xét tuyển và tính đến điều kiện
+                                  gia đình khi thiết kế phương án mới.
+                                </p>
+                                <div class="source-actions">
+                                  <button class="link-quiet" type="button">Mở ghi chú</button>
+                                  <button class="link-quiet" type="button">
+                                    Trang nguồn
+                                    <svg class="icon" aria-hidden="true"><use href="#i-external" /></svg>
+                                  </button>
+                                </div>
+                              </div>
+                            </li>
+                            <li class="source-card">
+                              <span class="source-index" aria-hidden="true">[5]</span>
+                              <div class="source-body">
+                                <p class="source-title">Duy trì chất lượng giáo dục toàn diện</p>
+                                <p class="source-snippet">
+                                  Chương trình, phương pháp giảng dạy và đánh giá thường xuyên cần được duy trì ở mọi cấp
+                                  học, không chỉ ở các kỳ thi.
+                                </p>
+                                <div class="source-actions">
+                                  <button class="link-quiet" type="button">Mở ghi chú</button>
+                                  <button class="link-quiet" type="button">
+                                    Trang nguồn
+                                    <svg class="icon" aria-hidden="true"><use href="#i-external" /></svg>
+                                  </button>
+                                </div>
+                              </div>
+                            </li>
+                          </ul>
+                        </details>
+                      </div>
+                    </div>
+                  </li>
+
+                  <!-- Trạng thái 2: đang trả lời -->
+                  <li class="turn turn-ai view-streaming">
+                    <div class="ai-head">
+                      <span class="ai-mark" aria-hidden="true">
+                        <svg class="icon"><use href="#i-sparkles" /></svg>
+                      </span>
+                      <span class="ai-name">QuickAssist</span>
+                      <span class="status-pill is-live"><span class="status-dot" aria-hidden="true"></span>Đang trả lời</span>
+                      <span class="grow"></span>
+                      <button class="icon-btn icon-btn-sm" type="button" aria-label="Sao chép phần trả lời đã nhận" title="Sao chép phần trả lời đã nhận">
+                        <svg class="icon" aria-hidden="true"><use href="#i-copy" /></svg>
+                      </button>
+                    </div>
+
+                    <div class="ai-bubble">
+                      <p>Dựa trên 5 ghi chú bạn đã lưu, đây là các thông tin liên quan đến giáo dục:</p>
+
+                      <ul class="answer-list">
+                        <li>
+                          <strong>Cải cách thi cử và xếp môn:</strong> Nhiều ý kiến cho rằng “xổ số môn thi” không nên
+                          là công cụ chính để thúc đẩy học đều; cần tránh học lệch và giảm căng thẳng cho học sinh
+                          <button class="cite" type="button" title="Mở ghi chú: Ý kiến của phụ huynh về kỳ thi vào lớp 10" aria-label="Nguồn 1: Ý kiến của phụ huynh về kỳ thi vào lớp 10">[1]</button><button class="cite" type="button" title="Mở ghi chú: Cải cách thi cử — giảm áp lực, tăng công bằng" aria-label="Nguồn 4: Cải cách thi cử — giảm áp lực, tăng công bằng">[4]</button>.
+                        </li>
+                        <li>
+                          <strong>Thời gian công bố tuyển sinh:</strong> Bộ yêu cầu các trường công bố thông tin trước
+                          31/12/2026, nhưng thời hạn này có thể quá ngắn để học sinh điều chỉnh kiến thức, chuẩn bị
+                          chứng chỉ hoặc chuyển sang kỳ thi khác
+                          <button class="cite" type="button" title="Mở ghi chú: Bộ GD&amp;ĐT yêu cầu công bố thông tin tuyển sinh trước 31/12/2026" aria-label="Nguồn 2: Bộ GD&amp;ĐT yêu cầu công bố thông tin tuyển sinh trước 31/12/2026">[2]</button>.
+                        </li>
+                        <li>
+                          <strong>Phương thức thi vào lớp 10 và đại học:</strong> Một số phụ huynh và nhà quản lý đề
+                          xuất thay đổi môn thi vào lớp 10, siết xét tuyển đại học và bỏ điểm cộng IELTS
+                          <span class="caret" aria-hidden="true"></span>
+                        </li>
+                      </ul>
+
+                      <div class="sources">
+                        <div class="source-row">
+                          <span class="source-label">Nguồn (5)</span>
+                          <div class="source-chips">
+                            <button class="source-chip is-cited" type="button" title="Ý kiến của phụ huynh về kỳ thi vào lớp 10" aria-label="Nguồn 1: Ý kiến của phụ huynh về kỳ thi vào lớp 10">
+                              <span class="chip-index">[1]</span><span class="chip-title">Ý kiến của phụ huynh…</span>
+                            </button>
+                            <button class="source-chip is-cited" type="button" title="Bộ GD&amp;ĐT yêu cầu công bố thông tin tuyển sinh trước 31/12/2026" aria-label="Nguồn 2: Bộ GD&amp;ĐT yêu cầu công bố thông tin tuyển sinh trước 31/12/2026">
+                              <span class="chip-index">[2]</span><span class="chip-title">Công bố tuyển sinh…</span>
+                            </button>
+                            <button class="source-chip" type="button" title="Bỏ điểm cộng IELTS — đề xuất và phản ứng" aria-label="Nguồn 3: Bỏ điểm cộng IELTS — đề xuất và phản ứng">
+                              <span class="chip-index">[3]</span><span class="chip-title">Bỏ điểm cộng IELTS</span>
+                            </button>
+                            <button class="source-chip is-cited" type="button" title="Cải cách thi cử — giảm áp lực, tăng công bằng" aria-label="Nguồn 4: Cải cách thi cử — giảm áp lực, tăng công bằng">
+                              <span class="chip-index">[4]</span><span class="chip-title">Cải cách thi cử…</span>
+                            </button>
+                            <button class="source-chip" type="button" title="Duy trì chất lượng giáo dục toàn diện" aria-label="Nguồn 5: Duy trì chất lượng giáo dục toàn diện">
+                              <span class="chip-index">[5]</span><span class="chip-title">Chất lượng giáo dục</span>
+                            </button>
+                          </div>
+                        </div>
+                        <p class="source-pending">Nguồn đã sẵn sàng — chi tiết mở khi câu trả lời hoàn tất.</p>
+                      </div>
+                    </div>
+                  </li>
+
+                  <!-- Trạng thái 3: đã dừng -->
+                  <li class="turn turn-ai view-stopped">
+                    <div class="ai-head">
+                      <span class="ai-mark" aria-hidden="true">
+                        <svg class="icon"><use href="#i-sparkles" /></svg>
+                      </span>
+                      <span class="ai-name">QuickAssist</span>
+                      <span class="status-pill is-stopped">
+                        <svg class="icon" aria-hidden="true"><use href="#i-stop" /></svg>
+                        Đã dừng
+                      </span>
+                      <span class="grow"></span>
+                      <button class="icon-btn icon-btn-sm" type="button" aria-label="Sao chép phần trả lời đã nhận" title="Sao chép phần trả lời đã nhận">
+                        <svg class="icon" aria-hidden="true"><use href="#i-copy" /></svg>
+                      </button>
+                    </div>
+
+                    <div class="ai-bubble">
+                      <p>Dựa trên 5 ghi chú bạn đã lưu, đây là các thông tin liên quan đến giáo dục:</p>
+
+                      <ul class="answer-list">
+                        <li>
+                          <strong>Cải cách thi cử và xếp môn:</strong> Nhiều ý kiến cho rằng “xổ số môn thi” không nên
+                          là công cụ chính để thúc đẩy học đều; cần tránh học lệch và giảm căng thẳng cho học sinh
+                          <button class="cite" type="button" title="Mở ghi chú: Ý kiến của phụ huynh về kỳ thi vào lớp 10" aria-label="Nguồn 1: Ý kiến của phụ huynh về kỳ thi vào lớp 10">[1]</button><button class="cite" type="button" title="Mở ghi chú: Cải cách thi cử — giảm áp lực, tăng công bằng" aria-label="Nguồn 4: Cải cách thi cử — giảm áp lực, tăng công bằng">[4]</button>.
+                        </li>
+                        <li>
+                          <strong>Thời gian công bố tuyển sinh:</strong> Bộ yêu cầu các trường công bố thông tin trước
+                          31/12/2026, nhưng thời hạn này có thể quá ngắn để học sinh điều chỉnh kiến thức, chuẩn bị
+                          chứng chỉ hoặc chuyển sang kỳ thi khác
+                          <button class="cite" type="button" title="Mở ghi chú: Bộ GD&amp;ĐT yêu cầu công bố thông tin tuyển sinh trước 31/12/2026" aria-label="Nguồn 2: Bộ GD&amp;ĐT yêu cầu công bố thông tin tuyển sinh trước 31/12/2026">[2]</button>.
+                        </li>
+                        <li>
+                          <strong>Phương thức thi vào lớp 10 và đại học:</strong> Một số phụ huynh và nhà quản lý đề
+                          xuất thay đổi môn thi vào lớp 10, siết xét tuyển đại học và bỏ điểm cộng IELTS
+                          <button class="cite" type="button" title="Mở ghi chú: Cải cách thi cử — giảm áp lực, tăng công bằng" aria-label="Nguồn 4: Cải cách thi cử — giảm áp lực, tăng công bằng">[4]</button>.
+                        </li>
+                      </ul>
+
+                      <div class="answer-foot answer-foot-stopped">
+                        <span>Bạn đã dừng câu trả lời này. Phần đã nhận vẫn được giữ trong phiên.</span>
+                        <button class="btn btn-ghost btn-sm" type="button">Hỏi lại</button>
+                      </div>
+
+                      <div class="sources">
+                        <div class="source-row">
+                          <span class="source-label">Nguồn (5)</span>
+                          <div class="source-chips">
+                            <button class="source-chip is-cited" type="button" title="Ý kiến của phụ huynh về kỳ thi vào lớp 10" aria-label="Nguồn 1: Ý kiến của phụ huynh về kỳ thi vào lớp 10">
+                              <span class="chip-index">[1]</span><span class="chip-title">Ý kiến của phụ huynh…</span>
+                            </button>
+                            <button class="source-chip is-cited" type="button" title="Bộ GD&amp;ĐT yêu cầu công bố thông tin tuyển sinh trước 31/12/2026" aria-label="Nguồn 2: Bộ GD&amp;ĐT yêu cầu công bố thông tin tuyển sinh trước 31/12/2026">
+                              <span class="chip-index">[2]</span><span class="chip-title">Công bố tuyển sinh…</span>
+                            </button>
+                            <button class="source-chip" type="button" title="Bỏ điểm cộng IELTS — đề xuất và phản ứng" aria-label="Nguồn 3: Bỏ điểm cộng IELTS — đề xuất và phản ứng">
+                              <span class="chip-index">[3]</span><span class="chip-title">Bỏ điểm cộng IELTS</span>
+                            </button>
+                            <button class="source-chip is-cited" type="button" title="Cải cách thi cử — giảm áp lực, tăng công bằng" aria-label="Nguồn 4: Cải cách thi cử — giảm áp lực, tăng công bằng">
+                              <span class="chip-index">[4]</span><span class="chip-title">Cải cách thi cử…</span>
+                            </button>
+                            <button class="source-chip is-cited" type="button" title="Duy trì chất lượng giáo dục toàn diện" aria-label="Nguồn 5: Duy trì chất lượng giáo dục toàn diện">
+                              <span class="chip-index">[5]</span><span class="chip-title">Chất lượng giáo dục</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+
+                  <!-- Trạng thái 4: lỗi hạn mức -->
+                  <li class="turn turn-ai view-error">
+                    <div class="ai-head">
+                      <span class="ai-mark" aria-hidden="true">
+                        <svg class="icon"><use href="#i-sparkles" /></svg>
+                      </span>
+                      <span class="ai-name">QuickAssist</span>
+                    </div>
+
+                    <div class="ai-error" role="alert">
+                      <span class="error-mark" aria-hidden="true">
+                        <svg class="icon"><use href="#i-alert" /></svg>
+                      </span>
+                      <div class="error-body">
+                        <h3>Đã hết hạn mức AI</h3>
+                        <p>
+                          Câu trả lời chưa được tạo vì tài khoản đã dùng hết hạn mức. Bạn có thể xem mức đã dùng
+                          trong Cài đặt, hoặc thử lại sau khi hạn mức được cấp thêm.
+                        </p>
+                        <div class="error-actions">
+                          <button class="btn btn-primary btn-sm" type="button">Xem hạn mức</button>
+                          <button class="btn btn-ghost btn-sm" type="button">Thử lại</button>
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                </ol>
+              </div>
+            </div>
+
+            <div class="composer" role="form" aria-label="Hỏi AI về ghi chú">
+              <div class="composer-scope">
+                <span class="scope-label">Hỏi trong</span>
+                <label class="scope-select">
+                  <svg class="icon scope-icon" aria-hidden="true"><use href="#i-folder" /></svg>
+                  <span class="sr-only">Phạm vi thư mục</span>
+                  <select aria-label="Phạm vi thư mục">
+                    <option selected>Tất cả thư mục (24)</option>
+                    <option>Học tập (9)</option>
+                    <option>Tin tức quốc tế (7)</option>
+                    <option>Chứng khoán (5)</option>
+                    <option>Inbox (3)</option>
+                  </select>
+                  <svg class="icon scope-chevron" aria-hidden="true"><use href="#i-chevron-down" /></svg>
+                </label>
+              </div>
+
+              <div class="composer-box">
+                <label class="sr-only" for="chat-input">Câu hỏi về ghi chú của bạn</label>
+                <textarea
+                  id="chat-input"
+                  rows="1"
+                  maxlength="2000"
+                  placeholder="Nhập câu hỏi…"
+                  spellcheck="false"
+                ></textarea>
+
+                <div class="composer-bar">
+                  <span class="composer-hint">Enter để gửi · Shift+Enter xuống dòng</span>
+                  <div class="composer-actions">
+                    <button class="btn btn-primary btn-send" type="button">
+                      <svg class="icon" aria-hidden="true"><use href="#i-send" /></svg>
+                      Gửi
+                    </button>
+                    <button class="btn btn-stop" type="button">
+                      <svg class="icon" aria-hidden="true"><use href="#i-stop" /></svg>
+                      Dừng
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- Modal: quản lý phiên -->
+        <input type="checkbox" id="manage-open" class="toggle-input" />
+        <div class="modal-layer" id="manage-dialog" role="dialog" aria-modal="true" aria-labelledby="manage-title">
+          <label class="modal-scrim" for="manage-open" aria-label="Đóng hộp thoại quản lý phiên"></label>
+          <div class="modal">
+            <div class="modal-head">
+              <div>
+                <h2 id="manage-title">Quản lý phiên</h2>
+                <p class="modal-sub">3 phiên · 4,9 / 10 MB</p>
+              </div>
+              <label for="manage-open" class="icon-btn" aria-label="Đóng" title="Đóng">
+                <svg class="icon"><use href="#i-close" /></svg>
+              </label>
+            </div>
+
+            <p class="modal-lede">
+              Lịch sử hội thoại chỉ nằm trên trình duyệt này và sẽ bị xoá khi bạn đăng xuất. Xoá phiên không ảnh hưởng
+              đến ghi chú của bạn.
+            </p>
+
+            <div class="storage storage-inline">
+              <div class="storage-row">
+                <span>Đã dùng <strong>4,9 MB</strong></span>
+                <span class="storage-size">trên 10 MB</span>
+              </div>
+              <div class="meter" role="img" aria-label="Đã dùng 4,9 trên 10 MB">
+                <span style="width: 49%"></span>
+              </div>
+            </div>
+
+            <ul class="manage-list">
+              <li class="manage-item is-active">
+                <div class="manage-copy">
+                  <p class="manage-title">Tổng hợp các thông tin liên quan đến giáo dục?</p>
+                  <p class="manage-meta">
+                    13/11/26 · 1 lượt
+                    <span class="chip-open">Đang mở</span>
+                  </p>
+                </div>
+                <button class="icon-btn icon-btn-sm" type="button" aria-label="Xoá phiên Tổng hợp các thông tin liên quan đến giáo dục" title="Xoá phiên">
+                  <svg class="icon" aria-hidden="true"><use href="#i-trash" /></svg>
+                </button>
+              </li>
+              <li class="manage-item">
+                <div class="manage-copy">
+                  <p class="manage-title">Viết bài báo ngắn về bê bối của công ty công nghệ</p>
+                  <p class="manage-meta">11/11/26 · 3 lượt</p>
+                </div>
+                <button class="icon-btn icon-btn-sm" type="button" aria-label="Xoá phiên Viết bài báo ngắn về bê bối của công ty công nghệ" title="Xoá phiên">
+                  <svg class="icon" aria-hidden="true"><use href="#i-trash" /></svg>
+                </button>
+              </li>
+              <li class="manage-item">
+                <div class="manage-copy">
+                  <p class="manage-title">Có lợi ích gì khi sử dụng kiến trúc hướng sự kiện?</p>
+                  <p class="manage-meta">09/11/26 · 16 lượt</p>
+                </div>
+                <button class="icon-btn icon-btn-sm" type="button" aria-label="Xoá phiên Có lợi ích gì khi sử dụng kiến trúc hướng sự kiện" title="Xoá phiên">
+                  <svg class="icon" aria-hidden="true"><use href="#i-trash" /></svg>
+                </button>
+              </li>
+            </ul>
+
+            <p class="modal-safe">
+              <svg class="icon" aria-hidden="true"><use href="#i-lock" /></svg>
+              Ghi chú của bạn không bị xoá khi xoá phiên hội thoại.
+            </p>
+
+            <div class="modal-foot">
+              <button class="btn btn-danger-ghost btn-sm" type="button">
+                <svg class="icon" aria-hidden="true"><use href="#i-trash" /></svg>
+                Xoá tất cả
+              </button>
+              <span class="grow"></span>
+              <label for="manage-open" class="btn btn-ghost">Đóng</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal: xác nhận xoá phiên đang mở -->
+        <input type="checkbox" id="delete-open" class="toggle-input" />
+        <div class="modal-layer" id="delete-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+          <label class="modal-scrim" for="delete-open" aria-label="Đóng hộp thoại xác nhận xoá"></label>
+          <div class="modal modal-sm">
+            <div class="modal-head">
+              <div>
+                <h2 id="delete-title">Xoá cuộc trò chuyện này?</h2>
+                <p class="modal-sub">Không thể hoàn tác</p>
+              </div>
+              <label for="delete-open" class="icon-btn" aria-label="Đóng" title="Đóng">
+                <svg class="icon"><use href="#i-close" /></svg>
+              </label>
+            </div>
+
+            <p class="modal-lede">
+              Phiên “Tổng hợp các thông tin liên quan đến giáo dục?” và 1 lượt hỏi–đáp sẽ bị xoá khỏi trình duyệt.
+              Ghi chú của bạn không bị ảnh hưởng.
+            </p>
+
+            <div class="modal-foot">
+              <span class="grow"></span>
+              <label for="delete-open" class="btn btn-ghost">Huỷ</label>
+              <button class="btn btn-danger" type="button">Xoá phiên</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
