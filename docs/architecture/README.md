@@ -120,7 +120,7 @@ quick-assist-ext/
 │   └── extension/                             # ① EXTENSION UI (Chrome MV3, TypeScript, React)
 │       └── src/
 │           ├── ui/              # giao diện: popup/, sidepanel/, components/ (design system A05), lib/
-│           │   └── features/    #   auth, notes (thư viện C03), search (R04), summary (SUM-03), account (Cài đặt A08), page-finder (AutoChunk); chat: P1
+│           │   └── features/    #   auth, notes (thư viện C03), search (R04), summary (SUM-03), account (Cài đặt A08), page-finder (AutoChunk), chat (X02 — lịch sử phiên cục bộ)
 │           ├── background/      # integration: cổng DUY NHẤT gọi API (token, outbox + failed store, sync, menus, prefs)
 │           ├── content/         # hàm tiêm vào trang (lấy vùng chọn, toast hoàn tác, chụp HTML + highlight cho AutoChunk)
 │           └── shared/          # hợp đồng: messaging (UI↔background), api (kiểu sinh từ OpenAPI), storage
@@ -141,7 +141,7 @@ quick-assist-ext/
 
 | Thành phần trong SDS | Vị trí trong code | Bảng sở hữu (repository) |
 |---|---|---|
-| Hình 1 · Extension UI / Hình 3 · Extension Service | `apps/extension/src/ui`, `background` | IndexedDB (cache, outbox) |
+| Hình 1 · Extension UI / Hình 3 · Extension Service | `apps/extension/src/ui`, `background` | IndexedDB (cache, outbox), `chrome.storage.local` (prefs, lịch sử chat) |
 | Hình 1 · API Controller | `presentation/api/v1/controllers/*` | — |
 | Hình 1 · AuthService / Hình 3 · Google OAuth Service / §5.2 OAuth Service | `business/auth/` | `users`, `auth_sessions` |
 | Hình 1 · NotesService / §5.2 Notes Service | `business/notes/` | `folders`, `notes` |

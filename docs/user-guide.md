@@ -42,7 +42,16 @@ Tìm kiếm đã gộp vào **thanh tìm kiếm của tab Thư viện**: gõ t�
 - **Đoạn đang đọc:** bôi đen → chuột phải → **Tóm tắt đoạn văn bản này** → bảng bên phải mở tab *Tóm tắt* → **Lưu thành ghi chú** (lưu cả đoạn văn và bản tóm tắt), **Sao chép** hoặc **Huỷ**.
 Bản tóm tắt chỉ được lưu khi bạn bấm Lưu.
 
-## 7. Tìm trong trang (AutoChunk)
+## 7. Hỏi AI về ghi chú
+Tab **Hỏi AI** trả lời câu hỏi dựa trên chính những ghi chú bạn đã lưu:
+1. Chọn thư mục muốn hỏi (hoặc **Trong mọi thư mục**), gõ câu hỏi rồi **Gửi**.
+2. Câu trả lời hiện dần và ghi rõ nguồn `[1]`, `[2]`… — bấm số để mở ghi chú nguồn. Bấm **Dừng** nếu muốn dừng giữa chừng (phần đã trả lời được giữ lại).
+3. **Lịch sử theo phiên:** câu hỏi và câu trả lời được lưu **trên máy này**, nên đóng side panel rồi mở lại vẫn còn. Ô chọn phía trên liệt kê các phiên gần đây (tên là câu hỏi đầu tiên); bấm **Cuộc trò chuyện mới** để bắt đầu phiên khác. Tối đa 20 phiên gần nhất — phiên cũ nhất tự bị xoá.
+4. Lịch sử chat **không gửi lên máy chủ** và bị xoá khi bạn **Đăng xuất** hoặc **Xoá tài khoản**. Đóng panel giữa lúc AI đang trả lời thì câu trả lời dừng lại, phần đã hiện vẫn được giữ (đánh dấu *đã dừng*).
+
+> Mỗi câu hỏi dùng hạn mức AI. AI chỉ trả lời dựa trên ghi chú của bạn, không đọc lịch sử duyệt web.
+
+## 8. Tìm trong trang (AutoChunk)
 Tab **Tìm trong trang** giúp gom các đoạn liên quan thay vì bôi đen từng đoạn:
 1. Mô tả điều cần tìm (ví dụ "nghị quyết liên quan đến đất đai") rồi bấm **Quét trang**.
 2. AI tìm trên trang đang mở, trả danh sách đoạn khớp để bạn tích chọn. Bấm **Xem trên trang** để cuộn tới và tô sáng đoạn đó.
@@ -50,14 +59,15 @@ Tab **Tìm trong trang** giúp gom các đoạn liên quan thay vì bôi đen t�
 
 **Không có trang web?** Bấm **Dán nội dung…**, dán văn bản từ PDF, Word, chat, email… rồi bấm **Quét nội dung**. Có thể dán dài; khoảng 50 000 ký tự đầu được quét và bạn sẽ thấy thông báo nếu nội dung bị cắt. Nội dung dán không có trang gốc nên nút **Xem trên trang** bị khoá, và ghi chú được lưu **không kèm đường dẫn**.
 
-## 8. Cài đặt, hạn mức AI, xoá tài khoản
-Tab **Cài đặt**: xem hạn mức AI đã dùng/còn lại, chọn thư mục mặc định khi lưu nhanh, **Đăng xuất** (xoá bộ nhớ đệm trên máy). **Xoá tài khoản** xoá vĩnh viễn mọi ghi chú, thư mục, chỉ mục và lịch sử hạn mức — cần xác nhận 2 bước và gõ "XOÁ".
+## 9. Cài đặt, hạn mức AI, xoá tài khoản
+Tab **Cài đặt**: xem hạn mức AI đã dùng/còn lại, chọn thư mục mặc định khi lưu nhanh, **Đăng xuất** (xoá bộ nhớ đệm và lịch sử chat trên máy). **Xoá tài khoản** xoá vĩnh viễn mọi ghi chú, thư mục, chỉ mục và lịch sử hạn mức — cần xác nhận 2 bước và gõ "XOÁ".
 
-## 9. Câu hỏi thường gặp
+## 10. Câu hỏi thường gặp
 | Hỏi | Đáp |
 |---|---|
 | Phím tắt không chạy? | Có thể trùng phím với ứng dụng khác — đổi tại `chrome://extensions/shortcuts`. |
 | Ghi chú mới không tìm thấy? | Đợi nhãn chuyển *Sẵn sàng tìm kiếm* (vài giây). Nhãn *Bỏ qua (hết quota)* → xem Cài đặt. |
+| Đóng side panel có mất hội thoại Hỏi AI không? | Không — lịch sử lưu trên máy theo phiên. Câu trả lời đang viết dở sẽ dừng và giữ phần đã hiện; mở lại chọn phiên cũ ở ô phía trên. |
 | "Bạn thao tác quá nhanh"? | Giới hạn 30 lần tìm/phút, 10 lần tóm tắt/phút, 6 lần quét trang/phút — đợi số giây được báo. |
 | Báo lỗi cho nhóm? | Gửi kèm **Mã lỗi** hiện dưới thông báo lỗi để nhóm tra log. |
 | QuickAssist có đọc lịch sử duyệt web? | **Không.** Chỉ đọc đoạn bạn chủ động bôi đen và lưu/tóm tắt. |

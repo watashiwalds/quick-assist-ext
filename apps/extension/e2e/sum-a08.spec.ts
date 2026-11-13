@@ -38,6 +38,8 @@ test('cài đặt: hạn mức, thư mục mặc định; xoá tài khoản 2 b�
   await expect(panel.getByText(/còn lại/)).toBeVisible()
   await panel.getByLabel(/Thư mục mặc định/).selectOption(f.id)
   await expect(panel.getByText('Đã lưu thư mục mặc định')).toBeVisible()
+  // R-10: lịch sử chat theo phiên cũng phải bị xoá khi xoá tài khoản.
+  await sw.evaluate(async () => chrome.storage.local.set({ 'qa.chatSessions': { v: 1, sessions: [], activeId: null } }))
   await panel.getByRole('button', { name: 'Xoá tài khoản…' }).click()
   await panel.getByRole('button', { name: 'Tiếp tục' }).click()
   await panel.getByLabel(/Gõ “XOÁ”/).fill('XOÁ')
@@ -57,4 +59,5 @@ test('cài đặt: hạn mức, thư mục mặc định; xoá tài khoản 2 b�
   expect(local.notes).toBe(0)
   expect(Object.keys(local.storage)).not.toContain('qa.refresh')
   expect(Object.keys(local.storage)).not.toContain('qa.prefs')
+  expect(Object.keys(local.storage)).not.toContain('qa.chatSessions')
 })

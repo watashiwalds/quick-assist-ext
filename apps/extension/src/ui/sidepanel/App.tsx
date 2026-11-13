@@ -6,7 +6,7 @@ import { type TabItem, Icon, Tabs, ToastProvider } from '../components'
 import { SettingsView } from '../features/account/SettingsView'
 import { AuthGate } from '../features/auth/AuthGate'
 import { ChatView } from '../features/chat/ChatView'
-import { useChat } from '../features/chat/useChat'
+import { useChatSessions } from '../features/chat/useChatSessions'
 import { NotesView } from '../features/notes/NotesView'
 import { PageFinderView } from '../features/page-finder/PageFinderView'
 import { SearchView } from '../features/search/SearchView'
@@ -32,7 +32,14 @@ function Shell({ session }: { session: Parameters<typeof SettingsView>[0]['sessi
   const folders = useAsync(() => rpc('folders/list'), [])
   const prefs = useAsync(() => rpc('prefs/get'), [])
   const showSearchTab = prefs.data?.showSearchTab ?? false
-  const chat = useChat() // giữ hội thoại khi chuyển tab; câu trả lời đang stream vẫn chạy tiếp
+  const chat = useChatSessions() // giữ hội thoại khi chuyển tab; lưu nhiều phiên trên trình duyệt
+
+  // Đóng side panel giữa stream: ghi nốt phần đã nhận (stream không thể tiếp tục khi mở lại).
+  useEffect(() => {
+    const flush = () => chat.flush()
+    window.addEventListener('pagehide', flush)
+    return () => window.removeEventListener('pagehide', flush)
+  }, [chat.flush])
 
   const takeSelection = () =>
     void rpc('selection/takePending').then((s) => {
@@ -94,6 +101,10 @@ function Shell({ session }: { session: Parameters<typeof SettingsView>[0]['sessi
         {tab === 'chat' && (
           <ChatView
             chat={chat}
+            sessions={chat.sessions}
+            activeId={chat.activeId}
+            onSwitchSession={chat.switchSession}
+            onNewSession={chat.newSession}
             onGoSettings={goSettings}
             onOpenNote={(id) => {
               setOpenNoteId(id)

@@ -1,9 +1,11 @@
 /**
  * Hỏi đáp AI trên ghi chú (X02, SDS §5.1.6): câu trả lời hiện dần từng phần, trích dẫn [n] bấm được để mở
  * ghi chú nguồn, nút Dừng giữa chừng, lọc theo thư mục, giữ tối đa 5 cặp hỏi–đáp gần nhất làm ngữ cảnh.
+ * Dropdown phiên là UI tạm (redesign sau) — tầng dữ liệu nằm ở `useChatSessions`.
  */
 import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import type { ChatSource } from '@/shared/api/types'
+import type { ChatSession } from '@/shared/chat'
 import { rpc } from '@/shared/messaging/client'
 import { Button, EmptyState, ErrorState, Select, TextArea } from '../../components'
 import { useAsync } from '../../lib/hooks'
@@ -11,12 +13,26 @@ import type { ChatMessageItem, ChatState } from './useChat'
 
 const EXAMPLES = ['Tóm tắt những gì mình đã lưu tuần này', 'Ghi chú nào nói về cách nấu phở?', 'So sánh các ý chính trong ghi chú về Kubernetes']
 
+/** Nhãn dropdown phiên: câu hỏi đầu (đã cắt) + thời gian cập nhật. */
+function sessionOptionLabel(s: ChatSession): string {
+  const time = new Date(s.updatedAt).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })
+  return `${s.title} · ${time}`
+}
+
 export function ChatView({
   chat,
+  sessions = [],
+  activeId = null,
+  onSwitchSession,
+  onNewSession,
   onOpenNote,
   onGoSettings,
 }: {
   chat: ChatState
+  sessions?: ChatSession[]
+  activeId?: string | null
+  onSwitchSession?: (id: string) => void
+  onNewSession?: () => void
   onOpenNote: (noteId: string) => void
   onGoSettings: () => void
 }) {
@@ -49,6 +65,25 @@ export function ChatView({
 
   return (
     <section className="stack chat" aria-label="Hỏi đáp với ghi chú">
+      {sessions.length > 0 && (
+        <div className="toolbar">
+          <Select
+            aria-label="Phiên trò chuyện"
+            value={activeId ?? ''}
+            disabled={chat.streaming}
+            onChange={(e) => {
+              if (e.target.value) onSwitchSession?.(e.target.value)
+            }}
+          >
+            {!activeId && <option value="">Cuộc trò chuyện mới</option>}
+            {sessions.map((s) => (
+              <option key={s.id} value={s.id}>
+                {sessionOptionLabel(s)}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
       <div className="toolbar">
         <Select
           aria-label="Hỏi trong thư mục"
@@ -63,7 +98,7 @@ export function ChatView({
             </option>
           ))}
         </Select>
-        <Button variant="ghost" size="sm" onClick={chat.reset} disabled={!chat.messages.length}>
+        <Button variant="ghost" size="sm" onClick={onNewSession ?? chat.reset} disabled={!chat.messages.length}>
           Cuộc trò chuyện mới
         </Button>
       </div>

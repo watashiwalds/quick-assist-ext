@@ -7,6 +7,7 @@ import type { TokenPair } from '@/shared/api/types'
 import { config } from '@/shared/config'
 import { AppError } from '@/shared/errors'
 import type { RpcMap, RpcReq, RpcRes, RpcType, SessionInfo } from '@/shared/messaging/protocol'
+import { clearChatSessions, loadChatSessions, saveChatSessions } from '@/shared/storage/chat-sessions'
 import { notesCache } from '@/shared/storage/db'
 import { api } from './api'
 import { loginWithGoogle } from './auth/google'
@@ -49,10 +50,11 @@ async function signedIn(): Promise<SessionInfo> {
 }
 
 async function signedOut(): Promise<SessionInfo> {
-  // Không để dữ liệu người trước trên máy dùng chung (R-10): cache, outbox, failed, meta, prefs, hồ sơ.
+  // Không để dữ liệu người trước trên máy dùng chung (R-10): cache, outbox, failed, meta, prefs, hồ sơ, lịch sử chat.
   await notesCache.clear()
   await chrome.storage.local.remove(USER_KEY)
   await clearPrefs()
+  await clearChatSessions()
   await rememberFolders([])
   broadcast({ channel: 'qa-event', type: 'session/changed', signedIn: false })
   return { signedIn: false, user: null }
@@ -172,6 +174,11 @@ export const handlers: Handlers = {
   },
   'pageMatch/run': ({ query, text }) => runPageMatch({ query, text }),
   'pageMatch/highlight': ({ tabId, items }) => highlightInTab(tabId, items),
+
+  'chatSessions/load': () => loadChatSessions(),
+  'chatSessions/save': async ({ sessions, activeId }) => {
+    await saveChatSessions(sessions, activeId)
+  },
 
   'e2e/devLogin': async ({ email }) => {
     if (import.meta.env.VITE_E2E !== 'true') throw new AppError('E2E_ONLY', 'Chỉ có trong bản build kiểm thử')

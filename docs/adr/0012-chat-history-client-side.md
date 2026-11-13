@@ -23,3 +23,12 @@ Khung ban đầu (`business/rag`) dự kiến thêm bảng `chat_sessions` / `ch
 - (+) Không thêm bảng/migration, không phát sinh dữ liệu cá nhân mới trên server; API không trạng thái, dễ test.
 - (−) Không xem lại được hội thoại cũ sau khi đóng panel / trên máy khác. Nếu cần, thêm sau bằng bảng riêng mà không đổi contract SSE.
 - (−) Mỗi câu hỏi gửi lại lịch sử (≤ 20 lượt, ≤ 2 000 ký tự/lượt) — chấp nhận được.
+
+## Phụ lục (13/11/2026) — lịch sử nhiều phiên lưu cục bộ
+
+Quyết định ở trên vẫn giữ nguyên: **server không lưu nội dung chat**. Phần "không xem lại được sau khi đóng panel" được cải thiện ở phía client:
+
+- Lịch sử lưu trong `chrome.storage.local`, key `qa.chatSessions` (`v: 1`, tối đa 20 phiên × 40 tin nhắn/phiên), có dropdown chọn phiên trong tab "Hỏi AI".
+- UI vẫn **không** đọc/ghi storage trực tiếp: hook `useChatSessions` gọi RPC `chatSessions/load|save`; background sở hữu key (ADR-0007, luật phân tầng extension).
+- `signedOut()` xoá sạch key (R-10) như cache/prefs. Đồng bộ đa thiết bị vẫn ngoài phạm vi.
+- Câu trả lời đang stream khi đóng panel không thể tiếp tục (Port SSE chết theo panel); khi mở lại được đánh dấu `stopped` ("(đã dừng)") và giữ phần text đã nhận.

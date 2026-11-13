@@ -73,6 +73,13 @@ Lỗi ghi trong GitHub Issues: tiêu đề `[P0][N07] …`, kèm `request_id` (m
 | UI (vitest) | `tests/ui/page-finder.test.tsx` | quét → tích sẵn đoạn đã xác nhận → lưu gộp; bỏ chọn; badge theo `warning`; rỗng; highlight; `full_page` + hỏi lại + tách nhiều ghi chú; 402/413/422/mạng; xin quyền đọc trang |
 | Cần người thật | — | chất lượng thẩm định với LLM thật trên bộ trang mẫu (`docs/ai/page-match-eval.md`); highlight trên trang SPA/React thật |
 
+### 7.2 Hỏi AI — lịch sử phiên cục bộ (13/11/2026, ADR-0012)
+| Lớp | Bộ test | Phủ |
+|---|---|---|
+| Unit (vitest) | `tests/chat-sessions.test.ts` | `sessionTitle` (gộp khoảng trắng, cắt 60); `capMessages` giữ trọn cặp hỏi–đáp; `normalizeRestored` (streaming → stopped, bỏ trả lời rỗng, giữ lỗi, không sửa mảng gốc); `evictSessions` 20 phiên; storage round-trip, `activeId: null` hợp lệ, activeId mất → phiên mới nhất, dữ liệu hỏng/sai `v`, evict khi đọc, `clear` |
+| UI (vitest) | `tests/ui/chat-sessions.test.tsx` | lưu khi trả lời xong → mở lại panel khôi phục; tạo phiên mới + chuyển phiên qua dropdown; stream dở khôi phục thành "(đã dừng)"; `pagehide` giữ phần đã stream; **không ghi mỗi delta**; `folderId` đã bị xoá rơi về "Trong mọi thư mục" |
+| Cần người thật | — | đóng panel giữa stream, mở lại kiểm tra; đo `chrome.storage.local.getBytesInUse` sau một buổi dùng dày (giả định quota 10 MB) |
+
 ## 8. Việc còn lại cần người thật / tài khoản thật
 - Đăng nhập Google thật (cần OAuth client của nhóm) — checklist demo bước 4.
 - `tests.eval.summary_injection` và `run_eval` với OpenAI thật (SUM-04, H03 phần OpenAI).

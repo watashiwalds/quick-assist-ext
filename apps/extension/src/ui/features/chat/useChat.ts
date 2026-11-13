@@ -1,23 +1,16 @@
 /**
  * Trạng thái hội thoại chat RAG (X02). Đặt ở Shell của side panel để chuyển tab không mất hội thoại
- * và câu trả lời đang stream vẫn tiếp tục. Lịch sử chỉ nằm trong bộ nhớ panel (đóng panel = hết) —
- * server không lưu nội dung chat (ADR-0012).
+ * và câu trả lời đang stream vẫn tiếp tục. Bản thân hook thuần in-memory; `useChatSessions` bọc
+ * quanh nó để lưu nhiều phiên trên trình duyệt. Server không lưu nội dung chat (ADR-0012).
  */
 import { useCallback, useRef, useState } from 'react'
-import type { ChatSource, ChatTurn } from '@/shared/api/types'
-import type { SerializedError } from '@/shared/errors'
+import type { ChatTurn } from '@/shared/api/types'
+import { type ChatMessageItem } from '@/shared/chat'
 import { askChat } from '@/shared/messaging/client'
 
-export const MAX_HISTORY_PAIRS = 5
+export type { ChatMessageItem } from '@/shared/chat'
 
-export interface ChatMessageItem {
-  id: string
-  role: 'user' | 'assistant'
-  text: string
-  sources?: ChatSource[]
-  status?: 'streaming' | 'done' | 'stopped' | 'error'
-  error?: SerializedError
-}
+export const MAX_HISTORY_PAIRS = 5
 
 /** 5 cặp hỏi–đáp hoàn chỉnh gần nhất (bỏ câu trả lời lỗi/rỗng) để gửi kèm câu hỏi mới. */
 export function buildHistory(messages: ChatMessageItem[]): ChatTurn[] {
@@ -85,7 +78,18 @@ export function useChat() {
     setMessages([])
   }, [])
 
-  return { messages, streaming, folderId, setFolderId, ask, stop, reset }
+  /**
+   * Nạp một hội thoại đã lưu (đổi phiên). Dừng stream đang chạy trước khi thay để Port cũ không
+   * ghi đè lên hội thoại mới.
+   */
+  const replace = useCallback((next: ChatMessageItem[], nextFolderId: string | null) => {
+    stopRef.current?.()
+    stopRef.current = null
+    setMessages(next)
+    setFolderId(nextFolderId)
+  }, [])
+
+  return { messages, streaming, folderId, setFolderId, ask, stop, reset, replace }
 }
 
 export type ChatState = ReturnType<typeof useChat>

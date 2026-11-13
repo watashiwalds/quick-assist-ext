@@ -13,7 +13,7 @@
 | 6 | Không còn mã kiểm thử ở bản phát hành | dev-login, hook `__qaE2E`, quyền `127.0.0.1` chỉ có khi `VITE_E2E=true`; bị loại bỏ khi build thường | ✅ check-bundle |
 | 7 | Nội dung trang là dữ liệu không tin cậy | toast tạo DOM bằng `textContent`, Shadow DOM `closed`; UI React không dùng `dangerouslySetInnerHTML`; link nguồn `rel="noreferrer noopener"` | ✅ `tests/injected.test.ts` (không innerHTML) |
 | 8 | Chỉ nhận RPC từ chính extension | `sender.id === chrome.runtime.id` | review |
-| 9 | Xoá dữ liệu cục bộ khi đăng xuất / xoá tài khoản | IndexedDB (notes, outbox, failed, meta) + prefs + hồ sơ | ✅ E2E `sum-a08` |
+| 9 | Xoá dữ liệu cục bộ khi đăng xuất / xoá tài khoản | IndexedDB (notes, outbox, failed, meta) + prefs + hồ sơ + lịch sử chat (`qa.chatSessions`) | ✅ E2E `sum-a08` |
 | 10 | Giới hạn dữ liệu gửi đi | chỉ gửi khi người dùng chủ động; cắt 20 000 ký tự (note), 30 000 (tóm tắt) | ✅ unit |
 
 ## Backend (H02)
