@@ -31,6 +31,10 @@ infra/gemini.key
 
 # Local technical documents, reports, and slides
 /docs-local/
+
 .repowise/
 .vscode/
 docs/presentation/
+
+# Evaluation code, only for semester reports
+/quickassist_ai_evaluation/
