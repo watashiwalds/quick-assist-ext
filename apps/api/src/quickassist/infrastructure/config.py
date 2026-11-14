@@ -30,6 +30,12 @@ class Settings(BaseSettings):
     access_token_ttl_seconds: int = 900
     refresh_token_ttl_days: int = 30
 
+    # --- Chế độ xác thực (ADR-0016) ---
+    # google = Google OAuth như cũ; local = self-host một người, dev-login tự động,
+    # KHÔNG có xác thực → bắt buộc bind 127.0.0.1 hoặc đặt sau proxy có auth.
+    auth_mode: Literal["google", "local"] = "google"
+    local_auth_email: str = "local@quickassist.local"
+
     # --- Google OAuth (server giữ client secret, extension chỉ giữ client id) ---
     google_client_id: str = ""
     google_client_secret: SecretStr = SecretStr("")
@@ -53,6 +59,18 @@ class Settings(BaseSettings):
     # biến một yêu cầu hợp lệ thành AI_UNAVAILABLE/502 trên máy người dùng.
     ai_timeout_seconds: float = 90.0
     ai_max_retries: int = 2
+    # --- BYOK per-user (ADR-0016) ---
+    # Khoá mã hoá key của user; rỗng → derive HKDF từ jwt_secret (xoay jwt_secret khi
+    # rỗng → key đã lưu không giải mã được, user phải nhập lại).
+    ai_key_secret: SecretStr = SecretStr("")
+    # Rỗng = cho phép mọi http(s) base_url; khác rỗng = chỉ chấp nhận URL khớp prefix.
+    ai_base_url_allowlist: Annotated[list[str], NoDecode] = Field(default_factory=list)
+    # Kiểm tra chiều vector bắt buộc bằng embedding_dim (hành vi hiện tại);
+    # BYOK override = False để cho phép zero-pad / từ chối ở CanonicalEmbeddingProvider.
+    ai_embedding_strict_dim: bool = True
+    # Gửi "dimensions" cho OpenAI-compatible (hành vi hiện tại); BYOK override = False
+    # vì nhiều server local (Ollama/llama.cpp) không nhận tham số này.
+    ai_request_embedding_dimensions: bool = True
     # Ngân sách token ước tính cho MỖI request embedding — batch theo cả số mục lẫn tổng token;
     # một request vượt giới hạn input của provider sẽ 400 (không retryable) và làm chết cả lần quét.
     ai_embed_batch_tokens: int = 16_000
@@ -88,6 +106,7 @@ class Settings(BaseSettings):
     rate_limit_ai_per_minute: int = 10
     rate_limit_write_per_minute: int = 120
     rate_limit_page_match_per_minute: int = 6
+    rate_limit_ai_settings_test_per_minute: int = 6
 
     # --- Lưu trữ dữ liệu (SDS §3.2, RET-01) ---
     retention_inactive_days: int = 365
@@ -96,7 +115,7 @@ class Settings(BaseSettings):
     worker_poll_interval_seconds: float = 1.0
     job_max_attempts: int = 5
 
-    @field_validator("cors_origins", "oauth_allowed_redirect_uris", mode="before")
+    @field_validator("cors_origins", "oauth_allowed_redirect_uris", "ai_base_url_allowlist", mode="before")
     @classmethod
     def _split_csv(cls, v: object) -> object:
         if isinstance(v, str):
@@ -105,7 +124,8 @@ class Settings(BaseSettings):
 
     @property
     def is_dev_login_allowed(self) -> bool:
-        return self.enable_dev_login and self.app_env in ("dev", "test")
+        # AUTH_MODE=local: self-host một người, dev-login luôn được phép (ADR-0016).
+        return self.auth_mode == "local" or (self.enable_dev_login and self.app_env in ("dev", "test"))
 
 
 @lru_cache

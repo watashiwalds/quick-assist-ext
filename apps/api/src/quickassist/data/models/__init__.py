@@ -8,9 +8,10 @@ from quickassist.data.models.note import INBOX_NAME, INDEX_STATUSES, Folder, Not
 from quickassist.data.models.note_chunk import EMBEDDING_DIM, NoteChunk
 from quickassist.data.models.quota import QuotaAccount, QuotaLedger
 from quickassist.data.models.user import User
+from quickassist.data.models.user_ai_settings import UserAISettings
 
 __all__ = [
     "EMBEDDING_DIM", "INBOX_NAME", "INDEX_STATUSES",
     "AuthSession", "Folder", "IdempotencyKey", "Job", "Note", "NoteChunk",
-    "QuotaAccount", "QuotaLedger", "User",
+    "QuotaAccount", "QuotaLedger", "User", "UserAISettings",
 ]
