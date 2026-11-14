@@ -1,0 +1,5 @@
+sudo docker stop portainer &&
+cd /run/media/leedan5/Data/Uni/HK9/CNPMDN/repo/quick-assist-ext/ &&
+sudo docker compose -f infra/docker-compose.yml up -d --force-recreate api worker &&
+cd /run/media/leedan5/Data/prismml_llama_cpp/llama.cpp/build/bin/ &&
+/run/media/leedan5/Data/Uni/HK9/CNPMDN/repo/quick-assist-ext/local_infer/run-router.sh
