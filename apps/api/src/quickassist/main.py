@@ -12,7 +12,7 @@ from quickassist.business.page_match import shutdown_extractor
 from quickassist.data.database import dispose_engine
 from quickassist.data.models import EMBEDDING_DIM
 from quickassist.infrastructure.config import get_settings
-from quickassist.infrastructure.logging import configure_logging
+from quickassist.infrastructure.logging import configure_logging, get_logger
 from quickassist.infrastructure.openai import provider_cache
 from quickassist.presentation.api.error_handlers import register_error_handlers
 from quickassist.presentation.api.middleware import (
@@ -21,6 +21,8 @@ from quickassist.presentation.api.middleware import (
     SecurityHeadersMiddleware,
 )
 from quickassist.presentation.api.v1.router import api_v1
+
+log = get_logger(__name__)
 
 
 def _check_config() -> None:
@@ -31,6 +33,12 @@ def _check_config() -> None:
         raise RuntimeError("AI_PROVIDER=openai nhưng thiếu OPENAI_API_KEY")
     if s.ai_provider == "gemini" and not s.gemini_api_key.get_secret_value():
         raise RuntimeError("AI_PROVIDER=gemini nhưng thiếu GEMINI_API_KEY")
+    if s.auth_mode == "local":
+        # ADR-0016 §4.8: local mode KHÔNG có xác thực — ai gọi được API cũng là "user".
+        log.warning(
+            "AUTH_MODE=local: API KHÔNG có xác thực. Bắt buộc bind 127.0.0.1 hoặc đặt sau "
+            "proxy có auth — xem docs/deploy/runbook.md (mục AUTH_MODE=local).",
+        )
     if s.app_env == "prod":
         problems = []
         if s.jwt_secret.get_secret_value() == "change-me-in-env" or len(s.jwt_secret.get_secret_value()) < 32:

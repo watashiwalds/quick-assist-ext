@@ -73,8 +73,13 @@ class AuthService:
         return pair
 
     async def dev_login(self, email: str, user_agent: str | None) -> TokenPair:
-        if not get_settings().is_dev_login_allowed:
+        s = get_settings()
+        if not s.is_dev_login_allowed:
             raise Forbidden("Dev login bị tắt", code="DEV_LOGIN_DISABLED")
+        if s.auth_mode == "local":
+            # ADR-0016 §4.8: self-host một người — BỎ QUA email client gửi (không tin cậy),
+            # luôn đăng nhập đúng tài khoản local duy nhất của server.
+            email = s.local_auth_email
         user, is_new = await self.accounts.upsert_google_user(
             sub=f"dev:{email}", email=email, name="Dev User", picture=None
         )

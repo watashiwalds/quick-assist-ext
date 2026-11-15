@@ -20,7 +20,7 @@ from typing import Literal
 
 from pydantic import SecretStr
 
-from quickassist.infrastructure.config import get_settings
+from quickassist.infrastructure.config import Settings, get_settings
 from quickassist.infrastructure.openai.base import AIProvider
 from quickassist.infrastructure.openai.dimensions import CANONICAL_DIM, CanonicalEmbeddingProvider
 
@@ -56,31 +56,45 @@ class UserProviderConfig:
     timeout_seconds: float | None
 
 
-def build_provider(cfg: UserProviderConfig) -> AIProvider:
-    """Provider cho user: model_copy Settings (không làm bẩn get_settings()) → adapter sẵn có.
+def build_user_settings(cfg: UserProviderConfig, *, timeout_seconds: float | None = None,
+                        max_retries: int | None = None) -> Settings:
+    """Settings copy cho user (không làm bẩn get_settings()) — dùng chung bởi
+    build_provider và test_connection (ADR-0016 §4.4/§4.9).
 
     embedding_dim giữ 1536 = hợp đồng lưu trữ; strict_dim/`dimensions` tắt để adapter trả
     chiều native, CanonicalEmbeddingProvider lo chuẩn hoá/pad (ADR-0016 §4.5).
     """
     s = get_settings()
     update: dict[str, object] = {
-        "ai_timeout_seconds": cfg.timeout_seconds or s.ai_timeout_seconds,
+        "ai_timeout_seconds": timeout_seconds or cfg.timeout_seconds or s.ai_timeout_seconds,
         "embedding_dim": CANONICAL_DIM,
         "ai_embedding_strict_dim": False,
         "ai_request_embedding_dimensions": False,
     }
+    if max_retries is not None:
+        update["ai_max_retries"] = max_retries
     if cfg.provider == "openai":
         update.update(openai_base_url=cfg.base_url, openai_api_key=SecretStr(cfg.api_key),
                       chat_model=cfg.chat_model, embedding_model=cfg.embedding_model)
     else:
         update.update(gemini_base_url=cfg.base_url, gemini_api_key=SecretStr(cfg.api_key),
                       gemini_chat_model=cfg.chat_model, gemini_embedding_model=cfg.embedding_model)
-    sp = s.model_copy(update=update)
+    return s.model_copy(update=update)
+
+
+def build_raw_provider(cfg: UserProviderConfig, *, timeout_seconds: float | None = None,
+                       max_retries: int | None = None) -> AIProvider:
+    """Adapter thẳng (KHÔNG bọc canonical) — test_connection dùng để đo số chiều native."""
+    sp = build_user_settings(cfg, timeout_seconds=timeout_seconds, max_retries=max_retries)
     from quickassist.infrastructure.openai.gemini_client import GeminiClient
     from quickassist.infrastructure.openai.openai_client import OpenAIClient
 
-    raw: AIProvider = OpenAIClient(sp) if cfg.provider == "openai" else GeminiClient(sp)
-    return CanonicalEmbeddingProvider(raw)
+    return OpenAIClient(sp) if cfg.provider == "openai" else GeminiClient(sp)
+
+
+def build_provider(cfg: UserProviderConfig) -> AIProvider:
+    """Provider cho user: adapter sẵn có + chuẩn hoá 1536 chiều."""
+    return CanonicalEmbeddingProvider(build_raw_provider(cfg))
 
 
 def _cache_key(cfg: UserProviderConfig) -> str:

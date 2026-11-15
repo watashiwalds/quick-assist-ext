@@ -1,8 +1,17 @@
 """Presentation Layer — DTO request/response (auth)."""
 
+from typing import Literal
+
 from pydantic import Field
 
 from quickassist.presentation.schemas.common import ApiModel
+
+
+class AuthConfigOut(ApiModel):
+    """GET /auth/config (public) — extension đọc để biết có tự đăng nhập local không (ADR-0016 §4.8).
+    KHÔNG trả email/local_auth_email — server tự quyết định, client không cần biết."""
+
+    auth_mode: Literal["google", "local"]
 
 
 class GoogleExchangeIn(ApiModel):

@@ -9,7 +9,13 @@ from quickassist.business.auth import AuthService, TokenPair
 from quickassist.infrastructure.config import get_settings
 from quickassist.infrastructure.google_oauth.oidc_client import GoogleOIDCClient
 from quickassist.presentation.api.deps import DbSession
-from quickassist.presentation.schemas.auth import DevLoginIn, GoogleExchangeIn, RefreshIn, TokenPairOut
+from quickassist.presentation.schemas.auth import (
+    AuthConfigOut,
+    DevLoginIn,
+    GoogleExchangeIn,
+    RefreshIn,
+    TokenPairOut,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -17,6 +23,12 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @lru_cache
 def _oidc() -> GoogleOIDCClient:
     return GoogleOIDCClient(get_settings())
+
+
+@router.get("/config", response_model=AuthConfigOut)
+async def auth_config() -> AuthConfigOut:
+    """Public (không secret) — extension biết có nên tự dev-login ở chế độ self-host không."""
+    return AuthConfigOut(auth_mode=get_settings().auth_mode)
 
 
 def _out(p: TokenPair) -> TokenPairOut:

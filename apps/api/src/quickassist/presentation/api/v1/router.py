@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from quickassist.presentation.api.v1.controllers import (
     account_controller,
+    ai_settings_controller,
     auth_controller,
     folders_controller,
     health_controller,
@@ -16,7 +17,8 @@ from quickassist.presentation.api.v1.controllers import (
 )
 
 api_v1 = APIRouter()
-for c in (health_controller, auth_controller, account_controller, quota_controller, folders_controller,
+for c in (health_controller, auth_controller, account_controller, quota_controller,
+          ai_settings_controller, folders_controller,
           notes_controller, search_controller, summary_controller, rag_controller,
           page_match_controller):
     api_v1.include_router(c.router)

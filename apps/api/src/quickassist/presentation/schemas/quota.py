@@ -1,5 +1,7 @@
 """Presentation Layer — DTO request/response (quota)."""
 
+from typing import Literal
+
 from quickassist.presentation.schemas.common import ApiModel
 
 
@@ -8,3 +10,5 @@ class QuotaOut(ApiModel):
     used_tokens: int
     reserved_tokens: int
     remaining_tokens: int
+    # server = dùng hạn mức của server; byok = user tự trả qua key riêng (ADR-0016 D6)
+    billing_mode: Literal["server", "byok"]
