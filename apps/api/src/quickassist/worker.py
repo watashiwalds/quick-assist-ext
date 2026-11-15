@@ -20,8 +20,21 @@ def load_job_handlers() -> None:
     import quickassist.business.semantic_search.indexing_job  # noqa: F401
 
 
+async def _repair_once() -> None:
+    """Repair save→rebuild bị đứt (crash giữa 2 commit): enqueue lại rebuild cho các user có
+    applied_fingerprint lệch embedding_fingerprint (P5 §7.2)."""
+    from quickassist.business.semantic_search.rebuild import repair_pending_rebuilds
+    from quickassist.data.database import get_sessionmaker
+
+    async with get_sessionmaker()() as session:
+        repaired = await repair_pending_rebuilds(session)
+    if repaired:
+        get_logger(__name__).info("rebuild_repaired", extra={"users": repaired})
+
+
 async def housekeeping(stop: asyncio.Event, every_seconds: float = 300) -> None:
-    """Việc định kỳ của worker: hoàn quota giữ chỗ bị treo (tiến trình chết giữa chừng)."""
+    """Việc định kỳ của worker: hoàn quota giữ chỗ bị treo (tiến trình chết giữa chừng),
+    repair rebuild chưa được bàn giao (P5 §7.2)."""
     from quickassist.business.quota import QuotaService
 
     log = get_logger(__name__)
@@ -32,6 +45,10 @@ async def housekeeping(stop: asyncio.Event, every_seconds: float = 300) -> None:
         except Exception:  # noqa: BLE001 — không làm sập worker
             log.exception("housekeeping_failed")
         try:
+            await _repair_once()
+        except Exception:  # noqa: BLE001 — lỗi repair không làm sập worker
+            log.exception("rebuild_repair_failed")
+        try:
             await asyncio.wait_for(stop.wait(), timeout=every_seconds)
         except TimeoutError:
             pass
@@ -40,6 +57,10 @@ async def housekeeping(stop: asyncio.Event, every_seconds: float = 300) -> None:
 async def main() -> None:
     configure_logging(get_settings().log_level)
     load_job_handlers()
+    try:
+        await _repair_once()  # repair lúc khởi động — catch-all để lỗi không làm sập worker
+    except Exception:  # noqa: BLE001
+        get_logger(__name__).exception("rebuild_repair_failed")
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):

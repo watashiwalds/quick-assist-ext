@@ -52,6 +52,9 @@ class UserAISettings(Base):
     embedding_model: Mapped[str | None] = mapped_column(String(100))
     # sha256(provider|base_url|model) — đổi key/chat model KHÔNG đổi fingerprint
     embedding_fingerprint: Mapped[str | None] = mapped_column(String(64))
+    # fingerprint đã được bàn giao cho pipeline rebuild (mark + enqueue cùng transaction).
+    # Lệch embedding_fingerprint → lần save trước chưa kịp enqueue → worker repair (P5 §7).
+    applied_fingerprint: Mapped[str | None] = mapped_column(String(64))
     timeout_seconds: Mapped[float | None] = mapped_column(Numeric(6, 2))  # NULL = dùng global
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

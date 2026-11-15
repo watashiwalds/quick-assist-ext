@@ -62,6 +62,50 @@ Migration chạy tự động bằng service `migrate` trước khi API mới nh
 | Hết hạn mức OpenAI / 429 | log `AI_PROVIDER_ERROR`; ghi chú chuyển FAILED → người dùng bấm "Thử lại AI" sau khi xử lý |
 | Xoay vòng JWT_SECRET | đổi trong `.env.prod` → `up -d` → mọi người dùng đăng nhập lại (chấp nhận được) |
 
+## 5.5 BYOK & local mode (P5, ADR-0016)
+
+**Mã hoá key BYOK:** đặt `AI_KEY_SECRET` (≥32 ký tự ngẫu nhiên) **trước khi** user nhập key.
+Xoay khoá này → key cũ không giải mã được (API trả `AI_KEY_UNREADABLE`), user phải nhập lại.
+Để trống → derive HKDF từ `JWT_SECRET`: xoay `JWT_SECRET` khi rỗng cũng gây hiệu ứng tương tự —
+đặt `AI_KEY_SECRET` riêng để xoay JWT an toàn.
+
+**Allowlist base_url:** `AI_BASE_URL_ALLOWLIST` là CSV các prefix, so khớp **scheme + host +
+port + path** theo biên segment (từ chối userinfo `https://host@evil.com`, sai port/scheme,
+`host.evil.com`). Rỗng = cho phép mọi http(s) + **warning SSRF trong log prod** — nên đặt ở prod.
+Tồn dư đã ghi nhận: DNS rebinding (host khớp nhưng resolve về IP nội bộ) chưa chặn; redirect
+không phải đường bypass (httpx không follow mặc định).
+
+**Local mode:** `AUTH_MODE=local` **bỏ xác thực** — chỉ bind `127.0.0.1` hoặc đặt sau proxy có
+auth, không mở Internet; `APP_ENV=prod` không tự bật local. Logout bị ẩn trên extension
+(dev-login tự chạy lại ngay).
+
+**Quota BYOK:** lời gọi AI của user BYOK vẫn bị RESERVE→COMMIT và chặn như user thường (D6);
+user BYOK được bấm "Đặt lại số liệu" (reset usage); banner hết hạn mức hiện cho cả BYOK.
+
+**Rebuild repair:** worker quét `applied_fingerprint != embedding_fingerprint` lúc khởi động và
+mỗi 5 phút — tự enqueue lại rebuild bị đứt (crash giữa save và rebuild). Nếu nghi kẹt, kiểm tra:
+
+```sql
+SELECT user_id, mode, embedding_fingerprint, applied_fingerprint
+FROM user_ai_settings
+WHERE embedding_fingerprint IS DISTINCT FROM applied_fingerprint;
+```
+
+Re-save cấu hình hoặc chờ worker; job stale tự bỏ nhờ fingerprint guard.
+
+**Stream bị ngắt:** lưu/xoá cấu hình AI (hoặc evict cache) giữa lúc chat có thể làm stream dừng
+(`httpx.ReadError`) — người dùng gửi lại câu hỏi. Hành vi đã chấp nhận ở P5.
+
+**Mã lỗi thường gặp:**
+
+| Mã | Nguyên nhân | Xử lý |
+|---|---|---|
+| `AI_CONFIG_INVALID` | base_url sai scheme/host/port (allowlist reject), model > 1536 chiều kèm `embedding_dim`, timeout ngoài [5,600] | user sửa cấu hình; xem message |
+| `AI_KEY_UNREADABLE` | `AI_KEY_SECRET`/`JWT_SECRET` đã xoay | lỗi cấu hình (không phải user) — user nhập lại key |
+| `AI_UNAVAILABLE` | endpoint AI không phản hồi/lỗi | kiểm tra endpoint của user hoặc server provider |
+| `QUOTA_EXCEEDED` | hết hạn mức (cả BYOK) | user bấm "Đặt lại số liệu" (BYOK) hoặc chờ reset |
+| `RESET_NOT_ALLOWED` | user server-mode bấm reset khi không được phép | chỉ BYOK/demo được reset |
+
 ## 6. Sao lưu & khôi phục
 Service `backup` chạy `infra/backup.sh` mỗi 24 giờ → `infra/backups/quickassist_<UTC>.dump`, giữ `BACKUP_KEEP_DAYS` (14) ngày. **Sao chép thư mục này ra ngoài VPS** (ví dụ `rclone` lên Google Drive của nhóm) — backup nằm cùng máy không chống được mất máy.
 

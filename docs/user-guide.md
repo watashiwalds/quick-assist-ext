@@ -62,6 +62,24 @@ Tab **Tìm trong trang** giúp gom các đoạn liên quan thay vì bôi đen t�
 ## 9. Cài đặt, hạn mức AI, xoá tài khoản
 Tab **Cài đặt**: xem hạn mức AI đã dùng/còn lại, chọn thư mục mặc định khi lưu nhanh, **Đăng xuất** (xoá bộ nhớ đệm và lịch sử chat trên máy). **Xoá tài khoản** xoá vĩnh viễn mọi ghi chú, thư mục, chỉ mục và lịch sử hạn mức — cần xác nhận 2 bước và gõ "XOÁ".
 
+### 9.1 Dùng khoá AI của riêng bạn (BYOK)
+
+Card **Nhà cung cấp AI**: chọn mẫu (preset) OpenAI / Gemini / Ollama / LM Studio / llama.cpp,
+điền **base URL**, **API key** (nút Hiện/Ẩn/Xoá), **model chat** và **model embedding**, timeout,
+rồi bấm **Kiểm tra kết nối** → **Lưu**. Muốn quay về AI của server, bấm **Dùng cấu hình server**.
+
+- **Key chỉ nằm trên server** (mã hoá AES-GCM): extension không lưu key, không log key; server
+  proxy mọi lời gọi AI. Có thể bấm **Xoá key** bất cứ lúc nào.
+- **BYOK vẫn tính vào hạn mức của server** để bạn theo dõi; hết hạn mức sẽ có banner — bấm
+  **Đặt lại số liệu** để tiếp tục (không giới hạn số lần reset).
+- **Đổi model embedding** → server dựng lại chỉ mục của N ghi chú (có hỏi xác nhận): tìm từ khoá
+  vẫn chạy, search ngữ nghĩa có thể trả kết quả cũ trong lúc dựng, xong tự dùng model mới.
+- **Model embedding trả > 1536 chiều bị chặn** khi lưu (cảnh báo đỏ sau khi Kiểm tra kết nối);
+  model 768 chiều được zero-pad tự động. Kiểm tra kết nối trả về số chiều thật của model.
+- Lưu cấu hình AI **giữa lúc chat đang trả lời** có thể ngắt câu trả lời — gửi lại câu hỏi.
+- Máy chủ tự host (`AUTH_MODE=local`): không cần đăng nhập Google — extension tự kết nối; máy
+  chủ phải là môi trường tin cậy, không mở Internet (không có xác thực).
+
 ## 10. Câu hỏi thường gặp
 | Hỏi | Đáp |
 |---|---|

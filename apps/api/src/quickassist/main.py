@@ -39,6 +39,11 @@ def _check_config() -> None:
             "AUTH_MODE=local: API KHÔNG có xác thực. Bắt buộc bind 127.0.0.1 hoặc đặt sau "
             "proxy có auth — xem docs/deploy/runbook.md (mục AUTH_MODE=local).",
         )
+    if s.app_env == "prod" and not s.ai_base_url_allowlist:
+        log.warning(
+            "AI_BASE_URL_ALLOWLIST rỗng: user có thể trỏ base_url tới địa chỉ nội bộ (SSRF). "
+            "Đặt allowlist hoặc chỉ cho phép base_url tin cậy — xem runbook.",
+        )
     if s.app_env == "prod":
         problems = []
         if s.jwt_secret.get_secret_value() == "change-me-in-env" or len(s.jwt_secret.get_secret_value()) < 32:

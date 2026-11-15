@@ -92,3 +92,10 @@ model; chunk cũ của từng note được `replace_for_note` thay khi job tớ
 Extension: `npm run gen:api` regen types, `endpoints.ts` nhóm `aiSettings` + `authConfig`,
 RPC `ai/config/get|set|test|reset`, card "Nhà cung cấp AI" (preset, datalist, nút Kiểm tra kết nối,
 ConfirmDialog rebuild + banner tiến độ), auto local-login, ẩn Đăng xuất ở local mode.
+
+## Đính chính (2026-11-15)
+
+- "202 passed, 137 skipped" là chạy **không có** `TEST_DATABASE_URL`; integration bị skip.
+- Với PostgreSQL thật: 14 test đỏ do target monkeypatch/URL cũ (không phải regression sản phẩm).
+- `test_full_rebuild_flow` gọi `/ai/search` (đúng là `/search`) nên chưa từng xanh trên DB.
+- P5 sửa các mục trên; xem `docs/self_sustained/reports/byok-ease-PRE_P5.md` và báo cáo P5.

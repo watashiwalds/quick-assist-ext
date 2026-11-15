@@ -65,6 +65,8 @@ export function ProviderCard({ onChanged }: { onChanged?: () => void }) {
   const [confirming, setConfirming] = useState<null | 'save' | 'reset'>(null)
   const [rebuild, setRebuild] = useState<{ notes: number } | null>(null) // banner tiến độ
   const [test, setTest] = useState<AiTestResult | null>(null)
+  const [testedFor, setTestedFor] = useState<string | null>(null) // signature của lần test
+  const [warnUntested, setWarnUntested] = useState(false) // bấm Lưu khi chưa test
 
   const testAct = useAction()
   const saveAct = useAction()
@@ -76,6 +78,12 @@ export function ProviderCard({ onChanged }: { onChanged?: () => void }) {
   const byok = data?.mode === 'byok'
   const notes = data?.rebuild_note_count ?? 0
 
+  // Test chỉ còn "hiệu lực" khi các trường ảnh hưởng số chiều chưa đổi sau lần test.
+  const signature = () => JSON.stringify([form.provider, form.base_url.trim(), form.embedding_model.trim()])
+  const tested = test != null && testedFor === signature()
+  const nativeDim = tested ? (test.embedding_dim ?? test.embedding?.dim) : undefined
+  const tooLarge = nativeDim != null && nativeDim > 1536
+
   /** Input cho PUT/POST: key gõ mới → gửi; bỏ trống mà đã lưu → null (giữ key cũ); "Xoá key" → "". */
   const buildInput = () => {
     const key = form.api_key_input.trim()
@@ -85,12 +93,15 @@ export function ProviderCard({ onChanged }: { onChanged?: () => void }) {
       base_url: form.base_url.trim(),
       chat_model: form.chat_model.trim(),
       embedding_model: form.embedding_model.trim(),
+      // Advisory: chỉ gửi khi biết chắc từ lần test khớp form hiện tại (tránh gửi dim cũ).
+      embedding_dim: tested && nativeDim && nativeDim > 0 ? nativeDim : undefined,
       timeout_seconds: form.timeout_seconds ? Number(form.timeout_seconds) : null,
       api_key: clearKey ? '' : key ? key : data?.has_key ? null : undefined,
     }
   }
   const testInput = () => {
-    const { mode: _mode, ...rest } = buildInput()
+    // AISTestIn không nhận embedding_dim (extra="forbid" → 422 nếu gửi thừa).
+    const { mode: _mode, embedding_dim: _dim, ...rest } = buildInput()
     return rest
   }
 
@@ -99,6 +110,8 @@ export function ProviderCard({ onChanged }: { onChanged?: () => void }) {
     setEdits({})
     setClearKey(false)
     setTest(null)
+    setTestedFor(null)
+    setWarnUntested(false)
     setRebuild(res.rebuild?.required ? { notes: res.rebuild.notes } : null)
     toast(res.rebuild?.required ? 'Đã lưu — đang dựng lại chỉ mục ngữ nghĩa' : 'Đã lưu cấu hình AI')
     onChanged?.()
@@ -107,6 +120,11 @@ export function ProviderCard({ onChanged }: { onChanged?: () => void }) {
   const doSave = () => void saveAct.run(() => rpc('ai/config/set', buildInput()).then(afterSave))
   const doReset = () => void resetAct.run(() => rpc('ai/config/reset').then(afterSave))
   const onSave = () => {
+    if (tooLarge) {
+      toast(`Model embedding trả ${nativeDim} chiều > 1536 — không thể lưu.`, 'error')
+      return
+    }
+    if (!tested) setWarnUntested(true) // cảnh báo nhưng vẫn cho lưu (server là guard cuối)
     // Rebuild xảy ra khi hàm embedding đổi (provider/base_url/model) hoặc lần đầu chuyển từ
     // cấu hình server sang BYOK — server mới là nơi chốt; dialog chỉ để xác nhận trước.
     const mayRebuild = embedFieldsChanged(data, form) || data?.mode !== 'byok'
@@ -268,7 +286,11 @@ export function ProviderCard({ onChanged }: { onChanged?: () => void }) {
       {saveAct.error && <ErrorState error={saveAct.error} />}
       {resetAct.error && <ErrorState error={resetAct.error} />}
 
-      {test && test.ok ? (
+      {tooLarge ? (
+        <Banner tone="error">
+          Model trả {nativeDim} chiều &gt; 1536 — không thể lưu. Chọn model khác hoặc sửa endpoint.
+        </Banner>
+      ) : test && test.ok ? (
         <Banner tone="ok">
           Kết nối tốt: embedding {test.embedding?.model} · {test.embedding?.dim} chiều
           {test.embedding?.padded ? ' (sẽ pad về 1536)' : ''} · {test.embedding?.latency_ms}ms — chat{' '}
@@ -280,15 +302,27 @@ export function ProviderCard({ onChanged }: { onChanged?: () => void }) {
         </Banner>
       ) : null}
 
+      {warnUntested && !tested && !tooLarge && (
+        <Banner tone="warn">
+          Cấu hình chưa được kiểm tra (hoặc đã đổi sau lần test) — bấm “Kiểm tra kết nối” để xác nhận
+          trước khi Lưu. Bạn vẫn có thể lưu, nhưng nếu endpoint/model sai, index sẽ lỗi.
+        </Banner>
+      )}
+
       <div className="row">
         <Button
           variant="soft"
           busy={testAct.busy}
-          onClick={() => void testAct.run(() => rpc('ai/config/test', testInput()).then(setTest))}
+          onClick={() =>
+            void testAct.run(() =>
+              rpc('ai/config/test', testInput()).then((r) => {
+                setTest(r)
+                setTestedFor(signature())
+              }))}
         >
           Kiểm tra kết nối
         </Button>
-        <Button busy={saveAct.busy} onClick={onSave}>Lưu</Button>
+        <Button busy={saveAct.busy} disabled={tooLarge} onClick={onSave}>Lưu</Button>
         {byok && (
           <Button variant="ghost" busy={resetAct.busy} onClick={() => (notes > 0 ? setConfirming('reset') : doReset())}>
             Dùng cấu hình server

@@ -139,6 +139,17 @@
               }
             ]
           },
+          "embedding_dim": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Dim"
+          },
           "message": {
             "anyOf": [
               {
@@ -178,7 +189,7 @@
       },
       "AISettingsIn": {
         "additionalProperties": false,
-        "description": "PUT /me/ai-settings. `api_key`: null = giữ key đã lưu, \"\" = xoá key (model local).",
+        "description": "PUT /me/ai-settings. `api_key`: null = giữ key đã lưu, \"\" = xoá key (model local).\n\n`embedding_dim`: advisory — số chiều native client đo được từ /test; server dùng để\ntừ chối sớm model >1536. Bỏ qua vẫn lưu được (guard cuối ở CanonicalEmbeddingProvider).",
         "properties": {
           "api_key": {
             "anyOf": [
@@ -215,6 +226,19 @@
               }
             ],
             "title": "Chat Model"
+          },
+          "embedding_dim": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Dim"
           },
           "embedding_model": {
             "anyOf": [

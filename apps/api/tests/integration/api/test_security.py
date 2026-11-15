@@ -12,7 +12,7 @@ from tests.conftest import login
 pytestmark = pytest.mark.integration
 
 PUBLIC = {"/health/live", "/health/ready", "/auth/google/exchange", "/auth/refresh",
-          "/auth/logout", "/auth/dev-login"}
+          "/auth/logout", "/auth/dev-login", "/auth/config"}
 PREFIX = "/api/v1"
 METHODS = {"get", "post", "put", "patch", "delete"}
 

@@ -6,6 +6,7 @@ và vào `infra/.env.example`.
 
 from functools import lru_cache
 from typing import Annotated, Literal
+from urllib.parse import urlparse
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -63,7 +64,8 @@ class Settings(BaseSettings):
     # Khoá mã hoá key của user; rỗng → derive HKDF từ jwt_secret (xoay jwt_secret khi
     # rỗng → key đã lưu không giải mã được, user phải nhập lại).
     ai_key_secret: SecretStr = SecretStr("")
-    # Rỗng = cho phép mọi http(s) base_url; khác rỗng = chỉ chấp nhận URL khớp prefix.
+    # Rỗng = cho phép mọi http(s) base_url; khác rỗng = chỉ chấp nhận URL khớp
+    # scheme+host+port+path prefix (so theo biên segment, chặn userinfo — P5.S2).
     ai_base_url_allowlist: Annotated[list[str], NoDecode] = Field(default_factory=list)
     # Kiểm tra chiều vector bắt buộc bằng embedding_dim (hành vi hiện tại);
     # BYOK override = False để cho phép zero-pad / từ chối ở CanonicalEmbeddingProvider.
@@ -120,6 +122,25 @@ class Settings(BaseSettings):
     def _split_csv(cls, v: object) -> object:
         if isinstance(v, str):
             return [s.strip() for s in v.split(",") if s.strip()]
+        return v
+
+    @field_validator("ai_base_url_allowlist")
+    @classmethod
+    def _valid_allowlist(cls, v: list[str]) -> list[str]:
+        # Fail-fast khi khởi động: entry hỏng trong allowlist không được âm thầm bỏ qua
+        # (nếu bỏ qua, URL đáng lẽ bị chặn lại được chấp nhận — SSRF).
+        for entry in v:
+            if not entry or "\\" in entry or any(ch.isspace() for ch in entry):
+                raise ValueError(f"AI_BASE_URL_ALLOWLIST entry không hợp lệ: {entry}")
+            u = urlparse(entry)
+            if (u.scheme not in ("http", "https") or not u.hostname
+                    or u.username is not None or u.password is not None
+                    or u.query or u.fragment):
+                raise ValueError(f"AI_BASE_URL_ALLOWLIST entry không hợp lệ: {entry}")
+            try:
+                u.port  # noqa: B018 — ép urlparse kiểm tra port
+            except ValueError as e:
+                raise ValueError(f"AI_BASE_URL_ALLOWLIST entry có port không hợp lệ: {entry}") from e
         return v
 
     @property

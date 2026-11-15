@@ -74,7 +74,7 @@ async def test_full_rebuild_flow(client) -> None:
     r = await client.delete("/me/ai-settings", headers=h)
     rebuild = r.json()["rebuild"]
     assert rebuild == {"required": True, "notes": 1}  # byok → inherit: fingerprint server khác
-    r = await client.post("/ai/search", json={"query": "phở Hà Nội"}, headers=h)
+    r = await client.post("/search", json={"query": "phở Hà Nội"}, headers=h)
     assert r.status_code == 200 and len(r.json()["items"]) > 0  # chunk cũ vẫn phục vụ search
 
     # --- drain: job byok (fingerprint lệch) bị guard BỎ; job fingerprint server re-index ---

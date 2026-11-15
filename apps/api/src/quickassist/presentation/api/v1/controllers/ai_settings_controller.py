@@ -59,7 +59,7 @@ async def put_ai_settings(body: AISettingsIn, user_id: CurrentUserId, session: D
     tự động rebuild chỉ mục (notes PROCESSING, job index lại từng note) và trả `rebuild`."""
     saved = await AISettingsService(session).save(user_id, AISettingsInput(**body.model_dump()))
     rebuild: AIRebuildOut | None = None
-    if saved.fingerprint_changed:
+    if saved.rebuild_required:
         plan = await start_rebuild(session, user_id, fingerprint=saved.fingerprint)
         rebuild = AIRebuildOut(required=True, notes=plan.notes)
     count = await count_active_notes(session, user_id)
@@ -71,7 +71,7 @@ async def delete_ai_settings(user_id: CurrentUserId, session: DbSession) -> AISe
     """Quay về dùng cấu hình server (mode=inherit); key bị xoá khỏi DB. Fingerprint đổi → rebuild."""
     saved = await AISettingsService(session).delete(user_id)
     rebuild: AIRebuildOut | None = None
-    if saved.fingerprint_changed:
+    if saved.rebuild_required:
         plan = await start_rebuild(session, user_id, fingerprint=saved.fingerprint)
         rebuild = AIRebuildOut(required=True, notes=plan.notes)
     count = await count_active_notes(session, user_id)
@@ -88,6 +88,7 @@ async def test_ai_settings(body: AISTestIn, user_id: CurrentUserId, session: DbS
         user_id, AISettingsInput(mode="byok", **body.model_dump()))
     return AISTestOut(
         ok=r.ok,
+        embedding_dim=r.embedding_dim,
         embedding=EmbeddingTestOut(**r.embedding) if r.embedding else None,
         chat=ChatTestOut(**r.chat) if r.chat else None,
         stage=r.stage, code=r.code, message=r.message,

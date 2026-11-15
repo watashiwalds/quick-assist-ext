@@ -26,13 +26,19 @@ không cần dựng Google OAuth. Ràng buộc kỹ thuật: cột `note_chunks.
    `user_id`, không thể chia sẻ provider giữa 2 user. `mode=inherit` trả singleton cũ.
 4. **Vector cố định 1536**: model trả < 1536 chiều → **zero-pad** (cosine bất biến: tử số và
    mẫu số không đổi); > 1536 → **từ chối** với thông báo rõ (truncate làm mất chất lượng âm thầm).
-5. **Rebuild chỉ mục khi fingerprint embedding đổi**: xoá `note_chunks` của user, đánh
-   `index_status='PROCESSING'`, enqueue lại job kèm `embedding_fingerprint`; job cũ fingerprint lệch
-   sẽ tự bỏ. Đổi key hoặc chat model → fingerprint không đổi → không rebuild.
+5. **Rebuild khi fingerprint embedding đổi**: KHÔNG xoá note_chunks hàng loạt (nhánh từ khoá
+   cũng đọc bảng này). Đánh dấu note PROCESSING + index_rev+1, enqueue job kèm fingerprint mới;
+   job cũ fingerprint lệch tự bỏ; chunk từng note được replace_for_note khi job tới lượt.
+   Search vẫn trả chunk cũ trong lúc rebuild. `applied_fingerprint` ghi nhận cấu hình đã áp;
+   lệch → worker repair.
 6. **`AUTH_MODE=local`** cho self-host một người: `GET /auth/config` công bố `auth_mode`;
    dev-login bỏ qua email client gửi, dùng `LOCAL_AUTH_EMAIL`; JWT/refresh flow giữ nguyên.
    Local mode = **không có xác thực** → bắt buộc bind 127.0.0.1 hoặc đặt sau proxy có auth.
 7. Mã hoá key dùng `AI_KEY_SECRET` nếu có, fallback HKDF-SHA256 từ `JWT_SECRET`
+
+8. **Hardening P5**: allowlist base_url khớp scheme+host+port+path (từ chối userinfo; warning
+   prod khi rỗng); PUT từ chối `embedding_dim > 1536` khi client biết; `applied_fingerprint` +
+   repair chống crash giữa save và rebuild.
    (salt `quickassist`, info `ai-keys-v1`). Xoay `JWT_SECRET` khi chưa đặt `AI_KEY_SECRET`
    → các key đã lưu không giải mã được → user phải nhập lại (ghi runbook).
 
@@ -54,3 +60,7 @@ không cần dựng Google OAuth. Ràng buộc kỹ thuật: cột `note_chunks.
   (trong lúc đó search giảm cấp còn nhánh từ khoá).
 - (−) Xoay `JWT_SECRET` (khi không có `AI_KEY_SECRET`) làm mất key đã lưu — phải nhập lại.
 - (−) Local mode không có xác thực — rủi ro chuyển xuống tầng triển khai (runbook bắt buộc).
+- (−) Rebuild lâu: search trả chunk cũ trong lúc dựng (được chấp nhận); crash giữa save và
+  rebuild được repair worker tự sửa (`applied_fingerprint` lệch → enqueue lại).
+- (−) `AI_BASE_URL_ALLOWLIST` rỗng vẫn cho phép mọi http(s) (kể cả metadata IP/localhost) —
+  prod chỉ có warning; DNS rebinding chưa chặn (tồn dư, xem runbook §5.5).

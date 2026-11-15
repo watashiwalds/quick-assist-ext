@@ -150,4 +150,59 @@ describe('Nhà cung cấp AI (ADR-0016)', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Kiểm tra kết nối' }))
     expect(await screen.findByText(/http 401/)).toBeTruthy()
   })
+
+  it('>1536: test trả embedding_dim 4096 → chặn Lưu, banner lỗi, không gọi ai/config/set', async () => {
+    rpc.mockImplementation(async (t: string) => {
+      if (t === 'ai/config/get') return byokCfg
+      if (t === 'ai/config/test')
+        return { ok: false, embedding_dim: 4096, stage: 'embedding', code: 'AI_PROVIDER_ERROR', message: 'Model embedding trả 4096 chiều…' }
+      throw new Error(t)
+    })
+    wrap(<ProviderCard />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Kiểm tra kết nối' }))
+    expect(await screen.findByText(/không thể lưu/)).toBeTruthy()
+    const save = screen.getByRole('button', { name: 'Lưu' }) as HTMLButtonElement
+    expect(save.disabled).toBe(true)
+    fireEvent.click(save)
+    expect(rpc).not.toHaveBeenCalledWith('ai/config/set', expect.anything())
+  })
+
+  it('test 768 → Lưu gửi embedding_dim: 768', async () => {
+    rpc.mockImplementation(async (t: string) => {
+      if (t === 'ai/config/get') return byokCfg
+      if (t === 'ai/config/test')
+        return { ok: true, embedding_dim: 768, embedding: { model: 'nomic-embed-text', dim: 768, padded: true, latency_ms: 412 }, chat: { model: 'llama3.1', latency_ms: 903, sample: 'Hà Nội' } }
+      if (t === 'ai/config/set') return savedCfg()
+      throw new Error(t)
+    })
+    wrap(<ProviderCard />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Kiểm tra kết nối' }))
+    await screen.findByText(/768 chiều/)
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu' }))
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith('ai/config/set', expect.objectContaining({ embedding_dim: 768 })))
+  })
+
+  it('đổi model sau khi test → banner chưa kiểm tra; Lưu vẫn gọi set nhưng KHÔNG gửi dim cũ', async () => {
+    rpc.mockImplementation(async (t: string) => {
+      if (t === 'ai/config/get') return byokCfg
+      if (t === 'ai/config/test')
+        return { ok: true, embedding_dim: 768, embedding: { model: 'nomic-embed-text', dim: 768, padded: true, latency_ms: 412 }, chat: { model: 'llama3.1', latency_ms: 903, sample: 'Hà Nội' } }
+      if (t === 'ai/config/set') return savedCfg({ embedding_model: 'bge-m3', rebuild: { required: true, notes: 3 } })
+      throw new Error(t)
+    })
+    wrap(<ProviderCard />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Kiểm tra kết nối' }))
+    await screen.findByText(/768 chiều/)
+    await type('Model embedding', 'bge-m3')
+    expect(screen.queryByText(/chưa được kiểm tra/)).toBeNull() // chưa bấm Lưu → chưa cảnh báo
+    fireEvent.click(await screen.findByRole('button', { name: 'Lưu' }))
+    expect(await screen.findByText(/chưa được kiểm tra/)).toBeTruthy()
+    fireEvent.click(await screen.findByRole('button', { name: 'Lưu và dựng lại' }))
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith('ai/config/set',
+        expect.objectContaining({ embedding_model: 'bge-m3', embedding_dim: undefined })))
+    // không gửi dim 768 cũ (model đã đổi)
+    expect(rpc).not.toHaveBeenCalledWith('ai/config/set', expect.objectContaining({ embedding_dim: 768 }))
+  })
 })

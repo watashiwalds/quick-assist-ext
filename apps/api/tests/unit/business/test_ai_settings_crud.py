@@ -38,7 +38,8 @@ class FakeRepo:
         self.rows.setdefault(uid, {"user_id": uid, "mode": "inherit", "provider": None,
                                    "base_url": None, "api_key_enc": None, "api_key_hint": None,
                                    "chat_model": None, "embedding_model": None,
-                                   "embedding_fingerprint": None, "timeout_seconds": None})
+                                   "embedding_fingerprint": None, "applied_fingerprint": None,
+                                   "timeout_seconds": None})
         self.rows[uid].update(fields)
         return SimpleRow(self.rows[uid])
 
@@ -59,6 +60,15 @@ def svc(monkeypatch: pytest.MonkeyPatch) -> AISettingsService:
     return AISettingsService(FakeSession())  # type: ignore[arg-type]
 
 
+def test_validate_embedding_dim() -> None:
+    from quickassist.business.ai_settings.service import AISettingsInput, _validate
+
+    with pytest.raises(AppError, match="4096"):
+        _validate(AISettingsInput(**BYOK, embedding_dim=4096))
+    _validate(AISettingsInput(**BYOK, embedding_dim=768))  # ≤1536: OK
+    _validate(AISettingsInput(**BYOK, embedding_dim=None))  # không biết: OK (guard cuối khi embed)
+
+
 def test_fingerprint_ignores_key_and_chat_model() -> None:
     a = embedding_fingerprint("openai", "http://localhost:11434/v1", "nomic-embed-text")
     assert len(a) == 64
@@ -77,12 +87,50 @@ def test_validate_base_url_scheme_and_allowlist(monkeypatch: pytest.MonkeyPatch)
         with pytest.raises(AppError):
             validate_base_url(bad)
 
-    monkeypatch.setenv("AI_BASE_URL_ALLOWLIST", "https://api.openai.com/v1")
     from quickassist.infrastructure.config import get_settings
+
+    def _with_allowlist(value: str) -> None:
+        monkeypatch.setenv("AI_BASE_URL_ALLOWLIST", value)
+        get_settings.cache_clear()
+
+    # Bảng bypass SSRF (P5 guide §4.4)
+    _with_allowlist("https://api.openai.com")
+    assert validate_base_url("https://api.openai.com/v1")
+    assert validate_base_url("https://API.OPENAI.COM/v1")  # host lowercase
+    assert validate_base_url("https://api.openai.com/v1/x")  # path con
+    for bad in (
+        "https://api.openai.com.evil.com/v1",  # host thật khác (khớp prefix chuỗi)
+        "https://api.openai.com@evil.com/v1",  # userinfo → host thật là evil.com
+        "https://api.openai.com:8443/v1",  # sai port
+        "http://api.openai.com/v1",  # sai scheme
+    ):
+        with pytest.raises(AppError):
+            validate_base_url(bad)
+
+    _with_allowlist("https://api.openai.com/v1")
+    assert validate_base_url("https://api.openai.com/v1/x")  # prefix path được phép
+    for bad in (
+        "https://api.openai.com/v1evil",  # sai biên segment
+        "https://api.openai.com/v2",  # sai path
+        "http://localhost:11434/v1",  # host khác
+    ):
+        with pytest.raises(AppError):
+            validate_base_url(bad)
+
     get_settings.cache_clear()
-    assert validate_base_url("https://api.openai.com/v1/x")  # prefix được phép
-    with pytest.raises(AppError):
-        validate_base_url("http://localhost:11434/v1")
+
+
+def test_settings_allowlist_rejects_bad_entry(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Entry hỏng trong allowlist phải fail-fast khi load config, không âm thầm bỏ qua.
+    from pydantic import ValidationError
+
+    from quickassist.infrastructure.config import get_settings
+
+    for entry in ("file:///etc/passwd", "https://user:pw@api.openai.com", "https://x.com/v1?a=b"):
+        monkeypatch.setenv("AI_BASE_URL_ALLOWLIST", entry)
+        get_settings.cache_clear()
+        with pytest.raises(ValidationError):
+            get_settings()
     get_settings.cache_clear()
 
 
@@ -151,42 +199,60 @@ async def test_is_byok(svc: AISettingsService) -> None:
     assert await svc.is_byok(UID) is False
 
 
-# --- P3: fingerprint_changed → rebuild orchestration ---
+# --- P3/P5: rebuild_required → rebuild orchestration ---
 
 
-async def test_fingerprint_changed_semantics(svc: AISettingsService) -> None:
+async def test_rebuild_required_semantics(svc: AISettingsService) -> None:
     from quickassist.infrastructure.openai import provider_cache
 
+    def _mark_applied(fp: str) -> None:
+        # Mô phỏng controller gọi start_rebuild thành công (mark_applied cùng transaction).
+        svc._repo.rows[UID]["applied_fingerprint"] = fp
+
     r1 = await svc.save(UID, AISettingsInput(**BYOK, api_key="sk-1"))
-    assert r1.fingerprint_changed is True  # inherit (mock) → byok: hàm embedding đổi
+    assert r1.rebuild_required is True  # chưa có row → byok: chunk đang theo server
     fp_byok = r1.fingerprint
+    _mark_applied(fp_byok)
 
     r2 = await svc.save(UID, AISettingsInput(**{**BYOK, "api_key": "sk-2"}))
-    assert r2.fingerprint_changed is False  # đổi key → fingerprint giữ nguyên
+    assert r2.rebuild_required is False  # đổi key → fingerprint giữ nguyên + đã applied
     assert r2.fingerprint == fp_byok
 
     r3 = await svc.save(UID, AISettingsInput(**{**BYOK, "embedding_model": "bge-m3"}))
-    assert r3.fingerprint_changed is True and r3.fingerprint != fp_byok  # đổi model → rebuild
+    assert r3.rebuild_required is True and r3.fingerprint != fp_byok  # đổi model → rebuild
+    _mark_applied(r3.fingerprint)
 
     with_bge = {**BYOK, "embedding_model": "bge-m3"}
     r4 = await svc.save(UID, AISettingsInput(**{**with_bge, "chat_model": "llama3.2"}))
-    assert r4.fingerprint_changed is False  # đổi chat model → không rebuild
+    assert r4.rebuild_required is False  # đổi chat model → không rebuild
     assert r4.fingerprint == r3.fingerprint
 
     r5 = await svc.save(UID, AISettingsInput(mode="inherit"))
-    assert r5.fingerprint_changed is True  # byok → inherit: fingerprint server khác
+    assert r5.rebuild_required is True  # byok → inherit: fingerprint server khác applied
+    _mark_applied(r5.fingerprint)
 
     r6 = await svc.save(UID, AISettingsInput(mode="inherit"))
-    assert r6.fingerprint_changed is False  # inherit → inherit: không rebuild
+    assert r6.rebuild_required is False  # inherit → inherit, đã applied server fp
     provider_cache.invalidate_user(str(UID))
 
 
-async def test_delete_fingerprint_changed_only_when_was_byok(svc: AISettingsService) -> None:
-    r = await svc.delete(UID)  # chưa có row → không đổi gì
-    assert r.fingerprint_changed is False
-    await svc.save(UID, AISettingsInput(**BYOK))
+async def test_rebuild_required_when_applied_stale(svc: AISettingsService) -> None:
+    # P5 §7: save B (cùng config) sau crash giữa save và rebuild → applied cũ ≠ fp mới → True.
+    r = await svc.save(UID, AISettingsInput(**BYOK, api_key="sk-1"))
+    assert r.rebuild_required is True
+    # KHÔNG mark_applied (giả lập crash trước start_rebuild) → save lại cùng config vẫn rebuild
+    r2 = await svc.save(UID, AISettingsInput(**{**BYOK, "api_key": "sk-2"}))
+    assert r2.rebuild_required is True and r2.fingerprint == r.fingerprint
+
+
+async def test_delete_rebuild_required_only_when_was_byok(svc: AISettingsService) -> None:
+    r = await svc.delete(UID)  # chưa có row → không có gì để rebuild
+    assert r.rebuild_required is False
+    r_save = await svc.save(UID, AISettingsInput(**BYOK))
+    assert r_save.rebuild_required is True
+    svc._repo.rows[UID]["applied_fingerprint"] = r_save.fingerprint  # mô phỏng start_rebuild
     r2 = await svc.delete(UID)
-    assert r2.fingerprint_changed is True and r2.state.mode == "inherit"
+    assert r2.rebuild_required is True and r2.state.mode == "inherit"
 
 
 async def test_current_fingerprint_byok_uses_stored_row(svc: AISettingsService) -> None:

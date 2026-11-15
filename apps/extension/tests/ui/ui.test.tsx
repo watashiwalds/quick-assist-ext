@@ -231,6 +231,45 @@ describe('cài đặt (A08)', () => {
     expect(screen.queryByRole('button', { name: 'Tạo lại hạn mức' })).toBeNull()
   })
 
+  it('BYOK hết hạn mức: banner + nút Đặt lại số liệu, không copy "không giới hạn" (D6)', async () => {
+    rpc.mockImplementation(async (type: string) => {
+      if (type === 'quota/get') return { billing_mode: 'byok', limit_tokens: 1000, used_tokens: 1000, reserved_tokens: 0, remaining_tokens: 0 }
+      if (type === 'prefs/get') return { defaultFolderId: null }
+      if (type === 'folders/list') return FOLDERS
+      throw new Error(type)
+    })
+    wrap(<SettingsView session={session} />)
+    expect(await screen.findByText(/Đã hết hạn mức/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Đặt lại số liệu' })).toBeTruthy()
+    expect(screen.queryByText(/không giới hạn/)).toBeNull() // copy cũ đã sửa đúng D6
+  })
+
+  it('server hết hạn mức: banner như cũ, không có nút reset', async () => {
+    rpc.mockImplementation(async (type: string) => {
+      if (type === 'quota/get') return { billing_mode: 'server', limit_tokens: 1000, used_tokens: 1000, reserved_tokens: 0, remaining_tokens: 0 }
+      if (type === 'prefs/get') return { defaultFolderId: null }
+      if (type === 'folders/list') return FOLDERS
+      throw new Error(type)
+    })
+    wrap(<SettingsView session={session} />)
+    expect(await screen.findByText(/Đã hết hạn mức/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Đặt lại số liệu' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Tạo lại hạn mức' })).toBeNull()
+  })
+
+  it('BYOK còn hạn mức: không banner, vẫn có nút Đặt lại số liệu', async () => {
+    rpc.mockImplementation(async (type: string) => {
+      if (type === 'quota/get') return { billing_mode: 'byok', limit_tokens: 1000, used_tokens: 950, reserved_tokens: 0, remaining_tokens: 50 }
+      if (type === 'prefs/get') return { defaultFolderId: null }
+      if (type === 'folders/list') return FOLDERS
+      throw new Error(type)
+    })
+    wrap(<SettingsView session={session} />)
+    await screen.findByText(/còn lại/)
+    expect(screen.queryByText(/Đã hết hạn mức/)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Đặt lại số liệu' })).toBeTruthy()
+  })
+
   it('bản demo: tạo lại hạn mức về mức mặc định', async () => {
     rpc.mockImplementation(async (type: string) => {
       if (type === 'quota/get') return { limit_tokens: 1000, used_tokens: 950, reserved_tokens: 0, remaining_tokens: 50 }

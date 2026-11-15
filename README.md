@@ -56,3 +56,31 @@ Chrome → `chrome://extensions` → bật Developer mode → **Load unpacked** 
 Lấy Extension ID, điền vào `CORS_ORIGINS` và `OAUTH_ALLOWED_REDIRECT_URIS` của backend, và thêm redirect URI `https://<ID>.chromiumapp.org/` trên Google Cloud Console.
 
 Test: `npm test` (unit + kiến trúc) · `npm run gen:api` sinh lại kiểu TypeScript từ OpenAPI khi backend đổi.
+
+### 4. Tự cung cấp khoá AI (BYOK) — per-user
+
+Mở extension → **Cài đặt** → **Nhà cung cấp AI**: chọn preset (OpenAI / Gemini / Ollama /
+LM Studio / llama.cpp), điền base URL + API key + model chat/embedding, bấm **Kiểm tra kết nối**
+rồi **Lưu**. Server mã hoá key (AES-GCM) và proxy mọi lời gọi AI — key không nằm trong extension,
+không vào storage/log. Đổi model embedding sẽ dựng lại chỉ mục ngữ nghĩa (extension hỏi xác nhận);
+trong lúc dựng, tìm từ khoá vẫn chạy. Model embedding trả > 1536 chiều bị chặn (768 được zero-pad).
+
+### 5. Self-host một người (`AUTH_MODE=local`)
+
+Đặt `AUTH_MODE=local` (+ `LOCAL_AUTH_EMAIL`) để bỏ Google OAuth: API tự dev-login với một email
+cố định. **Lưu ý: chế độ này KHÔNG có xác thực** — bắt buộc bind `127.0.0.1` hoặc đặt sau proxy
+có auth, không mở Internet. `AUTH_MODE=google` (mặc định) giữ nguyên luồng cũ.
+
+### 6. Biến môi trường mới (P5)
+
+| Biến | Ý nghĩa |
+|---|---|
+| `AUTH_MODE` | `google` (mặc định) hoặc `local` (self-host một người, không xác thực) |
+| `LOCAL_AUTH_EMAIL` | Email cố định cho dev-login khi `AUTH_MODE=local` |
+| `AI_KEY_SECRET` | Khoá mã hoá key BYOK; rỗng → derive từ `JWT_SECRET` (đặt riêng để xoay JWT không mất key) |
+| `AI_BASE_URL_ALLOWLIST` | CSV prefix được phép cho base_url BYOK (scheme+host+port+path); rỗng = cho phép mọi http(s) |
+| `AI_EMBED_BATCH_TOKENS` | Ngân sách token ước tính mỗi request embedding |
+| `RATE_LIMIT_AI_SETTINGS_TEST_PER_MINUTE` | Giới hạn tần suất kiểm tra kết nối BYOK |
+
+Chi tiết vận hành: `docs/deploy/runbook.md` (mục "BYOK & local mode") · hướng dẫn dùng:
+`docs/user-guide.md` (§9).

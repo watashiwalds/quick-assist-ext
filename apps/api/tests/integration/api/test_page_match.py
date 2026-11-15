@@ -47,10 +47,10 @@ async def _ledger_ops() -> list[tuple[str, str]]:
 
 
 async def test_segments_verified_in_page_order_and_two_quota_leases(app, client) -> None:
-    from quickassist.infrastructure.openai import get_ai_provider
+    from quickassist.presentation.api.deps import get_user_ai_provider
 
     spy = _Spy()
-    app.dependency_overrides[get_ai_provider] = lambda: spy
+    app.dependency_overrides[get_user_ai_provider] = lambda: spy
     h = await login(client)
     r = await client.post("/ai/page-match", json=_body(), headers=h)
     assert r.status_code == 200, r.text
@@ -130,10 +130,10 @@ async def test_text_over_cap_is_truncated_not_413(client, monkeypatch) -> None: 
 
 
 async def test_no_candidate_returns_empty_without_calling_llm(app, client) -> None:
-    from quickassist.infrastructure.openai import get_ai_provider
+    from quickassist.presentation.api.deps import get_user_ai_provider
 
     spy = _Spy()
-    app.dependency_overrides[get_ai_provider] = lambda: spy
+    app.dependency_overrides[get_user_ai_provider] = lambda: spy
     h = await login(client)
     r = await client.post("/ai/page-match", json=_body("kubernetes pod helm chart"), headers=h)
     assert r.status_code == 200 and r.json()["items"] == [] and r.json()["mode"] == "segments"
@@ -142,7 +142,7 @@ async def test_no_candidate_returns_empty_without_calling_llm(app, client) -> No
 
 @pytest.mark.parametrize("failure", ["error", "garbage"])
 async def test_verify_failure_falls_back_to_score_ranked_unverified(app, client, failure) -> None:  # type: ignore[no-untyped-def]
-    from quickassist.infrastructure.openai import get_ai_provider
+    from quickassist.presentation.api.deps import get_user_ai_provider
 
     class Flaky(MockAIClient):
         async def complete(self, messages, *, max_tokens):  # type: ignore[no-untyped-def,override]
@@ -150,7 +150,7 @@ async def test_verify_failure_falls_back_to_score_ranked_unverified(app, client,
                 raise AIProviderError("down", retryable=True)
             return CompletionResult("xin lỗi, tôi không thể {trả JSON", Usage(10, 5), "x")
 
-    app.dependency_overrides[get_ai_provider] = lambda: Flaky(1536)
+    app.dependency_overrides[get_user_ai_provider] = lambda: Flaky(1536)
     h = await login(client)
     r = await client.post("/ai/page-match", json=_body(), headers=h)
     data = r.json()
@@ -162,13 +162,13 @@ async def test_verify_failure_falls_back_to_score_ranked_unverified(app, client,
 
 
 async def test_embed_failure_is_502_and_releases_quota(app, client) -> None:
-    from quickassist.infrastructure.openai import get_ai_provider
+    from quickassist.presentation.api.deps import get_user_ai_provider
 
     class Broken(MockAIClient):
         async def embed(self, texts):  # type: ignore[no-untyped-def,override]
             raise AIProviderError("down", retryable=True)
 
-    app.dependency_overrides[get_ai_provider] = lambda: Broken(1536)
+    app.dependency_overrides[get_user_ai_provider] = lambda: Broken(1536)
     h = await login(client)
     r = await client.post("/ai/page-match", json=_body(), headers=h)
     assert r.status_code == 502 and r.json()["error"]["code"] == "AI_UNAVAILABLE"

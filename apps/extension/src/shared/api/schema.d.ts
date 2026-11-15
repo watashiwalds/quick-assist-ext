@@ -443,6 +443,8 @@ export interface components {
             /** Code */
             code?: string | null;
             embedding?: components["schemas"]["EmbeddingTestOut"] | null;
+            /** Embedding Dim */
+            embedding_dim?: number | null;
             /** Message */
             message?: string | null;
             /** Ok */
@@ -453,6 +455,9 @@ export interface components {
         /**
          * AISettingsIn
          * @description PUT /me/ai-settings. `api_key`: null = giữ key đã lưu, "" = xoá key (model local).
+         *
+         *     `embedding_dim`: advisory — số chiều native client đo được từ /test; server dùng để
+         *     từ chối sớm model >1536. Bỏ qua vẫn lưu được (guard cuối ở CanonicalEmbeddingProvider).
          */
         AISettingsIn: {
             /** Api Key */
@@ -461,6 +466,8 @@ export interface components {
             base_url?: string | null;
             /** Chat Model */
             chat_model?: string | null;
+            /** Embedding Dim */
+            embedding_dim?: number | null;
             /** Embedding Model */
             embedding_model?: string | null;
             /**

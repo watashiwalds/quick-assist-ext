@@ -44,13 +44,13 @@ async def test_quota_exhausted_is_402_and_no_ai_call(client, monkeypatch) -> Non
 
 
 async def test_ai_error_releases_quota(app, client) -> None:
-    from quickassist.infrastructure.openai import get_ai_provider
+    from quickassist.presentation.api.deps import get_user_ai_provider
 
     class Broken(MockAIClient):
         async def complete(self, messages, *, max_tokens):  # type: ignore[no-untyped-def,override]
             raise AIProviderError("down", retryable=True)
 
-    app.dependency_overrides[get_ai_provider] = lambda: Broken(1536)
+    app.dependency_overrides[get_user_ai_provider] = lambda: Broken(1536)
     h = await login(client)
     r = await client.post("/ai/summaries", json={"text": "văn bản"}, headers=h)
     assert r.status_code == 502 and r.json()["error"]["code"] == "AI_UNAVAILABLE"
@@ -61,13 +61,13 @@ async def test_ai_error_releases_quota(app, client) -> None:
 async def test_unexpected_error_releases_quota(app, client) -> None:
     import contextlib
 
-    from quickassist.infrastructure.openai import get_ai_provider
+    from quickassist.presentation.api.deps import get_user_ai_provider
 
     class Crashing(MockAIClient):
         async def complete(self, messages, *, max_tokens):  # type: ignore[no-untyped-def,override]
             raise RuntimeError("lỗi không phải AIProviderError")
 
-    app.dependency_overrides[get_ai_provider] = lambda: Crashing(1536)
+    app.dependency_overrides[get_user_ai_provider] = lambda: Crashing(1536)
     h = await login(client)
     with contextlib.suppress(RuntimeError):  # ASGITransport có thể ném lại lỗi 500
         await client.post("/ai/summaries", json={"text": "văn bản"}, headers=h)

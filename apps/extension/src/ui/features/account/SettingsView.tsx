@@ -89,11 +89,15 @@ export function SettingsView({
             </div>
             {byok && (
               <small className="muted">
-                Bạn đang dùng key AI riêng (BYOK): lời gọi AI tính vào số liệu này để bạn theo dõi, không giới hạn bởi hạn mức server.
+                Bạn đang dùng key AI riêng (BYOK): lời gọi AI vẫn tính vào hạn mức của server.
+                Bạn có thể bấm “Đặt lại số liệu” bất cứ lúc nào để tiếp tục.
               </small>
             )}
-            {quota.data.remaining_tokens === 0 && !byok && (
-              <Banner tone="warn">Đã hết hạn mức: ghi chú mới vẫn được lưu nhưng chưa tìm kiếm ngữ nghĩa/tóm tắt được.</Banner>
+            {quota.data.remaining_tokens === 0 && (
+              <Banner tone="warn">
+                Đã hết hạn mức: ghi chú mới vẫn được lưu nhưng chưa tìm kiếm ngữ nghĩa/tóm tắt được.
+                {byok ? ' Bấm “Đặt lại số liệu” để tiếp tục.' : ''}
+              </Banner>
             )}
           </>
         )}

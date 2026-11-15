@@ -38,9 +38,16 @@ async def _note(client, h, content: str = "Hướng dẫn cấu hình pgvector H
     return (await client.post("/notes", json={"content": content}, headers=h)).json()
 
 
+def _patch_ai(monkeypatch, ai):  # type: ignore[no-untyped-def]
+    async def provider_for(self, user_id):  # type: ignore[no-untyped-def]
+        return ai
+
+    monkeypatch.setattr(indexing_job.AISettingsService, "provider_for", provider_for)
+
+
 async def test_transient_error_retries_then_ready_and_charges_once(client, monkeypatch) -> None:
     ai = FlakyAI(fail_times=1)
-    monkeypatch.setattr(indexing_job, "get_ai_provider", lambda: ai)
+    _patch_ai(monkeypatch, ai)
     h = await login(client)
     n = await _note(client, h)
     assert await run_one_job()  # lần 1 lỗi tạm thời → job QUEUED lại, note vẫn PROCESSING
@@ -57,7 +64,7 @@ async def test_retries_exhausted_marks_failed(client, monkeypatch) -> None:
     from quickassist.infrastructure.config import get_settings
 
     monkeypatch.setattr(get_settings(), "job_max_attempts", 2)
-    monkeypatch.setattr(indexing_job, "get_ai_provider", lambda: FlakyAI(fail_times=99))
+    _patch_ai(monkeypatch, FlakyAI(fail_times=99))
     h = await login(client)
     n = await _note(client, h)
     await run_one_job()
@@ -70,7 +77,7 @@ async def test_retries_exhausted_marks_failed(client, monkeypatch) -> None:
 
 async def test_permanent_error_fails_immediately(client, monkeypatch) -> None:
     ai = FlakyAI(fail_times=1, retryable=False)
-    monkeypatch.setattr(indexing_job, "get_ai_provider", lambda: ai)
+    _patch_ai(monkeypatch, ai)
     h = await login(client)
     n = await _note(client, h)
     await run_one_job()

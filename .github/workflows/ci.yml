@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [main, dev]
+  workflow_dispatch: # chạy tay trên nhánh bất kỳ (P5: gate cho nhánh làm việc)
 
 jobs:
   api:
@@ -26,6 +27,8 @@ jobs:
       - run: ruff check src tests migrations scripts
       - name: Test (unit + architecture + integration với pgvector thật + cổng chất lượng tìm kiếm H03)
         run: pytest -q
+      - name: Gate — integration không được skip khi có DB (P5)
+        run: pytest -q -m integration
       - name: Migration khớp model + downgrade/upgrade được (A01)
         env: { DATABASE_URL: "postgresql+asyncpg://postgres:postgres@localhost:5432/quickassist_test" }
         run: alembic upgrade head && alembic check && alembic downgrade base && alembic upgrade head

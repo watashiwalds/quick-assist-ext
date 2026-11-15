@@ -74,6 +74,18 @@ async def test_put_invalid_rejected(client) -> None:
     assert r.status_code == 400
 
 
+async def test_put_embedding_dim_rejected_over_1536(client) -> None:
+    # P5.S3: client biết số chiều native >1536 (từ /test) → server từ chối sớm.
+    h = await login(client)
+    r = await client.put("/me/ai-settings", json={**BYOK_BODY, "embedding_dim": 4096}, headers=h)
+    assert r.status_code == 400 and r.json()["error"]["code"] == "AI_CONFIG_INVALID"
+    assert "4096" in r.json()["error"]["message"]
+    r = await client.put("/me/ai-settings", json={**BYOK_BODY, "embedding_dim": 768}, headers=h)
+    assert r.status_code == 200  # ≤1536: chấp nhận (sẽ zero-pad khi embed)
+    r = await client.put("/me/ai-settings", json=BYOK_BODY, headers=h)  # không gửi dim: vẫn lưu được
+    assert r.status_code == 200
+
+
 async def test_delete_back_to_inherit_and_key_gone(client) -> None:
     h = await login(client)
     uid = (await client.get("/me", headers=h)).json()["id"]

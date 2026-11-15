@@ -81,3 +81,10 @@
 
 Docs (README, runbook `AUTH_MODE=local` + `AI_KEY_SECRET`, user-guide), `.env.example` ×2,
 E2E stub provider (Playwright, tuỳ chọn), test ma trận thủ công + test tổng hợp.
+
+## Đính chính (2026-11-15)
+
+- "202 passed, 137 skipped" là chạy **không có** `TEST_DATABASE_URL`; integration bị skip.
+- Với PostgreSQL thật: 14 test đỏ do target monkeypatch/URL cũ (không phải regression sản phẩm).
+- `test_full_rebuild_flow` gọi `/ai/search` (đúng là `/search`) nên chưa từng xanh trên DB.
+- P5 sửa các mục trên; xem `docs/self_sustained/reports/byok-ease-PRE_P5.md` và báo cáo P5.

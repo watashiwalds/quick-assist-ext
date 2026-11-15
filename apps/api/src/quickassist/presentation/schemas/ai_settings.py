@@ -42,7 +42,11 @@ class AISettingsOut(ApiModel):
 
 
 class AISettingsIn(ApiModel):
-    """PUT /me/ai-settings. `api_key`: null = giữ key đã lưu, "" = xoá key (model local)."""
+    """PUT /me/ai-settings. `api_key`: null = giữ key đã lưu, "" = xoá key (model local).
+
+    `embedding_dim`: advisory — số chiều native client đo được từ /test; server dùng để
+    từ chối sớm model >1536. Bỏ qua vẫn lưu được (guard cuối ở CanonicalEmbeddingProvider).
+    """
 
     mode: Literal["inherit", "byok"]
     provider: AiProvider | None = None
@@ -50,6 +54,7 @@ class AISettingsIn(ApiModel):
     api_key: str | None = Field(default=None, max_length=4096)
     chat_model: str | None = Field(default=None, max_length=100)
     embedding_model: str | None = Field(default=None, max_length=100)
+    embedding_dim: int | None = Field(default=None, ge=1, le=100_000)
     timeout_seconds: float | None = Field(default=None, ge=5, le=600)
 
 
@@ -79,6 +84,7 @@ class ChatTestOut(ApiModel):
 
 class AISTestOut(ApiModel):
     ok: bool
+    embedding_dim: int | None = None  # số chiều native đo được (kể cả khi >1536)
     embedding: EmbeddingTestOut | None = None
     chat: ChatTestOut | None = None
     stage: Literal["embedding", "chat"] | None = None  # stage lỗi khi ok=false
