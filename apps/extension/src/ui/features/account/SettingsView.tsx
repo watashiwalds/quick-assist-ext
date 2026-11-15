@@ -8,6 +8,7 @@ import { rpc } from '@/shared/messaging/client'
 import type { Preferences, SessionInfo } from '@/shared/messaging/protocol'
 import { Banner, Button, ConfirmDialog, ErrorState, Field, ProgressBar, Select, Spinner, useToast } from '../../components'
 import { formatDate, useAction, useAsync, useBroadcast } from '../../lib/hooks'
+import { ProviderCard } from './ProviderCard'
 
 const fmt = (n: number) => n.toLocaleString('vi-VN')
 
@@ -30,23 +31,28 @@ export function SettingsView({
   const toast = useToast()
   useBroadcast((e) => e.type === 'folders/changed' && void folders.reload())
   const u = session.user
+  const localMode = session.authMode === 'local'
+  // BYOK: user tự trả tiền AI qua key riêng → được đặt lại số liệu (ADR-0016 D6).
+  const byok = quota.data?.billing_mode === 'byok'
 
   return (
     <section className="stack" aria-label="Cài đặt">
       <div className="card row">
         {u?.avatar_url && <img className="avatar" src={u.avatar_url} alt="" referrerPolicy="no-referrer" />}
         <div className="grow">
-          <strong>{u?.display_name ?? 'Tài khoản Google'}</strong>
+          <strong>{u?.display_name ?? (localMode ? 'Tài khoản tự host' : 'Tài khoản Google')}</strong>
           <div className="muted">{u?.email}</div>
           {u?.created_at && <small className="muted">Tham gia {formatDate(u.created_at)}</small>}
         </div>
       </div>
 
+      <ProviderCard onChanged={quota.data ? () => void quota.reload() : undefined} />
+
       <div className="card stack">
         <div className="row spread">
           <strong>Hạn mức AI</strong>
           <div className="row">
-            {demo && (
+            {(demo || byok) && (
               <Button
                 variant="soft"
                 size="sm"
@@ -55,11 +61,11 @@ export function SettingsView({
                   void resetAct.run(() => rpc('quota/reset')).then((q) => {
                     if (!q) return
                     quota.setData(q)
-                    toast('Đã tạo lại hạn mức AI')
+                    toast(byok ? 'Đã đặt lại số liệu' : 'Đã tạo lại hạn mức AI')
                   })
                 }
               >
-                Tạo lại hạn mức
+                {byok ? 'Đặt lại số liệu' : 'Tạo lại hạn mức'}
               </Button>
             )}
             <Button variant="link" size="sm" onClick={() => void quota.reload()}>
@@ -72,11 +78,21 @@ export function SettingsView({
         {quota.error && <ErrorState error={quota.error} onRetry={quota.reload} />}
         {quota.data && (
           <>
-            <ProgressBar value={quota.data.used_tokens + quota.data.reserved_tokens} max={quota.data.limit_tokens} label="Đã dùng hạn mức AI" />
+            <ProgressBar
+              value={quota.data.used_tokens + quota.data.reserved_tokens}
+              max={quota.data.limit_tokens}
+              label={byok ? 'Đã dùng (key của bạn)' : 'Đã dùng hạn mức AI'}
+            />
             <div className="muted">
-              Đã dùng {fmt(quota.data.used_tokens)} / {fmt(quota.data.limit_tokens)} token · còn lại <strong>{fmt(quota.data.remaining_tokens)}</strong>
+              {byok ? 'Đã dùng (key của bạn)' : 'Đã dùng'} {fmt(quota.data.used_tokens)} / {fmt(quota.data.limit_tokens)} token · còn lại{' '}
+              <strong>{fmt(quota.data.remaining_tokens)}</strong>
             </div>
-            {quota.data.remaining_tokens === 0 && (
+            {byok && (
+              <small className="muted">
+                Bạn đang dùng key AI riêng (BYOK): lời gọi AI tính vào số liệu này để bạn theo dõi, không giới hạn bởi hạn mức server.
+              </small>
+            )}
+            {quota.data.remaining_tokens === 0 && !byok && (
               <Banner tone="warn">Đã hết hạn mức: ghi chú mới vẫn được lưu nhưng chưa tìm kiếm ngữ nghĩa/tóm tắt được.</Banner>
             )}
           </>
@@ -131,12 +147,15 @@ export function SettingsView({
         </small>
       </div>
 
-      <div className="card stack">
-        <Button variant="ghost" busy={act.busy && step === 0} onClick={() => void act.run(() => rpc('auth/logout'))}>
-          Đăng xuất
-        </Button>
-        <small className="muted">Đăng xuất xoá bộ nhớ đệm ghi chú trên máy này.</small>
-      </div>
+      {/* Local mode (ADR-0016 §4.8): ẩn Đăng xuất — bấm sẽ bị tự đăng nhập lại ngay. */}
+      {!localMode && (
+        <div className="card stack">
+          <Button variant="ghost" busy={act.busy && step === 0} onClick={() => void act.run(() => rpc('auth/logout'))}>
+            Đăng xuất
+          </Button>
+          <small className="muted">Đăng xuất xoá bộ nhớ đệm ghi chú trên máy này.</small>
+        </div>
+      )}
 
       <div className="card stack danger-zone">
         <strong>Xoá tài khoản</strong>

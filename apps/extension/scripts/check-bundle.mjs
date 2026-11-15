@@ -23,7 +23,9 @@ const SECRET = [
   [/GOCSPX-[A-Za-z0-9_-]{10,}/, 'Google client_secret'],
   [/-----BEGIN [A-Z ]*PRIVATE KEY-----/, 'private key'],
   [/client_secret/i, 'chuỗi client_secret'],
-  [/__qaE2E|\/auth\/dev-login|Đăng nhập thử/, 'hook/đăng nhập kiểm thử E2E'],
+  // `/auth/dev-login` giờ là đường hợp lệ của AUTH_MODE=local (ADR-0016, server tự chặn khi
+  // không bật) → không cấm nữa; vẫn chặn hook E2E (__qaE2E) và nhãn nút đăng nhập thử.
+  [/__qaE2E|Đăng nhập thử/, 'hook/đăng nhập kiểm thử E2E'],
   [/\beval\(|new Function\(/, 'eval/new Function'],
 ]
 for (const f of files(dir)) {

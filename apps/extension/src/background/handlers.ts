@@ -2,8 +2,6 @@
  * Bảng định tuyến RPC: mỗi khoá trong RpcMap ↔ đúng 1 handler.
  * Kiểu `Handlers` bắt buộc ĐỦ handler cho mọi RPC — thiếu là lỗi biên dịch.
  */
-import { createHttp } from '@/shared/api/http'
-import type { TokenPair } from '@/shared/api/types'
 import { config } from '@/shared/config'
 import { AppError } from '@/shared/errors'
 import type { RpcMap, RpcReq, RpcRes, RpcType, SessionInfo } from '@/shared/messaging/protocol'
@@ -24,20 +22,43 @@ type Handlers = { [K in RpcType]: (req: RpcReq<K>) => Promise<RpcRes<K>> }
 
 const USER_KEY = 'qa.user'
 
+/** Chế độ xác thực của server — lỗi mạng → 'google' (giữ hành vi cũ, thử lại lần mở sau). */
+async function authMode(): Promise<'google' | 'local'> {
+  try {
+    return (await api.auth.config()).auth_mode
+  } catch {
+    return 'google'
+  }
+}
+
 async function sessionInfo(): Promise<SessionInfo> {
-  if (!(await hasSession())) return { signedIn: false, user: null }
+  const mode = await authMode()
+  if (!(await hasSession())) {
+    // AUTH_MODE=local (self-host một người, ADR-0016 §4.8): tự dev-login một lần — server tự
+    // dùng LOCAL_AUTH_EMAIL, AuthGate không hiện nút Google. Lỗi (vd server chưa lên) →
+    // signed-out, lần mở panel sau thử lại.
+    if (mode === 'local') {
+      try {
+        await saveTokens(await api.auth.devLogin())
+      } catch {
+        return { signedIn: false, user: null, authMode: mode }
+      }
+      return { ...(await signedIn()), authMode: mode }
+    }
+    return { signedIn: false, user: null, authMode: mode }
+  }
   try {
     const user = await api.me.get()
     await chrome.storage.local.set({ [USER_KEY]: user })
-    return { signedIn: true, user }
+    return { signedIn: true, user, authMode: mode }
   } catch (e) {
     if (e instanceof AppError && (e.status === 401 || e.status === 404)) {
       await clearTokens()
-      return { signedIn: false, user: null }
+      return { signedIn: false, user: null, authMode: mode }
     }
     // Mất mạng / máy chủ lỗi: vẫn cho mở thư viện từ cache (ADR-0008) với hồ sơ đã lưu.
     const cached = (await chrome.storage.local.get(USER_KEY))[USER_KEY] as SessionInfo['user'] | undefined
-    if (cached && e instanceof AppError && e.retryable) return { signedIn: true, user: cached }
+    if (cached && e instanceof AppError && e.retryable) return { signedIn: true, user: cached, authMode: mode }
     throw e
   }
 }
@@ -57,7 +78,7 @@ async function signedOut(): Promise<SessionInfo> {
   await clearChatSessions()
   await rememberFolders([])
   broadcast({ channel: 'qa-event', type: 'session/changed', signedIn: false })
-  return { signedIn: false, user: null }
+  return { signedIn: false, user: null, authMode: await authMode() }
 }
 
 async function refreshFolders() {
@@ -90,6 +111,11 @@ export const handlers: Handlers = {
   },
   'quota/get': () => api.me.quota(),
   'quota/reset': () => api.me.resetQuota(),
+
+  'ai/config/get': () => api.aiSettings.get(),
+  'ai/config/set': (input) => api.aiSettings.set(input),
+  'ai/config/reset': () => api.aiSettings.remove(),
+  'ai/config/test': (input) => api.aiSettings.test(input),
 
   'prefs/get': () => getPrefs(),
   'prefs/set': (patch) => setPrefs(patch),
@@ -183,8 +209,8 @@ export const handlers: Handlers = {
 
   'e2e/devLogin': async ({ email }) => {
     if (import.meta.env.VITE_E2E !== 'true') throw new AppError('E2E_ONLY', 'Chỉ có trong bản build kiểm thử')
-    // Gọi thẳng (không qua endpoints.ts) để bản phát hành không chứa đường dẫn này.
-    await saveTokens(await createHttp()<TokenPair>('/auth/dev-login', { method: 'POST', body: { email } }))
+    // Dùng chung endpoint với auto local-login (ADR-0016) — server chặn dev-login khi không bật.
+    await saveTokens(await api.auth.devLogin(email))
     return signedIn()
   },
 }

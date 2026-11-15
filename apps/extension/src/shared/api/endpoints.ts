@@ -5,6 +5,11 @@
 import { config } from '../config'
 import type { HttpRequest } from './http'
 import type {
+  AiSettings,
+  AiSettingsInput,
+  AiTestInput,
+  AiTestResult,
+  AuthConfig,
   Folder,
   Note,
   NoteCreate,
@@ -32,6 +37,14 @@ export function createApi(http: HttpRequest) {
         http<TokenPair>('/auth/refresh', { method: 'POST', body: { refresh_token } }),
       logout: (refresh_token: string) =>
         http<void>('/auth/logout', { method: 'POST', body: { refresh_token } }),
+      /**
+       * Đăng nhập dev: bản build E2E truyền email riêng từng test (server dev/test dùng email
+       * client); ở chế độ self-host AUTH_MODE=local server BỎ QUA email client gửi và luôn dùng
+       * LOCAL_AUTH_EMAIL (ADR-0016 §4.8) → không truyền email.
+       */
+      devLogin: (email?: string) =>
+        http<TokenPair>('/auth/dev-login', { method: 'POST', body: email ? { email } : {} }),
+      config: () => http<AuthConfig>('/auth/config'),
     },
     me: {
       get: () => http<User>('/me'),
@@ -69,6 +82,12 @@ export function createApi(http: HttpRequest) {
       /** AutoChunk: Trafilatura + embed + LLM thẩm định có thể lâu hơn timeout mặc định. */
       pageMatch: (b: PageMatchRequest) =>
         http<PageMatchResult>('/ai/page-match', { method: 'POST', body: b, timeoutMs: config.pageMatchRequestTimeoutMs }),
+    },
+    aiSettings: {
+      get: () => http<AiSettings>('/me/ai-settings'),
+      set: (b: AiSettingsInput) => http<AiSettings>('/me/ai-settings', { method: 'PUT', body: b }),
+      remove: () => http<AiSettings>('/me/ai-settings', { method: 'DELETE' }),
+      test: (b: AiTestInput) => http<AiTestResult>('/me/ai-settings/test', { method: 'POST', body: b }),
     },
   }
 }

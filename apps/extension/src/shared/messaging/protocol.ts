@@ -6,13 +6,30 @@
  * vào `RpcMap` + 1 handler trong background/handlers.ts; TypeScript sẽ bắt lỗi
  * nếu thiếu handler hoặc sai kiểu.
  */
-import type { ChatSource, ChatTurn, Folder, Note, PageMatchResult, Quota, SearchHit, SummaryPreview, User } from '../api/types'
+import type {
+  AiSettings,
+  AiSettingsInput,
+  AiTestInput,
+  AiTestResult,
+  AuthConfig,
+  ChatSource,
+  ChatTurn,
+  Folder,
+  Note,
+  PageMatchResult,
+  Quota,
+  SearchHit,
+  SummaryPreview,
+  User,
+} from '../api/types'
 import type { ChatSession } from '../chat'
 import type { SerializedError } from '../errors'
 
 export interface SessionInfo {
   signedIn: boolean
   user: User | null
+  /** Chế độ xác thực của server (ADR-0016): local = tự host một người, không có Google. */
+  authMode: 'google' | 'local'
 }
 
 /** Ghi chú nhanh chưa lên server (đang chờ hoàn tác / mất mạng / lỗi). Không trả toàn văn. */
@@ -55,8 +72,17 @@ export interface RpcMap {
   'auth/logout': { req: void; res: SessionInfo }
   'account/delete': { req: void; res: SessionInfo }
   'quota/get': { req: void; res: Quota }
-  /** Tạo lại hạn mức (chỉ có ở môi trường demo). */
+  /** Tạo lại hạn mức (môi trường demo hoặc user BYOK — ADR-0016 D6). */
   'quota/reset': { req: void; res: Quota }
+
+  /** Nhà cung cấp AI per-user (BYOK, ADR-0016 §6). Response không bao giờ chứa key. */
+  'ai/config/get': { req: void; res: AiSettings }
+  /** Lưu cấu hình; fingerprint embedding đổi → server tự rebuild và trả `rebuild` trong res. */
+  'ai/config/set': { req: AiSettingsInput; res: AiSettings }
+  /** Về dùng cấu hình server (mode=inherit); key bị xoá khỏi DB. */
+  'ai/config/reset': { req: void; res: AiSettings }
+  /** Kiểm tra kết nối embed + chat (timeout 30s). Không bắt buộc trước khi lưu. */
+  'ai/config/test': { req: AiTestInput; res: AiTestResult }
 
   'prefs/get': { req: void; res: Preferences }
   'prefs/set': { req: Partial<Preferences>; res: Preferences }

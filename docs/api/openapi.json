@@ -1,6 +1,407 @@
 {
   "components": {
     "schemas": {
+      "AIRebuildOut": {
+        "additionalProperties": false,
+        "description": "Thông tin rebuild chỉ mục khi fingerprint embedding đổi (wire đầy đủ ở P3).",
+        "properties": {
+          "notes": {
+            "title": "Notes",
+            "type": "integer"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "required",
+          "notes"
+        ],
+        "title": "AIRebuildOut",
+        "type": "object"
+      },
+      "AISTestIn": {
+        "additionalProperties": false,
+        "description": "POST /me/ai-settings/test — giống PUT nhưng không có `mode`; thiếu api_key → dùng key đã lưu.",
+        "properties": {
+          "api_key": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key"
+          },
+          "base_url": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url"
+          },
+          "chat_model": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chat Model"
+          },
+          "embedding_model": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Model"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "enum": [
+                  "openai",
+                  "gemini"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "timeout_seconds": {
+            "anyOf": [
+              {
+                "maximum": 600.0,
+                "minimum": 5.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout Seconds"
+          }
+        },
+        "title": "AISTestIn",
+        "type": "object"
+      },
+      "AISTestOut": {
+        "additionalProperties": false,
+        "properties": {
+          "chat": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChatTestOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "embedding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EmbeddingTestOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "enum": [
+                  "embedding",
+                  "chat"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "title": "AISTestOut",
+        "type": "object"
+      },
+      "AISettingsIn": {
+        "additionalProperties": false,
+        "description": "PUT /me/ai-settings. `api_key`: null = giữ key đã lưu, \"\" = xoá key (model local).",
+        "properties": {
+          "api_key": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key"
+          },
+          "base_url": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url"
+          },
+          "chat_model": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chat Model"
+          },
+          "embedding_model": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Model"
+          },
+          "mode": {
+            "enum": [
+              "inherit",
+              "byok"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "enum": [
+                  "openai",
+                  "gemini"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "timeout_seconds": {
+            "anyOf": [
+              {
+                "maximum": 600.0,
+                "minimum": 5.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout Seconds"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "title": "AISettingsIn",
+        "type": "object"
+      },
+      "AISettingsOut": {
+        "additionalProperties": false,
+        "properties": {
+          "base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url"
+          },
+          "chat_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chat Model"
+          },
+          "embedding_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Model"
+          },
+          "has_key": {
+            "default": false,
+            "title": "Has Key",
+            "type": "boolean"
+          },
+          "key_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Hint"
+          },
+          "mode": {
+            "enum": [
+              "inherit",
+              "byok"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "enum": [
+                  "openai",
+                  "gemini"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "rebuild": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AIRebuildOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rebuild_note_count": {
+            "default": 0,
+            "title": "Rebuild Note Count",
+            "type": "integer"
+          },
+          "server_default": {
+            "$ref": "#/components/schemas/ServerDefaultOut"
+          },
+          "timeout_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout Seconds"
+          }
+        },
+        "required": [
+          "mode",
+          "server_default"
+        ],
+        "title": "AISettingsOut",
+        "type": "object"
+      },
+      "AuthConfigOut": {
+        "additionalProperties": false,
+        "description": "GET /auth/config (public) — extension đọc để biết có tự đăng nhập local không (ADR-0016 §4.8).\nKHÔNG trả email/local_auth_email — server tự quyết định, client không cần biết.",
+        "properties": {
+          "auth_mode": {
+            "enum": [
+              "google",
+              "local"
+            ],
+            "title": "Auth Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "auth_mode"
+        ],
+        "title": "AuthConfigOut",
+        "type": "object"
+      },
       "BulkDeleteIn": {
         "additionalProperties": false,
         "properties": {
@@ -71,6 +472,30 @@
         "title": "ChatIn",
         "type": "object"
       },
+      "ChatTestOut": {
+        "additionalProperties": false,
+        "properties": {
+          "latency_ms": {
+            "title": "Latency Ms",
+            "type": "integer"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "sample": {
+            "title": "Sample",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model",
+          "latency_ms",
+          "sample"
+        ],
+        "title": "ChatTestOut",
+        "type": "object"
+      },
       "ChatTurnIn": {
         "additionalProperties": false,
         "properties": {
@@ -93,6 +518,35 @@
           "content"
         ],
         "title": "ChatTurnIn",
+        "type": "object"
+      },
+      "EmbeddingTestOut": {
+        "additionalProperties": false,
+        "properties": {
+          "dim": {
+            "title": "Dim",
+            "type": "integer"
+          },
+          "latency_ms": {
+            "title": "Latency Ms",
+            "type": "integer"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "padded": {
+            "default": false,
+            "title": "Padded",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "model",
+          "dim",
+          "latency_ms"
+        ],
+        "title": "EmbeddingTestOut",
         "type": "object"
       },
       "FolderCreateIn": {
@@ -663,6 +1117,14 @@
       "QuotaOut": {
         "additionalProperties": false,
         "properties": {
+          "billing_mode": {
+            "enum": [
+              "server",
+              "byok"
+            ],
+            "title": "Billing Mode",
+            "type": "string"
+          },
           "limit_tokens": {
             "title": "Limit Tokens",
             "type": "integer"
@@ -684,7 +1146,8 @@
           "limit_tokens",
           "used_tokens",
           "reserved_tokens",
-          "remaining_tokens"
+          "remaining_tokens",
+          "billing_mode"
         ],
         "title": "QuotaOut",
         "type": "object"
@@ -816,6 +1279,36 @@
           "items"
         ],
         "title": "SearchOut",
+        "type": "object"
+      },
+      "ServerDefaultOut": {
+        "additionalProperties": false,
+        "description": "Cấu hình AI toàn cục của server (mode=inherit sẽ dùng cái này).",
+        "properties": {
+          "chat_model": {
+            "title": "Chat Model",
+            "type": "string"
+          },
+          "embedding_model": {
+            "title": "Embedding Model",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "openai",
+              "gemini",
+              "mock"
+            ],
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "chat_model",
+          "embedding_model"
+        ],
+        "title": "ServerDefaultOut",
         "type": "object"
       },
       "SummaryIn": {
@@ -1190,6 +1683,28 @@
         "summary": "Summarize",
         "tags": [
           "summary"
+        ]
+      }
+    },
+    "/api/v1/auth/config": {
+      "get": {
+        "description": "Public (không secret) — extension biết có nên tự dev-login ở chế độ self-host không.",
+        "operationId": "auth_config_api_v1_auth_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthConfigOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Auth Config",
+        "tags": [
+          "auth"
         ]
       }
     },
@@ -1574,6 +2089,155 @@
         ]
       }
     },
+    "/api/v1/me/ai-settings": {
+      "delete": {
+        "description": "Quay về dùng cấu hình server (mode=inherit); key bị xoá khỏi DB. Fingerprint đổi → rebuild.",
+        "operationId": "delete_ai_settings_api_v1_me_ai_settings_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AISettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Ai Settings",
+        "tags": [
+          "ai-settings"
+        ]
+      },
+      "get": {
+        "operationId": "get_ai_settings_api_v1_me_ai_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AISettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Ai Settings",
+        "tags": [
+          "ai-settings"
+        ]
+      },
+      "put": {
+        "description": "Lưu cấu hình. api_key: null = giữ key cũ, \"\" = xoá key. Fingerprint embedding đổi →\ntự động rebuild chỉ mục (notes PROCESSING, job index lại từng note) và trả `rebuild`.",
+        "operationId": "put_ai_settings_api_v1_me_ai_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AISettingsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AISettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Cấu hình không hợp lệ (AI_CONFIG_INVALID)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Ai Settings",
+        "tags": [
+          "ai-settings"
+        ]
+      }
+    },
+    "/api/v1/me/ai-settings/test": {
+      "post": {
+        "description": "Kiểm tra kết nối embed + chat (timeout 30s, không retry). Không bắt buộc trước khi lưu.",
+        "operationId": "test_ai_settings_api_v1_me_ai_settings_test_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AISTestIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AISTestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "Quá tần suất (Retry-After)"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Test Ai Settings",
+        "tags": [
+          "ai-settings"
+        ]
+      }
+    },
     "/api/v1/me/quota": {
       "get": {
         "operationId": "get_quota_api_v1_me_quota_get",
@@ -1602,7 +2266,7 @@
     },
     "/api/v1/me/quota/reset": {
       "post": {
-        "description": "Tạo lại hạn mức cho demo (chỉ khi ENABLE_DEV_LOGIN bật ở dev/test).",
+        "description": "Đặt lại số liệu: demo/dev hoặc user BYOK (AI của user tự trả). User inherit ở prod bị 403.",
         "operationId": "reset_quota_api_v1_me_quota_reset_post",
         "responses": {
           "200": {

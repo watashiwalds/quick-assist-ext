@@ -212,7 +212,7 @@ describe('tìm kiếm (R04)', () => {
 })
 
 describe('cài đặt (A08)', () => {
-  const session = { signedIn: true, user: { id: 'u', email: 'a@gmail.com', display_name: 'A', avatar_url: null, created_at: '2026-10-01T00:00:00Z' } }
+  const session = { signedIn: true, user: { id: 'u', email: 'a@gmail.com', display_name: 'A', avatar_url: null, created_at: '2026-10-01T00:00:00Z' }, authMode: 'google' as const }
   beforeEach(() => {
     rpc.mockImplementation(async (type: string) => {
       if (type === 'quota/get') return { limit_tokens: 1000, used_tokens: 950, reserved_tokens: 0, remaining_tokens: 50 }

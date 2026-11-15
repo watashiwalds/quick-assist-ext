@@ -24,6 +24,18 @@ export type PageMatchItem = S['PageMatchItemOut']
 export type ChatRequest = S['ChatIn']
 export type ChatTurn = S['ChatTurnIn']
 
+/** Cấu hình AI per-user (BYOK, ADR-0016) — không bao giờ chứa key (chỉ has_key + key_hint). */
+export type AiSettings = S['AISettingsOut']
+export type AiSettingsInput = S['AISettingsIn']
+export type AiTestInput = S['AISTestIn']
+export type AiTestResult = S['AISTestOut']
+export type AiTestEmbedding = S['EmbeddingTestOut']
+export type AiTestChat = S['ChatTestOut']
+export type AiRebuild = S['AIRebuildOut']
+export type ServerDefault = S['ServerDefaultOut']
+export type AuthConfig = S['AuthConfigOut']
+export type AiProvider = NonNullable<AiSettings['provider']>
+
 /** Dữ liệu sự kiện SSE `sources` của POST /ai/chat (luồng SSE nên không có trong OpenAPI components). */
 export interface ChatSource {
   index: number

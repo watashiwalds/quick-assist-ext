@@ -55,6 +55,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Auth Config
+         * @description Public (không secret) — extension biết có nên tự dev-login ở chế độ self-host không.
+         */
+        get: operations["auth_config_api_v1_auth_config_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/google/exchange": {
         parameters: {
             query?: never;
@@ -197,6 +217,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/ai-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Ai Settings */
+        get: operations["get_ai_settings_api_v1_me_ai_settings_get"];
+        /**
+         * Put Ai Settings
+         * @description Lưu cấu hình. api_key: null = giữ key cũ, "" = xoá key. Fingerprint embedding đổi →
+         *     tự động rebuild chỉ mục (notes PROCESSING, job index lại từng note) và trả `rebuild`.
+         */
+        put: operations["put_ai_settings_api_v1_me_ai_settings_put"];
+        post?: never;
+        /**
+         * Delete Ai Settings
+         * @description Quay về dùng cấu hình server (mode=inherit); key bị xoá khỏi DB. Fingerprint đổi → rebuild.
+         */
+        delete: operations["delete_ai_settings_api_v1_me_ai_settings_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/ai-settings/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Ai Settings
+         * @description Kiểm tra kết nối embed + chat (timeout 30s, không retry). Không bắt buộc trước khi lưu.
+         */
+        post: operations["test_ai_settings_api_v1_me_ai_settings_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/quota": {
         parameters: {
             query?: never;
@@ -225,7 +291,7 @@ export interface paths {
         put?: never;
         /**
          * Reset Quota
-         * @description Tạo lại hạn mức cho demo (chỉ khi ENABLE_DEV_LOGIN bật ở dev/test).
+         * @description Đặt lại số liệu: demo/dev hoặc user BYOK (AI của user tự trả). User inherit ở prod bị 403.
          */
         post: operations["reset_quota_api_v1_me_quota_reset_post"];
         delete?: never;
@@ -343,6 +409,114 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AIRebuildOut
+         * @description Thông tin rebuild chỉ mục khi fingerprint embedding đổi (wire đầy đủ ở P3).
+         */
+        AIRebuildOut: {
+            /** Notes */
+            notes: number;
+            /** Required */
+            required: boolean;
+        };
+        /**
+         * AISTestIn
+         * @description POST /me/ai-settings/test — giống PUT nhưng không có `mode`; thiếu api_key → dùng key đã lưu.
+         */
+        AISTestIn: {
+            /** Api Key */
+            api_key?: string | null;
+            /** Base Url */
+            base_url?: string | null;
+            /** Chat Model */
+            chat_model?: string | null;
+            /** Embedding Model */
+            embedding_model?: string | null;
+            /** Provider */
+            provider?: ("openai" | "gemini") | null;
+            /** Timeout Seconds */
+            timeout_seconds?: number | null;
+        };
+        /** AISTestOut */
+        AISTestOut: {
+            chat?: components["schemas"]["ChatTestOut"] | null;
+            /** Code */
+            code?: string | null;
+            embedding?: components["schemas"]["EmbeddingTestOut"] | null;
+            /** Message */
+            message?: string | null;
+            /** Ok */
+            ok: boolean;
+            /** Stage */
+            stage?: ("embedding" | "chat") | null;
+        };
+        /**
+         * AISettingsIn
+         * @description PUT /me/ai-settings. `api_key`: null = giữ key đã lưu, "" = xoá key (model local).
+         */
+        AISettingsIn: {
+            /** Api Key */
+            api_key?: string | null;
+            /** Base Url */
+            base_url?: string | null;
+            /** Chat Model */
+            chat_model?: string | null;
+            /** Embedding Model */
+            embedding_model?: string | null;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "inherit" | "byok";
+            /** Provider */
+            provider?: ("openai" | "gemini") | null;
+            /** Timeout Seconds */
+            timeout_seconds?: number | null;
+        };
+        /** AISettingsOut */
+        AISettingsOut: {
+            /** Base Url */
+            base_url?: string | null;
+            /** Chat Model */
+            chat_model?: string | null;
+            /** Embedding Model */
+            embedding_model?: string | null;
+            /**
+             * Has Key
+             * @default false
+             */
+            has_key: boolean;
+            /** Key Hint */
+            key_hint?: string | null;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "inherit" | "byok";
+            /** Provider */
+            provider?: ("openai" | "gemini") | null;
+            rebuild?: components["schemas"]["AIRebuildOut"] | null;
+            /**
+             * Rebuild Note Count
+             * @default 0
+             */
+            rebuild_note_count: number;
+            server_default: components["schemas"]["ServerDefaultOut"];
+            /** Timeout Seconds */
+            timeout_seconds?: number | null;
+        };
+        /**
+         * AuthConfigOut
+         * @description GET /auth/config (public) — extension đọc để biết có tự đăng nhập local không (ADR-0016 §4.8).
+         *     KHÔNG trả email/local_auth_email — server tự quyết định, client không cần biết.
+         */
+        AuthConfigOut: {
+            /**
+             * Auth Mode
+             * @enum {string}
+             */
+            auth_mode: "google" | "local";
+        };
         /** BulkDeleteIn */
         BulkDeleteIn: {
             /** Ids */
@@ -362,6 +536,15 @@ export interface components {
             /** Question */
             question: string;
         };
+        /** ChatTestOut */
+        ChatTestOut: {
+            /** Latency Ms */
+            latency_ms: number;
+            /** Model */
+            model: string;
+            /** Sample */
+            sample: string;
+        };
         /** ChatTurnIn */
         ChatTurnIn: {
             /** Content */
@@ -371,6 +554,20 @@ export interface components {
              * @enum {string}
              */
             role: "user" | "assistant";
+        };
+        /** EmbeddingTestOut */
+        EmbeddingTestOut: {
+            /** Dim */
+            dim: number;
+            /** Latency Ms */
+            latency_ms: number;
+            /** Model */
+            model: string;
+            /**
+             * Padded
+             * @default false
+             */
+            padded: boolean;
         };
         /** FolderCreateIn */
         FolderCreateIn: {
@@ -594,6 +791,11 @@ export interface components {
         };
         /** QuotaOut */
         QuotaOut: {
+            /**
+             * Billing Mode
+             * @enum {string}
+             */
+            billing_mode: "server" | "byok";
             /** Limit Tokens */
             limit_tokens: number;
             /** Remaining Tokens */
@@ -650,6 +852,21 @@ export interface components {
         SearchOut: {
             /** Items */
             items: components["schemas"]["SearchHitOut"][];
+        };
+        /**
+         * ServerDefaultOut
+         * @description Cấu hình AI toàn cục của server (mode=inherit sẽ dùng cái này).
+         */
+        ServerDefaultOut: {
+            /** Chat Model */
+            chat_model: string;
+            /** Embedding Model */
+            embedding_model: string;
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "openai" | "gemini" | "mock";
         };
         /** SummaryIn */
         SummaryIn: {
@@ -907,6 +1124,26 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    auth_config_api_v1_auth_config_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthConfigOut"];
+                };
             };
         };
     };
@@ -1199,6 +1436,126 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_ai_settings_api_v1_me_ai_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AISettingsOut"];
+                };
+            };
+        };
+    };
+    put_ai_settings_api_v1_me_ai_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AISettingsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AISettingsOut"];
+                };
+            };
+            /** @description Cấu hình không hợp lệ (AI_CONFIG_INVALID) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_ai_settings_api_v1_me_ai_settings_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AISettingsOut"];
+                };
+            };
+        };
+    };
+    test_ai_settings_api_v1_me_ai_settings_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AISTestIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AISTestOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Quá tần suất (Retry-After) */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
