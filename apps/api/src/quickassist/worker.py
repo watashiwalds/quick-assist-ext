@@ -12,6 +12,7 @@ from quickassist.data.database import dispose_engine
 from quickassist.infrastructure.config import get_settings
 from quickassist.infrastructure.jobs import worker_loop
 from quickassist.infrastructure.logging import configure_logging, get_logger
+from quickassist.infrastructure.openai import provider_cache
 
 
 def load_job_handlers() -> None:
@@ -49,6 +50,7 @@ async def main() -> None:
     try:
         await asyncio.gather(worker_loop(stop), housekeeping(stop))
     finally:
+        await provider_cache.close_all()  # đóng provider BYOK còn mở (ADR-0016)
         await dispose_engine()
 
 

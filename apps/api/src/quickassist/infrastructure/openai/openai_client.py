@@ -83,16 +83,25 @@ class OpenAIClient:
             v, u = await self._embed_batch(batch)
             vectors.extend(v)
             usage = Usage(usage.prompt_tokens + u.prompt_tokens, 0)
-        if len(vectors) != len(texts) or any(len(v) != self._s.embedding_dim for v in vectors):
-            raise AIProviderError("embedding trả về sai số lượng/số chiều", retryable=False)
+        # strict_dim=True (mặc định): vector bắt buộc đúng embedding_dim. BYOK (False):
+        # chỉ yêu cầu mọi vector cùng số chiều — việc chuẩn hoá về 1536 do
+        # CanonicalEmbeddingProvider đảm nhiệm (ADR-0016 §4.5).
+        if len(vectors) != len(texts):
+            raise AIProviderError("embedding trả về sai số lượng", retryable=False)
+        if self._s.ai_embedding_strict_dim:
+            if any(len(v) != self._s.embedding_dim for v in vectors):
+                raise AIProviderError("embedding trả về sai số lượng/số chiều", retryable=False)
+        elif len({len(v) for v in vectors}) > 1:
+            raise AIProviderError("embedding trả về vector không cùng số chiều", retryable=False)
         return EmbeddingResult(vectors, usage, self._s.embedding_model)
 
     async def _embed_batch(self, batch: list[str]) -> tuple[list[list[float]], Usage]:
-        data = await self._post(
-            "/embeddings",
-            {"model": self._s.embedding_model, "input": batch,
-             "dimensions": self._s.embedding_dim},
-        )
+        body: dict[str, Any] = {"model": self._s.embedding_model, "input": batch}
+        if self._s.ai_request_embedding_dimensions:
+            # Nhiều server OpenAI-compatible tự host (Ollama, llama.cpp) không nhận
+            # "dimensions" → BYOK tắt cờ này (ADR-0016 §4.5).
+            body["dimensions"] = self._s.embedding_dim
+        data = await self._post("/embeddings", body)
         vectors = [d["embedding"] for d in sorted(data["data"], key=lambda d: d["index"])]
         if len(vectors) != len(batch):
             raise AIProviderError("embedding trả về sai số lượng", retryable=False)

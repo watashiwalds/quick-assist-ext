@@ -11,11 +11,11 @@ from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from quickassist.business.ai_settings import AISettingsService
 from quickassist.business.common.exceptions import RateLimited, Unauthorized
 from quickassist.data.database import get_session
 from quickassist.infrastructure.config import get_settings
 from quickassist.infrastructure.errors import TokenError
-from quickassist.infrastructure.openai import get_ai_provider
 from quickassist.infrastructure.openai.base import AIProvider
 from quickassist.infrastructure.rate_limit import limiter
 from quickassist.infrastructure.security import decode_access_token
@@ -37,7 +37,16 @@ async def get_current_user_id(creds: HTTPAuthorizationCredentials | None = Depen
 
 DbSession = Annotated[AsyncSession, Depends(get_session)]
 CurrentUserId = Annotated[uuid.UUID, Depends(get_current_user_id)]
-AIProviderDep = Annotated[AIProvider, Depends(get_ai_provider)]
+
+
+async def get_user_ai_provider(user_id: CurrentUserId, session: DbSession) -> AIProvider:
+    """Provider AI theo user (ADR-0016): BYOK → key/base_url của user (cache per-user);
+    inherit / chưa cấu hình → provider toàn cục của server. Tên/type giữ nguyên hợp đồng cũ
+    → 4 controller AI không đổi. KHÔNG đóng provider theo request (RAG stream sống lâu hơn)."""
+    return await AISettingsService(session).provider_for(user_id)
+
+
+AIProviderDep = Annotated[AIProvider, Depends(get_user_ai_provider)]
 
 
 def rate_limit(bucket: str, setting: str) -> Callable[..., Awaitable[None]]:

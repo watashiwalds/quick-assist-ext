@@ -13,6 +13,7 @@ from quickassist.data.database import dispose_engine
 from quickassist.data.models import EMBEDDING_DIM
 from quickassist.infrastructure.config import get_settings
 from quickassist.infrastructure.logging import configure_logging
+from quickassist.infrastructure.openai import provider_cache
 from quickassist.presentation.api.error_handlers import register_error_handlers
 from quickassist.presentation.api.middleware import (
     REQUEST_ID_HEADER,
@@ -46,6 +47,7 @@ def _check_config() -> None:
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     _check_config()
     yield
+    await provider_cache.close_all()  # đóng provider BYOK còn mở (ADR-0016)
     shutdown_extractor()  # giết process pool Trafilatura (AutoChunk)
     await dispose_engine()
 

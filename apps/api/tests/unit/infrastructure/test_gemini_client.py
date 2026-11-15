@@ -283,3 +283,22 @@ async def test_stream_error_without_fallback_left_raises() -> None:
         denied = httpx.Response(403, json={"error": {"status": "PERMISSION_DENIED"}})
         _ = [c async for c in client(lambda r: denied).stream(MSGS, max_tokens=10)]
     assert not e.value.retryable
+
+
+# --- BYOK: cờ ai_embedding_strict_dim (ADR-0016 §4.5) — outputDimensionality vẫn gửi ---
+
+
+async def test_byok_lenient_dim_accepts_native_dim_and_still_requests_1536() -> None:
+    """strict_dim=False (BYOK): model trả chiều khác embedding_dim nhưng đồng đều → chấp nhận;
+    outputDimensionality vẫn gửi theo embedding_dim."""
+    reqs = []
+
+    def h(req: httpx.Request) -> httpx.Response:
+        b = json.loads(req.content)
+        reqs.append(b)
+        embs = [{"values": [1.0, 2.0, 0.0]} for _ in b["requests"]]  # 3 chiều ≠ DIM=4
+        return httpx.Response(200, json={"embeddings": embs})
+
+    r = await client(h, ai_embedding_strict_dim=False).embed(["a", "b"])
+    assert all(len(v) == 3 for v in r.vectors)
+    assert reqs[0]["requests"][0]["outputDimensionality"] == DIM

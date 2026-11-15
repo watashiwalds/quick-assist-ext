@@ -119,8 +119,17 @@ class GeminiClient:
             if batch:
                 vectors.extend(await self._embed_batch(model, dim, batch))
                 tokens += sum(estimate_tokens(x) for x in batch)
-        if len(vectors) != len(texts) or any(len(v) != dim for v in vectors):
-            raise AIProviderError("embedding trả về sai số lượng/số chiều", retryable=False)
+        # strict_dim=True (mặc định): vector bắt buộc đúng embedding_dim. BYOK (False):
+        # chỉ yêu cầu mọi vector cùng số chiều — chuẩn hoá về 1536 do
+        # CanonicalEmbeddingProvider đảm nhiệm; outputDimensionality vẫn gửi 1536
+        # (model không nhận → lỗi 400 nguyên nhân, test endpoint sẽ hiển thị) (ADR-0016 §4.5).
+        if len(vectors) != len(texts):
+            raise AIProviderError("embedding trả về sai số lượng", retryable=False)
+        if self._s.ai_embedding_strict_dim:
+            if any(len(v) != dim for v in vectors):
+                raise AIProviderError("embedding trả về sai số lượng/số chiều", retryable=False)
+        elif len({len(v) for v in vectors}) > 1:
+            raise AIProviderError("embedding trả về vector không cùng số chiều", retryable=False)
         # Số chiều < 3072 (MRL) không được chuẩn hoá sẵn → chuẩn hoá L2 cho cosine ổn định.
         return EmbeddingResult([_l2(v) for v in vectors], Usage(tokens, 0), model)
 

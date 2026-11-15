@@ -171,3 +171,41 @@ def test_provider_switch_by_config(monkeypatch) -> None:
     monkeypatch.setattr(get_settings(), "ai_provider", "mock")
     assert pkg.get_ai_provider().name == "mock"
     pkg.get_ai_provider.cache_clear()
+
+
+# --- BYOK: cờ ai_request_embedding_dimensions / ai_embedding_strict_dim (ADR-0016 §4.5) ---
+
+
+async def test_byok_does_not_send_dimensions() -> None:
+    seen = {}
+
+    def h(req: httpx.Request) -> httpx.Response:
+        seen["body"] = json.loads(req.content)
+        return emb_response(1)
+
+    await client(h).embed(["a"])  # mặc định vẫn gửi "dimensions"
+    assert seen["body"]["dimensions"] == DIM
+
+    s = Settings(openai_api_key="sk-test", embedding_dim=DIM, ai_request_embedding_dimensions=False)
+    await OpenAIClient(s, transport=httpx.MockTransport(h)).embed(["a"])
+    assert "dimensions" not in seen["body"]
+
+
+async def test_byok_lenient_dim_accepts_native_dim() -> None:
+    """strict_dim=False (BYOK): vector 4 chiều (khác embedding_dim=8) nhưng đồng đều → chấp nhận."""
+    s = Settings(openai_api_key="sk-test", embedding_dim=DIM, ai_embedding_strict_dim=False)
+    c = OpenAIClient(s, transport=httpx.MockTransport(lambda r: emb_response(1, dim=4)))
+    assert len((await c.embed(["a"])).vectors[0]) == 4
+
+
+async def test_byok_lenient_dim_still_rejects_ragged() -> None:
+    def h(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={
+            "data": [{"index": 0, "embedding": [0.0] * 4}, {"index": 1, "embedding": [0.0] * 5}],
+            "usage": {"prompt_tokens": 1},
+        })
+
+    s = Settings(openai_api_key="sk-test", embedding_dim=DIM, ai_embedding_strict_dim=False)
+    with pytest.raises(AIProviderError) as e:
+        await OpenAIClient(s, transport=httpx.MockTransport(h)).embed(["a", "b"])
+    assert not e.value.retryable

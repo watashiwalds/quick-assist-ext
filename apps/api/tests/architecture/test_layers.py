@@ -30,6 +30,7 @@ ALLOWED: dict[str, tuple[str, ...]] = {
 }
 
 OWNERSHIP: dict[str, set[str]] = {
+    "ai_settings": {"user_ai_settings_repository"},
     "auth": {"user_repository", "auth_session_repository"},
     "notes": {"folder_repository", "note_repository"},
     "quota": {"quota_repository"},

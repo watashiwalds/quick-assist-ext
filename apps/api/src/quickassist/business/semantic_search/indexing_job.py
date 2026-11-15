@@ -14,6 +14,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from quickassist.business.ai_settings import AISettingsService
 from quickassist.business.common.exceptions import QuotaExceeded
 from quickassist.business.notes import get_note_for_indexing, set_index_status
 from quickassist.business.quota import QuotaService
@@ -23,7 +24,6 @@ from quickassist.data_access.repositories.note_chunk_repository import NoteChunk
 from quickassist.infrastructure.config import get_settings
 from quickassist.infrastructure.jobs import SEMANTIC_SEARCH_INDEX_NOTE, job_handler
 from quickassist.infrastructure.logging import get_logger
-from quickassist.infrastructure.openai import get_ai_provider
 from quickassist.infrastructure.openai.base import AIProviderError, estimate_tokens
 
 log = get_logger(__name__)
@@ -49,7 +49,9 @@ async def index_note(session: AsyncSession, payload: dict[str, Any]) -> None:
     cfg = get_settings()
     chunker = CHUNKERS[cfg.chunking_strategy]
     pieces = chunker(note.content, size=cfg.chunk_size_chars, overlap=cfg.chunk_overlap_chars)
-    ai = get_ai_provider()
+    # ADR-0016: embed bằng provider của CHỦ note (BYOK → key/base_url của user đó);
+    # inherit → provider toàn cục như trước. Cùng cache với API dependency.
+    ai = await AISettingsService(session).provider_for(note.user_id)
 
     try:
         async with QuotaService.open() as quota, quota.leased(
