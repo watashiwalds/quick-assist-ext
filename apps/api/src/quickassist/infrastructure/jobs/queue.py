@@ -18,7 +18,7 @@ Tên job khai báo ở job_kinds.py: "<service>.<hành_động>" — service đ�
 
 import asyncio
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -74,6 +74,38 @@ async def enqueue(
         # nên sửa note trong lúc đang index vẫn tạo được job mới.
         stmt = stmt.on_conflict_do_nothing(index_elements=[Job.dedupe_key])
     await session.execute(stmt)
+
+
+_ENQUEUE_MANY_BATCH = 500
+
+
+async def enqueue_many(
+    session: AsyncSession,
+    kind: str,
+    payloads: Sequence[dict[str, Any]],
+    *,
+    dedupe_keys: Sequence[str | None] | None = None,
+    delay_seconds: int = 0,
+) -> None:
+    """Thêm NHIỀU job bằng ít round-trip (mỗi lô 500 dòng một INSERT) — dùng cho rebuild
+    chỉ mục toàn bộ user (ADR-0016 §4.6). dedupe_keys[i] ứng với payloads[i]; job cùng key
+    còn QUEUED → bỏ qua (ON CONFLICT DO NOTHING). dedupe_key=None → không dedupe dòng đó.
+    KHÔNG commit — job chỉ tồn tại nếu transaction gọi nó commit (outbox pattern)."""
+    if dedupe_keys is not None and len(dedupe_keys) != len(payloads):
+        raise ValueError("dedupe_keys phải cùng độ dài với payloads")
+    run_after = datetime.now(UTC) + timedelta(seconds=delay_seconds)
+    max_attempts = get_settings().job_max_attempts
+    rows: list[dict[str, Any]] = [
+        {"id": uuid.uuid4(), "kind": kind, "payload": payload,
+         "dedupe_key": dedupe_keys[i] if dedupe_keys is not None else None,
+         "max_attempts": max_attempts, "run_after": run_after, "request_id": get_request_id()}
+        for i, payload in enumerate(payloads)
+    ]
+    for start in range(0, len(rows), _ENQUEUE_MANY_BATCH):
+        stmt = insert(Job).values(rows[start:start + _ENQUEUE_MANY_BATCH])
+        if any(r["dedupe_key"] is not None for r in rows[start:start + _ENQUEUE_MANY_BATCH]):
+            stmt = stmt.on_conflict_do_nothing(index_elements=[Job.dedupe_key])
+        await session.execute(stmt)
 
 
 async def _claim_one(session: AsyncSession) -> Job | None:

@@ -53,3 +53,14 @@ async def get_briefs(session: AsyncSession, user_id: uuid.UUID,
 async def set_index_status(session: AsyncSession, note_id: uuid.UUID, *, status: str, index_rev: int,
                            error: str | None = None) -> None:
     await NoteRepository(session).set_index_status(note_id, status=status, index_rev=index_rev, error=error)
+
+
+async def mark_user_notes_processing(session: AsyncSession, user_id: uuid.UUID) -> list[uuid.UUID]:
+    """Rebuild chỉ mục (ADR-0016 §4.6): PROCESSING + index_rev+1 cho mọi note chưa xoá,
+    trả id để caller enqueue job index. Commit do caller quyết định."""
+    return await NoteRepository(session).mark_processing_for_user(user_id)
+
+
+async def count_active_notes(session: AsyncSession, user_id: uuid.UUID) -> int:
+    """Số note chưa xoá — rebuild_note_count của GET /me/ai-settings."""
+    return await NoteRepository(session).count_active(user_id)

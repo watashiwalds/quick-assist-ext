@@ -86,3 +86,21 @@ class NoteRepository:
             .where(Note.id == note_id, Note.index_rev == index_rev)
             .values(index_status=status, index_error=error)
         )
+
+    async def mark_processing_for_user(self, user_id: uuid.UUID) -> list[uuid.UUID]:
+        """Rebuild chỉ mục (ADR-0016 §4.6): PROCESSING + index_rev+1 + xoá error cho MỌI note
+        chưa xoá của user trong MỘT câu UPDATE (index_rev tăng → job cũ không ghi đè trạng thái).
+        Trả danh sách id để caller enqueue job index."""
+        stmt = (
+            update(Note)
+            .where(Note.user_id == user_id, Note.deleted_at.is_(None))
+            .values(index_status="PROCESSING", index_rev=Note.index_rev + 1, index_error=None)
+            .returning(Note.id)
+        )
+        return list((await self.s.execute(stmt)).scalars())
+
+    async def count_active(self, user_id: uuid.UUID) -> int:
+        """Số note chưa xoá — rebuild_note_count cho GET /me/ai-settings."""
+        stmt = select(func.count()).select_from(Note).where(
+            Note.user_id == user_id, Note.deleted_at.is_(None))
+        return (await self.s.execute(stmt)).scalar_one()

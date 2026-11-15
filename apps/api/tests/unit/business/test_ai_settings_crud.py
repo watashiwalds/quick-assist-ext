@@ -87,7 +87,8 @@ def test_validate_base_url_scheme_and_allowlist(monkeypatch: pytest.MonkeyPatch)
 
 
 async def test_save_byok_encrypts_key_and_state_never_has_plaintext(svc: AISettingsService) -> None:
-    st = await svc.save(UID, AISettingsInput(**BYOK, api_key="sk-live-secret-9999"))
+    r = await svc.save(UID, AISettingsInput(**BYOK, api_key="sk-live-secret-9999"))
+    st = r.state
     assert st.mode == "byok" and st.has_key and st.key_hint == "9999"
     assert not hasattr(st, "api_key") and "sk-live-secret" not in repr(st)
     row = svc._repo.rows[UID]
@@ -108,7 +109,7 @@ async def test_save_null_keeps_key_empty_clears_key(svc: AISettingsService) -> N
 
 async def test_save_inherit_keeps_row_and_key(svc: AISettingsService) -> None:
     await svc.save(UID, AISettingsInput(**BYOK, api_key="sk-keep"))
-    st = await svc.save(UID, AISettingsInput(mode="inherit"))
+    st = (await svc.save(UID, AISettingsInput(mode="inherit"))).state
     row = svc._repo.rows[UID]
     assert st.mode == "inherit" and row["mode"] == "inherit"
     assert row["api_key_enc"] is not None  # giữ nguyên row + key (quay lại BYOK nhanh)
@@ -117,7 +118,7 @@ async def test_save_inherit_keeps_row_and_key(svc: AISettingsService) -> None:
 
 async def test_delete_returns_inherit_and_clears_key(svc: AISettingsService) -> None:
     await svc.save(UID, AISettingsInput(**BYOK, api_key="sk-gone"))
-    st = await svc.delete(UID)
+    st = (await svc.delete(UID)).state
     row = svc._repo.rows[UID]
     assert st.mode == "inherit" and not st.has_key
     assert row["api_key_enc"] is None and row["api_key_hint"] is None  # xoá key khỏi DB
@@ -148,3 +149,50 @@ async def test_is_byok(svc: AISettingsService) -> None:
     assert await svc.is_byok(UID) is True
     await svc.delete(UID)
     assert await svc.is_byok(UID) is False
+
+
+# --- P3: fingerprint_changed → rebuild orchestration ---
+
+
+async def test_fingerprint_changed_semantics(svc: AISettingsService) -> None:
+    from quickassist.infrastructure.openai import provider_cache
+
+    r1 = await svc.save(UID, AISettingsInput(**BYOK, api_key="sk-1"))
+    assert r1.fingerprint_changed is True  # inherit (mock) → byok: hàm embedding đổi
+    fp_byok = r1.fingerprint
+
+    r2 = await svc.save(UID, AISettingsInput(**{**BYOK, "api_key": "sk-2"}))
+    assert r2.fingerprint_changed is False  # đổi key → fingerprint giữ nguyên
+    assert r2.fingerprint == fp_byok
+
+    r3 = await svc.save(UID, AISettingsInput(**{**BYOK, "embedding_model": "bge-m3"}))
+    assert r3.fingerprint_changed is True and r3.fingerprint != fp_byok  # đổi model → rebuild
+
+    with_bge = {**BYOK, "embedding_model": "bge-m3"}
+    r4 = await svc.save(UID, AISettingsInput(**{**with_bge, "chat_model": "llama3.2"}))
+    assert r4.fingerprint_changed is False  # đổi chat model → không rebuild
+    assert r4.fingerprint == r3.fingerprint
+
+    r5 = await svc.save(UID, AISettingsInput(mode="inherit"))
+    assert r5.fingerprint_changed is True  # byok → inherit: fingerprint server khác
+
+    r6 = await svc.save(UID, AISettingsInput(mode="inherit"))
+    assert r6.fingerprint_changed is False  # inherit → inherit: không rebuild
+    provider_cache.invalidate_user(str(UID))
+
+
+async def test_delete_fingerprint_changed_only_when_was_byok(svc: AISettingsService) -> None:
+    r = await svc.delete(UID)  # chưa có row → không đổi gì
+    assert r.fingerprint_changed is False
+    await svc.save(UID, AISettingsInput(**BYOK))
+    r2 = await svc.delete(UID)
+    assert r2.fingerprint_changed is True and r2.state.mode == "inherit"
+
+
+async def test_current_fingerprint_byok_uses_stored_row(svc: AISettingsService) -> None:
+    await svc.save(UID, AISettingsInput(**BYOK))
+    row = svc._repo.rows[UID]
+    assert await svc.current_fingerprint(UID) == row["embedding_fingerprint"]
+    await svc.save(UID, AISettingsInput(mode="inherit"))
+    from quickassist.business.ai_settings import server_embedding_fingerprint
+    assert await svc.current_fingerprint(UID) == server_embedding_fingerprint()

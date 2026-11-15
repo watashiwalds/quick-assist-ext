@@ -5,10 +5,12 @@ from quickassist.business.ai_settings.service import (
     AISettingsService,
     AISettingsState,
     AITestResult,
+    SaveResult,
     embedding_fingerprint,
+    server_embedding_fingerprint,
 )
 
 __all__ = [
-    "AITestResult", "AISettingsInput", "AISettingsService", "AISettingsState",
-    "embedding_fingerprint",
+    "AISettingsInput", "AISettingsService", "AISettingsState", "AITestResult", "SaveResult",
+    "embedding_fingerprint", "server_embedding_fingerprint",
 ]

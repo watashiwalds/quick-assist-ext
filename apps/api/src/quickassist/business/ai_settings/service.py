@@ -75,7 +75,18 @@ class AISettingsState:
     chat_model: str | None
     embedding_model: str | None
     timeout_seconds: float | None
-    rebuild_note_count: int = 0  # wire thật ở P3 (rebuild orchestration)
+
+
+@dataclass(frozen=True)
+class SaveResult:
+    """Kết quả save/delete: state + fingerprint hiện hành + có cần rebuild không (ADR-0016 §4.6).
+
+    fingerprint_changed=True → controller gọi semantic_search.start_rebuild() (service này
+    KHÔNG import semantic_search — tránh phụ thuộc vòng vì indexing_job dùng AISettingsService)."""
+
+    state: AISettingsState
+    fingerprint: str
+    fingerprint_changed: bool
 
 
 def embedding_fingerprint(provider: str, base_url: str, embedding_model: str) -> str:
@@ -83,6 +94,16 @@ def embedding_fingerprint(provider: str, base_url: str, embedding_model: str) ->
     → không rebuild. Đổi embedding model / base_url / provider → rebuild (P3 dùng)."""
     raw = f"{provider}|{base_url.rstrip('/')}|{embedding_model}"
     return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def server_embedding_fingerprint() -> str:
+    """Fingerprint của cấu hình TOÀN CỤC server — hiện hành khi mode=inherit."""
+    s = get_settings()
+    if s.ai_provider == "gemini":
+        return embedding_fingerprint("gemini", s.gemini_base_url, s.gemini_embedding_model)
+    if s.ai_provider == "openai":
+        return embedding_fingerprint("openai", s.openai_base_url, s.embedding_model)
+    return embedding_fingerprint("mock", "mock://server", "mock-embed")
 
 
 def _invalid(message: str) -> AppError:
@@ -173,7 +194,18 @@ class AISettingsService:
         row = await self._repo.get(user_id)
         return row is not None and row.mode == "byok"
 
-    async def save(self, user_id: uuid.UUID, data: AISettingsInput) -> AISettingsState:
+    async def current_fingerprint(self, user_id: uuid.UUID) -> str:
+        """Fingerprint embedding HIỆN HÀNH của user — indexing_job so với payload của job
+        để bỏ job của cấu hình cũ (ADR-0016 §4.6). inherit/chưa có row → fingerprint server."""
+        row = await self._repo.get(user_id)
+        if row is None or row.mode == "inherit":
+            return server_embedding_fingerprint()
+        if row.embedding_fingerprint:
+            return row.embedding_fingerprint
+        return embedding_fingerprint(row.provider or "", row.base_url or "", row.embedding_model or "")
+
+    async def save(self, user_id: uuid.UUID, data: AISettingsInput) -> SaveResult:
+        old_fp = await self.current_fingerprint(user_id)
         if data.mode == "inherit":
             # Quay về cấu hình server: chỉ đổi mode, GIỮ nguyên row (biết fingerprint đang dùng,
             # §4.1). Chưa từng cấu hình → không cần tạo row.
@@ -181,6 +213,7 @@ class AISettingsService:
             if row is not None:
                 row = await self._repo.upsert(user_id, {"mode": "inherit"})
                 await self._session.commit()
+            new_fp = server_embedding_fingerprint()
         else:
             _validate(data)
             fields: dict[str, object] = {
@@ -199,18 +232,21 @@ class AISettingsService:
                 fields["api_key_hint"] = key[-4:] if key else None
             row = await self._repo.upsert(user_id, fields)
             await self._session.commit()
+            new_fp = str(fields["embedding_fingerprint"])
 
         provider_cache.invalidate_user(str(user_id))  # lần gọi kế tiếp dùng key mới ngay
-        return _state(row)
+        return SaveResult(_state(row), fingerprint=new_fp, fingerprint_changed=old_fp != new_fp)
 
-    async def delete(self, user_id: uuid.UUID) -> AISettingsState:
+    async def delete(self, user_id: uuid.UUID) -> SaveResult:
         """Về mode=inherit (nút "Dùng cấu hình server"): giữ provider/models làm bản nháp,
         XOÁ key khỏi DB (reset = không giữ vật liệu nhạy cảm)."""
+        old_fp = await self.current_fingerprint(user_id)
         row = await self._repo.upsert(user_id, {"mode": "inherit", "api_key_enc": None,
                                                 "api_key_hint": None})
         await self._session.commit()
         provider_cache.invalidate_user(str(user_id))
-        return _state(row)
+        new_fp = server_embedding_fingerprint()
+        return SaveResult(_state(row), fingerprint=new_fp, fingerprint_changed=old_fp != new_fp)
 
     # ---------------------------------------------------------- test kết nối (P2, §4.9)
     async def test_connection(self, user_id: uuid.UUID, data: AISettingsInput) -> AITestResult:

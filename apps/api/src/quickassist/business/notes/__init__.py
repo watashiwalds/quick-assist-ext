@@ -6,9 +6,11 @@ Public API: chỉ import từ package này. Sở hữu bảng: folders, notes, i
 from quickassist.business.notes.contracts import (
     NoteBrief,
     NoteForIndexing,
+    count_active_notes,
     get_briefs,
     get_note_content,
     get_note_for_indexing,
+    mark_user_notes_processing,
     set_index_status,
 )
 from quickassist.business.notes.folder_service import FolderService
@@ -16,5 +18,6 @@ from quickassist.business.notes.notes_service import CreateNoteCommand, NotesSer
 
 __all__ = [
     "CreateNoteCommand", "FolderService", "NoteBrief", "NoteForIndexing", "NotesService",
-    "UpdateNoteCommand", "get_briefs", "get_note_content", "get_note_for_indexing", "set_index_status",
+    "UpdateNoteCommand", "count_active_notes", "get_briefs", "get_note_content",
+    "get_note_for_indexing", "mark_user_notes_processing", "set_index_status",
 ]

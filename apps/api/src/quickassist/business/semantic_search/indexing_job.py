@@ -34,14 +34,25 @@ async def index_note(session: AsyncSession, payload: dict[str, Any]) -> None:
     note_id = uuid.UUID(payload["note_id"])
     is_last_attempt = payload.get("_attempt", 1) >= payload.get("_max_attempts", 1)
     repo = NoteChunkRepository(session)
+    ai_settings = AISettingsService(session)
+    # ADR-0016 §4.6: job phát ra từ rebuild mang embedding_fingerprint của lần phát. Nếu nó
+    # khác fingerprint hiện hành → cấu hình đã đổi lần nữa → bỏ job này (job mới đã được xếp).
+    expected = payload.get("embedding_fingerprint")
 
     note = await get_note_for_indexing(session, note_id)
     if note is None or note.is_deleted:
         await repo.delete_for_note(note_id)
         return
 
+    if expected and expected != await ai_settings.current_fingerprint(note.user_id):
+        log.info("index_skipped_stale_fingerprint", extra={"note_id": str(note_id)})
+        return
+
     content_hash = hashlib.sha256(note.content.encode()).hexdigest()
-    if await repo.content_hash_of(note_id) == content_hash:
+    if not expected and await repo.content_hash_of(note_id) == content_hash:
+        # Job thường (note sửa nhẹ/chuyển thư mục) + nội dung không đổi → không embed lại.
+        # Job rebuild (có expected) LUÔN embed lại: nội dung giữ nguyên nhưng hàm embedding
+        # đã đổi → chunk cũ của note này phải được thay bằng vector mô hình mới.
         await repo.set_folder(note_id, note.folder_id)
         await set_index_status(session, note_id, status="READY", index_rev=note.index_rev)
         return
@@ -51,7 +62,7 @@ async def index_note(session: AsyncSession, payload: dict[str, Any]) -> None:
     pieces = chunker(note.content, size=cfg.chunk_size_chars, overlap=cfg.chunk_overlap_chars)
     # ADR-0016: embed bằng provider của CHỦ note (BYOK → key/base_url của user đó);
     # inherit → provider toàn cục như trước. Cùng cache với API dependency.
-    ai = await AISettingsService(session).provider_for(note.user_id)
+    ai = await ai_settings.provider_for(note.user_id)
 
     try:
         async with QuotaService.open() as quota, quota.leased(
@@ -68,6 +79,12 @@ async def index_note(session: AsyncSession, payload: dict[str, Any]) -> None:
                 await quota.release(lease)  # trả về bình thường (không ném) → tự release
                 await set_index_status(session, note_id, status="FAILED", index_rev=note.index_rev,
                                        error="AI_PROVIDER_ERROR")
+                return
+
+            # Chốt fingerprint LẦN 2 sau khi embed, trước khi ghi chunk — chống đổi cấu hình
+            # giữa chừng (job chạy song song với lần lưu mới). Vector bị bỏ → không tính quota.
+            if expected and expected != await ai_settings.current_fingerprint(note.user_id):
+                await quota.release(lease)
                 return
 
             # Lỗi DB ở đây → leased() hoàn giữ chỗ, job được retry.
