@@ -67,13 +67,13 @@ describe('AuthGate — local mode', () => {
 describe('SettingsView — local mode', () => {
   it('local mode: ẩn "Đăng xuất"', async () => {
     wrap(<SettingsView session={session({ authMode: 'local', signedIn: true, user })} />)
-    await screen.findByText(/còn lại/)
+    await screen.findByText(/còn lại/i)
     expect(screen.queryByRole('button', { name: 'Đăng xuất' })).toBeNull()
   })
 
   it('google mode: hiện "Đăng xuất"', async () => {
     wrap(<SettingsView session={session({ signedIn: true, user })} />)
-    await screen.findByText(/còn lại/)
+    await screen.findByText(/còn lại/i)
     expect(screen.getByRole('button', { name: 'Đăng xuất' })).toBeTruthy()
   })
 })

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { rpc } from '@/shared/messaging/client'
 import type { PendingSelection } from '@/shared/messaging/protocol'
 import { type TabItem, Icon, Tabs, ToastProvider } from '../components'
-import { SettingsView } from '../features/account/SettingsView'
+import { SettingsView, type SettingsSection } from '../features/account/SettingsView'
 import { AuthGate } from '../features/auth/AuthGate'
 import { ChatView } from '../features/chat/ChatView'
 import { useChatSessions } from '../features/chat/useChatSessions'
@@ -27,6 +27,7 @@ export function App() {
 
 function Shell({ session }: { session: Parameters<typeof SettingsView>[0]['session'] }) {
   const [tab, setTab] = useState<Tab>('notes')
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>('general')
   const [openNoteId, setOpenNoteId] = useState<string | null>(null)
   const [selection, setSelection] = useState<PendingSelection | null>(null)
   const folders = useAsync(() => rpc('folders/list'), [])
@@ -66,7 +67,11 @@ function Shell({ session }: { session: Parameters<typeof SettingsView>[0]['sessi
     ...(selection ? [{ key: 'summary' as const, label: 'Tóm tắt' }] : []),
     { key: 'settings', label: 'Cài đặt' },
   ]
-  const goSettings = () => setTab('settings')
+  // “Xem hạn mức” mở thẳng mục Tài khoản; bấm tab Cài đặt thì bắt đầu ở Chung.
+  const goSettings = () => {
+    setSettingsSection('account')
+    setTab('settings')
+  }
 
   return (
     <>
@@ -85,7 +90,14 @@ function Shell({ session }: { session: Parameters<typeof SettingsView>[0]['sessi
           <span className="email">{session.user?.email}</span>
         </span>
       </header>
-      <Tabs items={items} value={tab} onChange={setTab} />
+      <Tabs
+        items={items}
+        value={tab}
+        onChange={(next) => {
+          if (next === 'settings') setSettingsSection('general')
+          setTab(next)
+        }}
+      />
       <main className="content" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
         {tab === 'notes' && <NotesView openNoteId={openNoteId} onOpened={() => setOpenNoteId(null)} onGoSettings={goSettings} />}
         {tab === 'search' && (
@@ -127,7 +139,9 @@ function Shell({ session }: { session: Parameters<typeof SettingsView>[0]['sessi
             }}
           />
         )}
-        {tab === 'settings' && <SettingsView session={session} onPrefsChanged={prefs.setData} />}
+        {tab === 'settings' && (
+          <SettingsView session={session} initialSection={settingsSection} onPrefsChanged={prefs.setData} />
+        )}
       </main>
     </>
   )

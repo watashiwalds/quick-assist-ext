@@ -35,11 +35,14 @@ test('cài đặt: hạn mức, thư mục mặc định; xoá tài khoản 2 b�
   const f = (await api.send('POST', '/folders', { name: 'Mặc định mới' })).body
   await panel.reload()
   await panel.getByRole('tab', { name: 'Cài đặt' }).click()
-  await expect(panel.getByText(/còn lại/)).toBeVisible()
+  await panel.getByRole('button', { name: 'Tài khoản' }).click()
+  await expect(panel.getByText(/còn lại/i)).toBeVisible()
+  await panel.getByRole('button', { name: 'Chung' }).click()
   await panel.getByLabel(/Thư mục mặc định/).selectOption(f.id)
   await expect(panel.getByText('Đã lưu thư mục mặc định')).toBeVisible()
   // R-10: lịch sử chat theo phiên cũng phải bị xoá khi xoá tài khoản.
   await sw.evaluate(async () => chrome.storage.local.set({ 'qa.chatSessions': { v: 1, sessions: [], activeId: null } }))
+  await panel.getByRole('button', { name: 'Tài khoản' }).click()
   await panel.getByRole('button', { name: 'Xoá tài khoản…' }).click()
   await panel.getByRole('button', { name: 'Tiếp tục' }).click()
   await panel.getByLabel(/Gõ “XOÁ”/).fill('XOÁ')

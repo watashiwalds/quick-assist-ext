@@ -1,10 +1,24 @@
 import { type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes, useId } from 'react'
 
-export function Field({ label, hint, error, children }: { label: string; hint?: string; error?: string; children: (id: string) => ReactNode }) {
+export function Field({
+  label,
+  hint,
+  help,
+  error,
+  children,
+}: {
+  label: string
+  hint?: string
+  /** Dòng mô tả ngay dưới nhãn (trước ô nhập), dùng khi hint cuối field chưa đủ. */
+  help?: ReactNode
+  error?: string
+  children: (id: string) => ReactNode
+}) {
   const id = useId()
   return (
     <div className="field">
       <label htmlFor={id}>{label}</label>
+      {help && <p className="field-help">{help}</p>}
       {children(id)}
       {hint && !error && <small className="muted">{hint}</small>}
       {error && (

@@ -105,14 +105,23 @@ flowchart TB
 
 ## 6. Tab Cài đặt — `SettingsView.tsx`
 
+Ba mục trong một màn: rail dọc (≥880px) hoặc hàng tab ngang (≤879px). Chuyển mục bằng state React (không phải route).
+
 ```mermaid
 flowchart TB
-    ACC["Tài khoản: avatar · tên · email · ngày tham gia"]
-    QUOTA["Hạn mức AI: thanh tiến trình (đã dùng + đặt trước / giới hạn)<br/>nút Làm mới · hết quota → ghi chú vẫn lưu,<br/>nhưng chưa tìm ngữ nghĩa / tóm tắt được"]
-    PREF["Thư mục mặc định cho lưu nhanh (Alt+Shift+N / 'Ghi chú văn bản này')<br/>Inbox hoặc một thư mục<br/>+ Ô tick 'Hiện tab Tìm kiếm' (đã gộp vào Thư viện)"]
-    LOGOUT["Đăng xuất — xoá cache ghi chú trên máy"]
-    DEL["Xoá tài khoản — 2 bước:<br/>bước 1/2 ConfirmDialog (liệt kê hệ quả) → bước 2/2 gõ 'XOÁ'<br/>xoá vĩnh viễn ghi chú, thư mục, chỉ mục, lịch sử quota"]
-    ACC --> QUOTA --> PREF --> LOGOUT --> DEL
+    subgraph CHUNG["Chung"]
+        GEN["Thư mục mặc định cho lưu nhanh (Alt+Shift+N / 'Ghi chú văn bản này')<br/>+ Ô tick 'Hiện tab Tìm kiếm' (đã gộp vào Thư viện)<br/>+ Về QuickAssist (phiên bản, hộp thoại thông tin)"]
+    end
+    subgraph TAIKHOAN["Tài khoản"]
+        ACC["Hồ sơ: avatar · tên · email · ngày tham gia"]
+        QUOTA["Hạn mức AI: thanh tiến trình (đã dùng + đặt trước / giới hạn)<br/>nút Làm mới · hết quota → ghi chú vẫn lưu,<br/>nhưng chưa tìm ngữ nghĩa / tóm tắt được"]
+        LOGOUT["Đăng xuất — xoá cache ghi chú trên máy (ẩn ở AUTH_MODE=local)"]
+        DEL["Xoá tài khoản — 2 bước:<br/>bước 1/2 ConfirmDialog (liệt kê hệ quả) → bước 2/2 gõ 'XOÁ'<br/>xoá vĩnh viễn ghi chú, thư mục, chỉ mục, lịch sử quota"]
+        ACC --> QUOTA --> LOGOUT --> DEL
+    end
+    subgraph DICHVU["Dịch vụ AI (ProviderCard)"]
+        AI["Nguồn AI (server / endpoint riêng) → preset 6 mẫu →<br/>URL · khoá API · model chat · model embedding · timeout<br/>Kiểm tra kết nối · Lưu · banner rebuild chỉ mục"]
+    end
 ```
 
 ---

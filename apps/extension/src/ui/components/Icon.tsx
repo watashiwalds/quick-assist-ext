@@ -137,6 +137,20 @@ const PATHS = {
       <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
     </>
   ),
+  sliders: (
+    <>
+      <path d="M4 7h9M18 7h2M4 17h2M10 17h10" />
+      <circle cx="15.5" cy="7" r="2" />
+      <circle cx="7.5" cy="17" r="2" />
+    </>
+  ),
+  logout: (
+    <>
+      <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" />
+      <path d="m10 8-4 4 4 4" />
+      <path d="M6 12h9" />
+    </>
+  ),
   x: <path d="M6 6l12 12M18 6 6 18" />,
 } as const
 

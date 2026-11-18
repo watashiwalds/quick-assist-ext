@@ -396,9 +396,20 @@ describe('cài đặt (A08)', () => {
 
   it('hiển thị hạn mức còn lại', async () => {
     wrap(<SettingsView session={session} />)
-    await screen.findByText(/còn lại/)
+    await screen.findByText(/còn lại/i)
     expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('950')
     expect(screen.queryByRole('button', { name: 'Tạo lại hạn mức' })).toBeNull()
+  })
+
+  it('chuyển giữa 3 mục; “Xem hạn mức” mở thẳng Tài khoản', async () => {
+    const { container } = wrap(<SettingsView session={session} initialSection="account" />)
+    const activePanel = () => container.querySelector('.settings-panel.is-active')?.getAttribute('aria-labelledby')
+    expect(activePanel()).toBe('settings-account-title')
+    expect(screen.getByRole('button', { name: 'Tài khoản' }).getAttribute('aria-current')).toBe('page')
+    fireEvent.click(screen.getByRole('button', { name: 'Dịch vụ AI' }))
+    expect(activePanel()).toBe('settings-ai-title')
+    fireEvent.click(screen.getByRole('button', { name: 'Chung' }))
+    expect(activePanel()).toBe('settings-general-title')
   })
 
   it('BYOK hết hạn mức: banner + nút Đặt lại số liệu, không copy "không giới hạn" (D6)', async () => {
@@ -435,7 +446,7 @@ describe('cài đặt (A08)', () => {
       throw new Error(type)
     })
     wrap(<SettingsView session={session} />)
-    await screen.findByText(/còn lại/)
+    await screen.findByText(/còn lại/i)
     expect(screen.queryByText(/Đã hết hạn mức/)).toBeNull()
     expect(screen.getByRole('button', { name: 'Đặt lại số liệu' })).toBeTruthy()
   })
@@ -452,7 +463,7 @@ describe('cài đặt (A08)', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Tạo lại hạn mức' }))
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('quota/reset'))
     await waitFor(() => expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('0'))
-    expect(screen.getByText(/còn lại/).textContent).toMatch(/1\.000/)
+    expect(screen.getByText(/còn lại/i).textContent).toMatch(/1\.000/)
   })
 
   it('xoá tài khoản cần 2 bước + gõ XOÁ', async () => {

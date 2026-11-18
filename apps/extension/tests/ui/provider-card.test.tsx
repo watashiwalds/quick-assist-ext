@@ -2,7 +2,7 @@
 /**
  * P4 — Card "Nhà cung cấp AI" (ADR-0016 §6.2) với RPC giả lập:
  * preset điền mẫu, kiểm tra kết nối hiện kết quả, Lưu có ConfirmDialog khi đổi hàm embedding,
- * key không bao giờ rời form (không log, không storage), BYOK → nút "Dùng cấu hình server".
+ * key không bao giờ rời form (không log, không storage), BYOK → chọn “Dùng AI của server”.
  */
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -45,13 +45,14 @@ describe('Nhà cung cấp AI (ADR-0016)', () => {
   it('preset điền base_url + model gợi ý, mọi ô vẫn sửa được', async () => {
     rpc.mockImplementation(async (t: string) => (t === 'ai/config/get' ? serverCfg : Promise.reject(new Error(t))))
     wrap(<ProviderCard />)
-    fireEvent.change(await screen.findByLabelText('Mẫu cấu hình'), { target: { value: 'ollama' } })
-    expect((await screen.findByLabelText(/Base URL/) as HTMLInputElement).value).toBe('http://localhost:11434/v1')
-    expect((screen.getByLabelText('Model chat') as HTMLInputElement).value).toBe('llama3.1')
-    expect((screen.getByLabelText('Model embedding') as HTMLInputElement).value).toBe('nomic-embed-text')
+    fireEvent.click(await screen.findByRole('radio', { name: 'Endpoint riêng' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Ollama (local)' }))
+    expect((await screen.findByLabelText('URL') as HTMLInputElement).value).toBe('http://localhost:11434/v1')
+    expect((screen.getByLabelText('Mô hình trò chuyện') as HTMLInputElement).value).toBe('llama3.1')
+    expect((screen.getByLabelText('Mô hình embedding') as HTMLInputElement).value).toBe('nomic-embed-text')
     // sửa tay vẫn được
-    await type(/Base URL/, 'http://192.168.1.10:11434/v1')
-    expect((screen.getByLabelText(/Base URL/) as HTMLInputElement).value).toBe('http://192.168.1.10:11434/v1')
+    await type('URL', 'http://192.168.1.10:11434/v1')
+    expect((screen.getByLabelText('URL') as HTMLInputElement).value).toBe('http://192.168.1.10:11434/v1')
   })
 
   it('kiểm tra kết nối: hiện dim native + padded + latency, không gọi Lưu', async () => {
@@ -77,7 +78,7 @@ describe('Nhà cung cấp AI (ADR-0016)', () => {
       throw new Error(t)
     })
     wrap(<ProviderCard />)
-    await type('Model embedding', 'bge-m3')
+    await type('Mô hình embedding', 'bge-m3')
     fireEvent.click(await screen.findByRole('button', { name: 'Lưu' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Lưu và dựng lại' }))
     await waitFor(() =>
@@ -92,7 +93,7 @@ describe('Nhà cung cấp AI (ADR-0016)', () => {
       throw new Error(t)
     })
     wrap(<ProviderCard />)
-    await type('Model chat', 'llama3.2')
+    await type('Mô hình trò chuyện', 'llama3.2')
     fireEvent.click(await screen.findByRole('button', { name: 'Lưu' }))
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('ai/config/set', expect.objectContaining({ chat_model: 'llama3.2' })))
     expect(screen.queryByText(/Dựng lại chỉ mục/)).toBeNull()
@@ -109,11 +110,11 @@ describe('Nhà cung cấp AI (ADR-0016)', () => {
       throw new Error(t)
     })
     wrap(<ProviderCard />)
-    await type('API key', 'sk-brand-new')
+    await type('Khoá API', 'sk-brand-new')
     fireEvent.click(await screen.findByRole('button', { name: 'Lưu' }))
     await waitFor(() => expect(savedKey).toBe('sk-brand-new'))
 
-    await type('API key', '')
+    await type('Khoá API', '')
     fireEvent.click(screen.getByRole('button', { name: 'Lưu' }))
     await waitFor(() => expect(savedKey).toBe(null)) // không gõ mà đã có key → giữ key cũ
 
@@ -124,14 +125,14 @@ describe('Nhà cung cấp AI (ADR-0016)', () => {
     expect(await screen.findByText(/Không bắt buộc với model tự host/)).toBeTruthy()
   })
 
-  it('BYOK: nút Dùng cấu hình server + confirm → reset', async () => {
+  it('BYOK: chọn Dùng AI của server + confirm → reset', async () => {
     rpc.mockImplementation(async (t: string) => {
       if (t === 'ai/config/get') return byokCfg
       if (t === 'ai/config/reset') return { ...serverCfg, rebuild: { required: true, notes: 3 } }
       throw new Error(t)
     })
     wrap(<ProviderCard />)
-    fireEvent.click(await screen.findByRole('button', { name: 'Dùng cấu hình server' }))
+    fireEvent.click(await screen.findByRole('radio', { name: 'Dùng AI của server' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Chuyển và dựng lại' }))
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('ai/config/reset'))
     expect(await screen.findByText(/Đang dựng lại/)).toBeTruthy()
@@ -144,9 +145,10 @@ describe('Nhà cung cấp AI (ADR-0016)', () => {
       throw new Error(t)
     })
     wrap(<ProviderCard />)
-    await type(/Base URL/, 'https://api.openai.com/v1')
-    await type('Model chat', 'gpt-4o-mini')
-    await type('Model embedding', 'text-embedding-3-small')
+    fireEvent.click(await screen.findByRole('radio', { name: 'Endpoint riêng' }))
+    await type('URL', 'https://api.openai.com/v1')
+    await type('Mô hình trò chuyện', 'gpt-4o-mini')
+    await type('Mô hình embedding', 'text-embedding-3-small')
     fireEvent.click(await screen.findByRole('button', { name: 'Kiểm tra kết nối' }))
     expect(await screen.findByText(/http 401/)).toBeTruthy()
   })
@@ -194,7 +196,7 @@ describe('Nhà cung cấp AI (ADR-0016)', () => {
     wrap(<ProviderCard />)
     fireEvent.click(await screen.findByRole('button', { name: 'Kiểm tra kết nối' }))
     await screen.findByText(/768 chiều/)
-    await type('Model embedding', 'bge-m3')
+    await type('Mô hình embedding', 'bge-m3')
     expect(screen.queryByText(/chưa được kiểm tra/)).toBeNull() // chưa bấm Lưu → chưa cảnh báo
     fireEvent.click(await screen.findByRole('button', { name: 'Lưu' }))
     expect(await screen.findByText(/chưa được kiểm tra/)).toBeTruthy()

@@ -1,0 +1,782 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta
+      name="description"
+      content="Demo tĩnh cho màn Cài đặt của QuickAssist: điều hướng theo mục, tuỳ chọn chung, tài khoản và cấu hình endpoint AI."
+    />
+    <title>QuickAssist — Cài đặt</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <h1 class="sr-only">QuickAssist — Cài đặt</h1>
+
+    <svg class="icon-sprite" aria-hidden="true">
+      <symbol id="i-note" viewBox="0 0 24 24">
+        <path d="M7 3h7l5 5v13H7z" />
+        <path d="M14 3v5h5" />
+        <path d="M10 13h6M10 17h4" />
+      </symbol>
+      <symbol id="i-user" viewBox="0 0 24 24">
+        <circle cx="12" cy="8" r="3.5" />
+        <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+      </symbol>
+      <symbol id="i-sliders" viewBox="0 0 24 24">
+        <path d="M4 7h9M18 7h2M4 17h2M10 17h10" />
+        <circle cx="15.5" cy="7" r="2" />
+        <circle cx="7.5" cy="17" r="2" />
+      </symbol>
+      <symbol id="i-sparkles" viewBox="0 0 24 24">
+        <path d="m12 3 1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z" />
+        <path d="m19 14 .8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8z" />
+      </symbol>
+      <symbol id="i-info" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M12 11v5" />
+        <path d="M12 8h.01" />
+      </symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24">
+        <rect x="5" y="10" width="14" height="10" rx="2" />
+        <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+      </symbol>
+      <symbol id="i-chevron-right" viewBox="0 0 24 24">
+        <path d="m9 6 6 6-6 6" />
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24">
+        <path d="m5 12.5 4.5 4.5L19 7.5" />
+      </symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24">
+        <path d="M12 3 2.5 20h19z" />
+        <path d="M12 9v5" />
+        <path d="M12 17h.01" />
+      </symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24">
+        <path d="M4 7h16M9 7V4h6v3M6.5 7l1 13h9l1-13" />
+        <path d="M10 11v5M14 11v5" />
+      </symbol>
+      <symbol id="i-logout" viewBox="0 0 24 24">
+        <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" />
+        <path d="m10 8-4 4 4 4" />
+        <path d="M6 12h9" />
+      </symbol>
+      <symbol id="i-sync" viewBox="0 0 24 24">
+        <path d="M20 7v5h-5" />
+        <path d="M4 17v-5h5" />
+        <path d="M6.1 9A7 7 0 0 1 18.5 7.5L20 12" />
+        <path d="M17.9 15A7 7 0 0 1 5.5 16.5L4 12" />
+      </symbol>
+      <symbol id="i-x" viewBox="0 0 24 24">
+        <path d="M6 6l12 12M18 6 6 18" />
+      </symbol>
+    </svg>
+
+    <!-- Nhóm radio điều khiển hộp thoại: none = không mở hộp thoại nào. -->
+    <input class="sr-only dialog-toggle" type="radio" name="dialog" id="dialog-none" checked aria-label="Đóng hộp thoại" />
+
+    <div class="demo-root">
+      <!-- Thanh review: chỉ tồn tại trong demo, không thuộc sản phẩm. -->
+      <div class="demo-bar" role="region" aria-label="Điều khiển trạng thái demo">
+        <span class="demo-badge">DEMO</span>
+        <span class="demo-title">Cài đặt</span>
+
+        <fieldset class="state-switch">
+          <legend class="sr-only">Chọn trạng thái phản hồi để review</legend>
+          <label class="state-option" title="Form mặc định, chưa kiểm tra kết nối">
+            <input type="radio" name="demo-state" id="fb-default" checked />
+            <span>Mặc định</span>
+          </label>
+          <label class="state-option" title="Đang kiểm tra embedding và chat">
+            <input type="radio" name="demo-state" id="fb-testing" />
+            <span>Đang kiểm tra</span>
+          </label>
+          <label class="state-option" title="Kiểm tra kết nối thành công">
+            <input type="radio" name="demo-state" id="fb-ok" />
+            <span>Kết nối tốt</span>
+          </label>
+          <label class="state-option" title="Kiểm tra kết nối thất bại">
+            <input type="radio" name="demo-state" id="fb-error" />
+            <span>Lỗi kết nối</span>
+          </label>
+          <label class="state-option" title="Có thay đổi chưa lưu">
+            <input type="radio" name="demo-state" id="fb-dirty" />
+            <span>Chưa lưu</span>
+          </label>
+          <label class="state-option" title="Lưu khi chưa kiểm tra kết nối">
+            <input type="radio" name="demo-state" id="fb-untested" />
+            <span>Chưa kiểm tra</span>
+          </label>
+        </fieldset>
+
+        <span class="demo-divider" aria-hidden="true"></span>
+
+        <input
+          class="sr-only dialog-toggle"
+          type="radio"
+          name="dialog"
+          id="dialog-rebuild"
+          aria-label="Mở hộp thoại dựng lại chỉ mục"
+        />
+        <label class="demo-action" for="dialog-rebuild">Hộp thoại dựng lại</label>
+
+        <span class="demo-note">Chỉ để review bố cục &amp; trạng thái</span>
+      </div>
+
+      <div class="app">
+        <header class="topbar">
+          <span class="brand" aria-label="QuickAssist">
+            <span class="brand-mark" aria-hidden="true">
+              <svg class="icon"><use href="#i-note" /></svg>
+            </span>
+            <strong class="brand-name">QuickAssist</strong>
+          </span>
+
+          <span class="topbar-spacer"></span>
+
+          <span class="user" title="demo@quickassist.local">
+            <span class="avatar" aria-hidden="true">
+              <svg class="icon"><use href="#i-user" /></svg>
+            </span>
+            <span class="email">demo@quickassist.local</span>
+          </span>
+        </header>
+
+        <nav class="tabbar" aria-label="Chức năng">
+          <a class="tab" href="#">Thư viện</a>
+          <a class="tab tab-search" href="#">Tìm kiếm</a>
+          <a class="tab" href="#">Tìm trong trang</a>
+          <a class="tab" href="#">Hỏi AI</a>
+          <a class="tab" href="#" aria-current="page">Cài đặt</a>
+        </nav>
+
+        <div class="workspace">
+          <aside class="settings-rail">
+            <div class="rail-head">
+              <h2>Cài đặt</h2>
+              <p>Tuỳ chỉnh QuickAssist trên trình duyệt này.</p>
+            </div>
+
+            <fieldset class="rail-nav">
+              <legend class="sr-only">Mục cài đặt</legend>
+
+              <label class="nav-option">
+                <input type="radio" name="settings-section" id="nav-general" />
+                <span class="nav-item">
+                  <svg class="icon" aria-hidden="true"><use href="#i-sliders" /></svg>
+                  <span>Chung</span>
+                  <svg class="icon nav-chevron" aria-hidden="true"><use href="#i-chevron-right" /></svg>
+                </span>
+              </label>
+
+              <label class="nav-option">
+                <input type="radio" name="settings-section" id="nav-account" />
+                <span class="nav-item">
+                  <svg class="icon" aria-hidden="true"><use href="#i-user" /></svg>
+                  <span>Tài khoản</span>
+                  <svg class="icon nav-chevron" aria-hidden="true"><use href="#i-chevron-right" /></svg>
+                </span>
+              </label>
+
+              <label class="nav-option">
+                <input type="radio" name="settings-section" id="nav-ai" checked />
+                <span class="nav-item">
+                  <svg class="icon" aria-hidden="true"><use href="#i-sparkles" /></svg>
+                  <span>Dịch vụ AI</span>
+                  <svg class="icon nav-chevron" aria-hidden="true"><use href="#i-chevron-right" /></svg>
+                </span>
+              </label>
+            </fieldset>
+
+            <div class="rail-foot">
+              <div class="rail-user">
+                <span class="avatar" aria-hidden="true">
+                  <svg class="icon"><use href="#i-user" /></svg>
+                </span>
+                <span class="rail-user-copy">
+                  <strong>John Doe</strong>
+                  <span>demo@quickassist.local</span>
+                </span>
+                <input
+                  class="sr-only dialog-toggle"
+                  type="radio"
+                  name="dialog"
+                  id="dialog-about"
+                  aria-label="Về QuickAssist"
+                />
+                <label class="icon-btn" for="dialog-about" title="Về QuickAssist">
+                  <svg class="icon" aria-hidden="true"><use href="#i-info" /></svg>
+                </label>
+              </div>
+            </div>
+          </aside>
+
+          <main class="settings-main">
+            <section class="settings-panel panel-general" aria-labelledby="settings-general-title">
+              <div class="settings-head">
+                <h2 id="settings-general-title">Chung</h2>
+                <p class="settings-lede">
+                  Tuỳ chọn áp dụng cho toàn bộ QuickAssist trên trình duyệt này. Thay đổi được lưu ngay.
+                </p>
+              </div>
+
+              <div class="settings-body">
+                <section class="card settings-card">
+                  <div class="card-head">
+                    <h3>Lưu nhanh</h3>
+                    <p>
+                      Áp dụng cho <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd> và mục “Ghi chú văn bản này” trong menu chuột phải.
+                    </p>
+                  </div>
+                  <div class="field">
+                    <label for="folder-default">Thư mục mặc định</label>
+                    <select id="folder-default" aria-describedby="folder-hint">
+                      <option>Inbox</option>
+                      <option>Học tập</option>
+                      <option>Công việc</option>
+                      <option>Đọc sau</option>
+                    </select>
+                    <p class="field-hint" id="folder-hint">
+                      Muốn chọn thư mục khác cho từng ghi chú: chuột phải → “Ghi chú vào thư mục”.
+                    </p>
+                  </div>
+                </section>
+
+                <section class="card settings-card">
+                  <div class="card-head">
+                    <h3>Thanh tab</h3>
+                    <p>Tab “Tìm kiếm” đã gộp vào thanh tìm của Thư viện.</p>
+                  </div>
+                  <label class="check-row" for="show-search-tab">
+                    <input type="checkbox" id="show-search-tab" aria-describedby="search-tab-hint" />
+                    <span>Hiện tab “Tìm kiếm” trên thanh tab</span>
+                  </label>
+                  <p class="field-hint" id="search-tab-hint">
+                    Gõ trong Thư viện để lọc nhanh; nhấn <kbd>Enter</kbd> để tìm sâu bằng AI. Bật lại nếu bạn vẫn muốn tab riêng.
+                  </p>
+                </section>
+
+                <section class="card settings-card">
+                  <div class="card-head">
+                    <h3>Về QuickAssist</h3>
+                    <p>Phiên bản 1.0.0 · Trợ lý học tập cho ghi chú và hỏi AI.</p>
+                  </div>
+                  <div class="actions">
+                    <label class="btn btn-ghost btn-sm" for="dialog-about">Xem thông tin</label>
+                  </div>
+                </section>
+              </div>
+            </section>
+
+            <section class="settings-panel panel-account" aria-labelledby="settings-account-title">
+              <div class="settings-head">
+                <h2 id="settings-account-title">Tài khoản</h2>
+                <p class="settings-lede">Hồ sơ, hạn mức AI và các thao tác không thể hoàn tác.</p>
+              </div>
+
+              <div class="settings-body">
+                <section class="card settings-card profile-card">
+                  <span class="avatar avatar-lg" aria-hidden="true">
+                    <svg class="icon"><use href="#i-user" /></svg>
+                  </span>
+                  <div class="grow">
+                    <strong>John Doe</strong>
+                    <div class="muted">demo@quickassist.local</div>
+                    <small class="muted">Tham gia 27/09/2026</small>
+                  </div>
+                  <span class="badge">Tài khoản demo</span>
+                </section>
+
+                <section class="card settings-card">
+                  <div class="card-head quota-head">
+                    <div>
+                      <h3>Hạn mức AI</h3>
+                      <p>Dùng cho Hỏi AI, tìm kiếm ngữ nghĩa và tóm tắt.</p>
+                    </div>
+                    <button class="btn btn-ghost btn-sm" type="button">
+                      <svg class="icon" aria-hidden="true"><use href="#i-sync" /></svg>
+                      Làm mới
+                    </button>
+                  </div>
+
+                  <div
+                    class="progress"
+                    role="progressbar"
+                    aria-label="Đã dùng hạn mức AI"
+                    aria-valuemin="0"
+                    aria-valuemax="1105"
+                    aria-valuenow="796"
+                  >
+                    <div class="progress-bar progress-accent" style="width: 72%"></div>
+                  </div>
+
+                  <div class="quota-meta">
+                    <span>Đã dùng <strong>796</strong> / 1.105 token</span>
+                    <span>Còn lại <strong>309</strong></span>
+                  </div>
+
+                  <p class="field-hint">Hạn mức được đặt lại bởi quản trị viên hoặc khi bạn dùng khoá AI riêng.</p>
+                </section>
+
+                <section class="card settings-card">
+                  <div class="card-head">
+                    <h3>Phiên đăng nhập</h3>
+                    <p>Đăng xuất sẽ xoá bộ nhớ đệm ghi chú trên máy này.</p>
+                  </div>
+                  <div class="actions">
+                    <button class="btn btn-ghost" type="button">
+                      <svg class="icon" aria-hidden="true"><use href="#i-logout" /></svg>
+                      Đăng xuất
+                    </button>
+                  </div>
+                </section>
+
+                <section class="card settings-card danger-zone">
+                  <div class="card-head">
+                    <h3>Xoá tài khoản</h3>
+                    <p>
+                      Xoá vĩnh viễn tài khoản cùng toàn bộ ghi chú, thư mục, chỉ mục tìm kiếm và lịch sử hạn mức.
+                      Không thể khôi phục.
+                    </p>
+                  </div>
+                  <div class="actions">
+                    <input
+                      class="sr-only dialog-toggle"
+                      type="radio"
+                      name="dialog"
+                      id="dialog-delete1"
+                      aria-label="Mở hộp thoại xoá tài khoản"
+                    />
+                    <label class="btn btn-danger" for="dialog-delete1">
+                      <svg class="icon" aria-hidden="true"><use href="#i-trash" /></svg>
+                      Xoá tài khoản…
+                    </label>
+                  </div>
+                </section>
+              </div>
+            </section>
+
+            <section class="settings-panel panel-ai" aria-labelledby="settings-ai-title">
+              <div class="settings-head">
+                <h2 id="settings-ai-title">Cấu hình Endpoint</h2>
+                <p class="settings-lede">
+                  Chọn cách QuickAssist gọi AI. Endpoint riêng vẫn được gọi qua server QuickAssist để bảo vệ khoá API
+                  và tính hạn mức; khoá không được lưu trong trình duyệt.
+                </p>
+              </div>
+
+              <fieldset class="mode-field">
+                <legend>Nguồn AI</legend>
+                <div class="segmented">
+                  <label class="mode-option">
+                    <input type="radio" name="ai-mode" id="mode-server" aria-describedby="ai-mode-hint" />
+                    <span>Dùng AI của server</span>
+                  </label>
+                  <label class="mode-option">
+                    <input type="radio" name="ai-mode" id="mode-endpoint" checked aria-describedby="ai-mode-hint" />
+                    <span>Endpoint riêng</span>
+                  </label>
+                </div>
+                <p class="field-hint" id="ai-mode-hint">
+                  Chuyển sang “Dùng AI của server” sẽ xoá cấu hình riêng sau khi bạn xác nhận. Chuyển sang endpoint
+                  riêng để dùng khoá API của bạn.
+                </p>
+              </fieldset>
+
+              <div class="ai-server">
+                <div class="server-card">
+                  <div class="server-head">
+                    <div>
+                      <strong>Cấu hình server</strong>
+                      <p>QuickAssist dùng các giá trị do quản trị viên thiết lập.</p>
+                    </div>
+                    <span class="badge badge-ok">Đang áp dụng</span>
+                  </div>
+
+                  <dl class="server-grid">
+                    <div>
+                      <dt>Nhà cung cấp</dt>
+                      <dd>OpenAI</dd>
+                    </div>
+                    <div>
+                      <dt>Model trò chuyện</dt>
+                      <dd>gpt-4o-mini</dd>
+                    </div>
+                    <div>
+                      <dt>Model embedding</dt>
+                      <dd>text-embedding-3-small</dd>
+                    </div>
+                    <div>
+                      <dt>Thời gian chờ</dt>
+                      <dd>90 giây</dd>
+                    </div>
+                  </dl>
+
+                  <p class="server-note">
+                    <svg class="icon" aria-hidden="true"><use href="#i-info" /></svg>
+                    Bạn không cần khoá API. Chuyển sang endpoint riêng nếu muốn dùng nhà cung cấp hoặc model khác.
+                  </p>
+                </div>
+              </div>
+
+              <div class="ai-endpoint">
+                <form class="form-grid" aria-label="Cấu hình endpoint">
+                  <fieldset class="preset-field">
+                    <legend>Preset</legend>
+                    <div class="preset-list">
+                      <label class="preset-option">
+                        <input type="radio" name="preset" id="preset-openai" aria-describedby="preset-hint" />
+                        <span>OpenAI</span>
+                      </label>
+                      <label class="preset-option">
+                        <input type="radio" name="preset" id="preset-gemini" aria-describedby="preset-hint" />
+                        <span>Gemini</span>
+                      </label>
+                      <label class="preset-option">
+                        <input type="radio" name="preset" id="preset-ollama" aria-describedby="preset-hint" />
+                        <span>Ollama</span>
+                      </label>
+                      <label class="preset-option">
+                        <input type="radio" name="preset" id="preset-lmstudio" aria-describedby="preset-hint" />
+                        <span>LM Studio</span>
+                      </label>
+                      <label class="preset-option">
+                        <input type="radio" name="preset" id="preset-llamacpp" checked aria-describedby="preset-hint" />
+                        <span>llama.cpp</span>
+                      </label>
+                      <label class="preset-option">
+                        <input type="radio" name="preset" id="preset-custom" aria-describedby="preset-hint" />
+                        <span>Tuỳ chỉnh</span>
+                      </label>
+                    </div>
+                    <p class="field-hint" id="preset-hint">
+                      Chọn preset để điền giá trị gợi ý; mọi ô bên dưới vẫn sửa được. Sửa tay sẽ chuyển preset sang
+                      “Tuỳ chỉnh”.
+                    </p>
+                  </fieldset>
+
+                  <div class="settings-divider" role="presentation"></div>
+
+                  <div class="field">
+                    <label for="api-url">URL</label>
+                    <input
+                      id="api-url"
+                      type="url"
+                      value="http://localhost:8080/v1"
+                      maxlength="512"
+                      spellcheck="false"
+                      autocomplete="off"
+                      aria-describedby="url-hint"
+                    />
+                    <p class="field-hint" id="url-hint">
+                      Endpoint tương thích OpenAI hoặc Gemini API. Ví dụ: <code>http://localhost:8080/v1</code>.
+                    </p>
+                  </div>
+
+                  <div class="field">
+                    <label for="api-key">Khoá API</label>
+                    <div class="input-row">
+                      <input
+                        id="api-key"
+                        type="password"
+                        placeholder="Vì bạn chọn llama.cpp, đây là trường tuỳ chọn"
+                        maxlength="4096"
+                        spellcheck="false"
+                        autocomplete="off"
+                        aria-describedby="key-hint"
+                      />
+                      <button class="btn btn-soft btn-sm" type="button">Hiện</button>
+                    </div>
+                    <p class="field-hint with-icon" id="key-hint">
+                      <svg class="icon" aria-hidden="true"><use href="#i-lock" /></svg>
+                      <span>
+                        Không bắt buộc với model tự host. Khoá được mã hoá trên server, không lưu trong trình duyệt.
+                        Nếu đã lưu khoá, gõ khoá mới để thay hoặc bỏ trống để giữ.
+                      </span>
+                    </p>
+                  </div>
+
+                  <div class="field">
+                    <label for="chat-model">Mô hình trò chuyện</label>
+                    <p class="field-help" id="chat-help">
+                      Phục vụ các chức năng: <strong>Hỏi AI</strong>, một số chức năng cần suy luận.
+                    </p>
+                    <input
+                      id="chat-model"
+                      type="text"
+                      placeholder="Nhập tay, hoặc chọn từ gợi ý"
+                      list="chat-models"
+                      maxlength="100"
+                      spellcheck="false"
+                      autocomplete="off"
+                      aria-describedby="chat-help chat-hint"
+                    />
+                    <p class="field-hint" id="chat-hint">Gợi ý model lấy từ preset đang chọn.</p>
+                  </div>
+
+                  <div class="field">
+                    <label for="embed-model">Mô hình embedding</label>
+                    <p class="field-help" id="embed-help">
+                      Phục vụ các chức năng: <strong>Tìm kiếm ngữ nghĩa</strong>, cung cấp bằng chứng.
+                    </p>
+                    <input
+                      id="embed-model"
+                      type="text"
+                      placeholder="Nhập tay, hoặc chọn từ gợi ý"
+                      list="embed-models"
+                      maxlength="100"
+                      spellcheck="false"
+                      autocomplete="off"
+                      aria-describedby="embed-help embed-hint"
+                    />
+                    <p class="field-hint" id="embed-hint">Đổi model embedding sẽ dựng lại chỉ mục tìm kiếm.</p>
+                  </div>
+
+                  <datalist id="chat-models">
+                    <option value="llama-3.1-8b-instruct"></option>
+                    <option value="qwen2.5-7b-instruct"></option>
+                    <option value="mistral-7b-instruct"></option>
+                  </datalist>
+                  <datalist id="embed-models">
+                    <option value="nomic-embed-text"></option>
+                    <option value="bge-m3"></option>
+                  </datalist>
+
+                  <div class="form-actions">
+                    <button class="btn btn-soft btn-test" type="button">
+                      <span class="test-idle">Kiểm tra kết nối</span>
+                      <span class="test-busy">
+                        <span class="spinner" aria-hidden="true"></span>
+                        Đang kiểm tra…
+                      </span>
+                    </button>
+                    <button class="btn btn-primary" type="button">Lưu</button>
+                    <span class="save-note">Thay đổi chỉ có hiệu lực sau khi bấm Lưu.</span>
+                  </div>
+
+                  <div class="feedback feedback-testing" role="status">
+                    <div class="banner banner-info">
+                      <span class="spinner" aria-hidden="true"></span>
+                      <div>
+                        <strong>Đang kiểm tra kết nối…</strong>
+                        QuickAssist thử embedding và chat; có thể mất tới 30 giây.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="feedback feedback-ok" role="status">
+                    <div class="banner banner-ok">
+                      <svg class="icon" aria-hidden="true"><use href="#i-check" /></svg>
+                      <div>
+                        <strong>Kết nối tốt.</strong>
+                        Embedding nomic-embed-text trả 768 chiều (124ms) — chat llama-3.1-8b-instruct trả lời trong
+                        642ms. Cấu hình sẵn sàng để lưu.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="feedback feedback-error" role="alert">
+                    <div class="banner banner-error">
+                      <svg class="icon" aria-hidden="true"><use href="#i-alert" /></svg>
+                      <div>
+                        <strong>Lỗi ở bước embedding.</strong>
+                        Không kết nối được tới endpoint. Kiểm tra server đã chạy, URL và khoá API rồi thử lại.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="feedback feedback-dirty" role="status">
+                    <div class="banner banner-warn">
+                      <svg class="icon" aria-hidden="true"><use href="#i-alert" /></svg>
+                      <div>
+                        <strong>Có thay đổi chưa lưu.</strong>
+                        Bấm Lưu để áp dụng. Rời màn này hoặc đóng side panel sẽ mất các thay đổi đang nhập.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="feedback feedback-untested" role="status">
+                    <div class="banner banner-warn">
+                      <svg class="icon" aria-hidden="true"><use href="#i-alert" /></svg>
+                      <div>
+                        <strong>Cấu hình chưa được kiểm tra.</strong>
+                        Các trường đã đổi sau lần kiểm tra gần nhất. Bấm “Kiểm tra kết nối” trước khi Lưu để chắc
+                        endpoint và model hoạt động; bạn vẫn có thể lưu, nhưng nếu sai, chỉ mục sẽ lỗi.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="settings-divider" role="presentation"></div>
+
+                  <section class="advanced-block" aria-labelledby="advanced-title">
+                    <details open>
+                      <summary>
+                        <span class="advanced-title" id="advanced-title">Nâng cao</span>
+                        <span class="advanced-sub">Không thay đổi nếu bạn không hiểu rõ về các giá trị.</span>
+                        <svg class="icon advanced-chevron" aria-hidden="true"><use href="#i-chevron-right" /></svg>
+                      </summary>
+                      <div class="advanced-body">
+                        <div class="field">
+                          <label for="timeout">Thời gian chờ phản hồi (Time-out)</label>
+                          <div class="input-suffix-wrap">
+                            <input
+                              id="timeout"
+                              type="number"
+                              min="5"
+                              max="600"
+                              step="1"
+                              placeholder="90"
+                              inputmode="numeric"
+                              aria-describedby="timeout-hint"
+                            />
+                            <span class="input-suffix" aria-hidden="true">giây</span>
+                          </div>
+                          <p class="field-hint" id="timeout-hint">
+                            Bỏ trống để dùng 90 giây của server. Trong khoảng 5–600 giây.
+                          </p>
+                        </div>
+                      </div>
+                    </details>
+                  </section>
+                </form>
+              </div>
+            </section>
+          </main>
+        </div>
+      </div>
+    </div>
+    <div class="dialog-layer dialog-about" role="presentation">
+      <label class="dialog-scrim" for="dialog-none" aria-label="Đóng hộp thoại"></label>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="about-title">
+        <div class="modal-head">
+          <h2 id="about-title">Về QuickAssist</h2>
+          <label class="icon-btn" for="dialog-none" title="Đóng">
+            <svg class="icon" aria-hidden="true"><use href="#i-x" /></svg>
+          </label>
+        </div>
+        <div class="modal-body">
+          <div class="about-brand">
+            <span class="brand-mark" aria-hidden="true">
+              <svg class="icon"><use href="#i-note" /></svg>
+            </span>
+            <div>
+              <strong>QuickAssist</strong>
+              <div class="muted">Phiên bản 1.0.0</div>
+            </div>
+          </div>
+          <p>
+            QuickAssist giúp bạn lưu ghi chú từ trang web, tìm kiếm ngữ nghĩa và hỏi AI trên chính ghi chú của mình.
+          </p>
+          <dl class="about-list">
+            <div>
+              <dt>Ghi chú</dt>
+              <dd>Đồng bộ với server của bạn.</dd>
+            </div>
+            <div>
+              <dt>Lịch sử hội thoại</dt>
+              <dd>Chỉ lưu trên trình duyệt này.</dd>
+            </div>
+            <div>
+              <dt>Khoá API</dt>
+              <dd>Mã hoá trên server, không lưu trong trình duyệt.</dd>
+            </div>
+          </dl>
+        </div>
+        <div class="modal-foot">
+          <label class="btn btn-ghost" for="dialog-none">Đóng</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="dialog-layer dialog-delete1" role="presentation">
+      <label class="dialog-scrim" for="dialog-none" aria-label="Đóng hộp thoại"></label>
+      <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="delete1-title">
+        <div class="modal-head">
+          <h2 id="delete1-title">Xoá tài khoản? (bước 1/2)</h2>
+          <label class="icon-btn" for="dialog-none" title="Đóng">
+            <svg class="icon" aria-hidden="true"><use href="#i-x" /></svg>
+          </label>
+        </div>
+        <div class="modal-body">
+          <p class="modal-lede">Thao tác này không thể hoàn tác. Trước khi tiếp tục, hãy chắc chắn:</p>
+          <ul class="modal-list">
+            <li>Mọi ghi chú và thư mục sẽ bị xoá trên máy chủ.</li>
+            <li>Ghi chú đang chờ gửi trên máy này cũng bị xoá.</li>
+            <li>Bạn có thể đăng nhập lại sau, nhưng sẽ bắt đầu với thư viện trống.</li>
+          </ul>
+        </div>
+        <div class="modal-foot">
+          <label class="btn btn-ghost" for="dialog-none">Huỷ</label>
+          <input
+            class="sr-only dialog-toggle"
+            type="radio"
+            name="dialog"
+            id="dialog-delete2"
+            aria-label="Tiếp tục xoá tài khoản"
+          />
+          <label class="btn btn-danger" for="dialog-delete2">Tiếp tục</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="dialog-layer dialog-delete2" role="presentation">
+      <label class="dialog-scrim" for="dialog-none" aria-label="Đóng hộp thoại"></label>
+      <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="delete2-title">
+        <div class="modal-head">
+          <h2 id="delete2-title">Xác nhận xoá tài khoản (bước 2/2)</h2>
+          <label class="icon-btn" for="dialog-none" title="Đóng">
+            <svg class="icon" aria-hidden="true"><use href="#i-x" /></svg>
+          </label>
+        </div>
+        <div class="modal-body">
+          <p class="modal-lede">
+            Tài khoản <strong>demo@quickassist.local</strong> sẽ bị xoá ngay lập tức cùng toàn bộ dữ liệu.
+          </p>
+          <div class="field">
+            <label for="delete-confirm">Gõ <strong>XOÁ</strong> để xác nhận</label>
+            <input
+              id="delete-confirm"
+              type="text"
+              placeholder="XOÁ"
+              autocomplete="off"
+              spellcheck="false"
+              aria-describedby="delete2-hint"
+            />
+            <p class="field-hint" id="delete2-hint">
+              Nút xoá chỉ bật khi nội dung khớp chính xác. Bản demo không kiểm tra nội dung.
+            </p>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <label class="btn btn-ghost" for="dialog-none">Huỷ</label>
+          <label class="btn btn-ghost" for="dialog-delete1">Quay lại</label>
+          <label class="btn btn-danger" for="dialog-none">Xoá vĩnh viễn</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="dialog-layer dialog-rebuild" role="presentation">
+      <label class="dialog-scrim" for="dialog-none" aria-label="Đóng hộp thoại"></label>
+      <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="rebuild-title">
+        <div class="modal-head">
+          <h2 id="rebuild-title">Dựng lại chỉ mục tìm kiếm?</h2>
+          <label class="icon-btn" for="dialog-none" title="Đóng">
+            <svg class="icon" aria-hidden="true"><use href="#i-x" /></svg>
+          </label>
+        </div>
+        <div class="modal-body">
+          <p class="modal-lede">
+            Embedding model đã thay đổi. QuickAssist sẽ dựng lại chỉ mục ngữ nghĩa của <strong>42 ghi chú</strong>
+            bằng model mới.
+          </p>
+          <p class="modal-note">Tìm kiếm từ khoá vẫn hoạt động trong lúc dựng; xong sẽ tự dùng model mới.</p>
+        </div>
+        <div class="modal-foot">
+          <label class="btn btn-ghost" for="dialog-none">Huỷ</label>
+          <label class="btn btn-primary" for="dialog-none">Lưu và dựng lại</label>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

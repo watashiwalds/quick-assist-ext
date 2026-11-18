@@ -60,13 +60,14 @@ Tab **Tìm trong trang** giúp gom các đoạn liên quan thay vì bôi đen t�
 **Không có trang web?** Bấm **Dán nội dung…**, dán văn bản từ PDF, Word, chat, email… rồi bấm **Quét nội dung**. Có thể dán dài; khoảng 50 000 ký tự đầu được quét và bạn sẽ thấy thông báo nếu nội dung bị cắt. Nội dung dán không có trang gốc nên nút **Xem trên trang** bị khoá, và ghi chú được lưu **không kèm đường dẫn**.
 
 ## 9. Cài đặt, hạn mức AI, xoá tài khoản
-Tab **Cài đặt**: xem hạn mức AI đã dùng/còn lại, chọn thư mục mặc định khi lưu nhanh, **Đăng xuất** (xoá bộ nhớ đệm và lịch sử chat trên máy). **Xoá tài khoản** xoá vĩnh viễn mọi ghi chú, thư mục, chỉ mục và lịch sử hạn mức — cần xác nhận 2 bước và gõ "XOÁ".
+Tab **Cài đặt** có 3 mục (rail dọc ở cửa sổ rộng, hàng tab ngang ở side panel):
+**Chung** — thư mục mặc định khi lưu nhanh, ô tick hiện tab **Tìm kiếm**, thông tin phiên bản;
+**Tài khoản** — hồ sơ, hạn mức AI đã dùng/còn lại, **Đăng xuất** (xoá bộ nhớ đệm và lịch sử chat trên máy);
+**Dịch vụ AI** — cấu hình endpoint/BYOK. **Xoá tài khoản** xoá vĩnh viễn mọi ghi chú, thư mục, chỉ mục và lịch sử hạn mức — cần xác nhận 2 bước và gõ "XOÁ".
 
 ### 9.1 Dùng khoá AI của riêng bạn (BYOK)
 
-Card **Nhà cung cấp AI**: chọn mẫu (preset) OpenAI / Gemini / Ollama / LM Studio / llama.cpp,
-điền **base URL**, **API key** (nút Hiện/Ẩn/Xoá), **model chat** và **model embedding**, timeout,
-rồi bấm **Kiểm tra kết nối** → **Lưu**. Muốn quay về AI của server, bấm **Dùng cấu hình server**.
+Mục **Dịch vụ AI** → **Nguồn AI**: chọn **Endpoint riêng**, rồi chọn preset OpenAI / Gemini / Ollama / LM Studio / llama.cpp / Tuỳ chỉnh — preset chỉ điền giá trị gợi ý. Điền **URL**, **Khoá API** (nút Hiện/Ẩn/Xoá), **Mô hình trò chuyện** và **Mô hình embedding**, timeout ở **Nâng cao**, rồi bấm **Kiểm tra kết nối** → **Lưu**. Muốn quay về AI của server, chọn **Dùng AI của server**.
 
 - **Key chỉ nằm trên server** (mã hoá AES-GCM): extension không lưu key, không log key; server
   proxy mọi lời gọi AI. Có thể bấm **Xoá key** bất cứ lúc nào.
