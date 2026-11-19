@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import unittest
 
-from steady_backend import StreamResult
+from steady_backend import SteadyConfig, StreamResult
 from steady_dataset import DatasetBundle, QAPair
-from steady_flows import _flatten_sources, not_ready_files, run_rag, run_search
+from steady_flows import (_flatten_sources, _idempotency_key, not_ready_files,
+                          run_rag, run_search)
 
 
 class FakeClient:
@@ -129,6 +130,22 @@ class TestFlowsResilience(unittest.TestCase):
         self.assertGreater(ok.context_chars, 0)
         self.assertTrue(failed.error)
         self.assertEqual(emitted, [("rag", "QA-001"), ("rag", "QA-002")])
+
+    def test_idempotency_key_fits_backend_header_limit(self):
+        # run_id dài (nhãn model dài) từng làm key 112 ký tự → backend 422.
+        cfg = SteadyConfig(folder_mode="run", fresh_notes=True)
+        long_scope = "20261119_045531_300530_local-qwen-ternary-bonsai-9b-qwen-gte-2-5-1bQ4_full-local"
+        key = _idempotency_key(cfg, long_scope, "nội dung")
+        self.assertLessEqual(len(key), 100)
+        self.assertEqual(key, _idempotency_key(cfg, long_scope, "nội dung"))
+        self.assertNotEqual(key, _idempotency_key(cfg, long_scope + "-2", "nội dung"))
+        self.assertNotEqual(key, _idempotency_key(cfg, long_scope, "khác"))
+
+    def test_idempotency_key_short_scope_keeps_readable_form(self):
+        cfg = SteadyConfig(folder_mode="run")
+        key = _idempotency_key(cfg, "run-1", "nội dung")
+        self.assertEqual(key, f"steady-run-1-{key.rsplit('-', 1)[1]}")
+        self.assertLessEqual(len(key), 100)
 
     def test_not_ready_files(self):
         from steady_metrics import IngestCase
