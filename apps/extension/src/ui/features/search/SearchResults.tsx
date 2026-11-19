@@ -5,8 +5,7 @@
  */
 import { useEffect, useState } from 'react'
 import type { SearchNote, SearchSource } from '@/shared/api/types'
-import { Button } from '../../components'
-import { SourceGroup } from '../notes/SourceGroup'
+import { Button, ConfidenceBadge, GroupSection } from '../../components'
 
 const INITIAL_NOTES = 3
 
@@ -43,7 +42,7 @@ export function SearchResults({
         const hiddenLoaded = s.notes.length - visible.length
         const beyondLoaded = Math.max(0, s.note_count - s.notes.length)
         return (
-          <SourceGroup
+          <GroupSection
             key={key}
             label={s.label}
             count={s.note_count}
@@ -65,7 +64,7 @@ export function SearchResults({
                 {beyondLoaded > 0 && <small className="muted">và {beyondLoaded} ghi chú khác trong nguồn này</small>}
               </div>
             )}
-          </SourceGroup>
+          </GroupSection>
         )
       })}
     </div>
@@ -77,9 +76,7 @@ function SearchNoteCard({ note, onOpenNote }: { note: SearchNote; onOpenNote: (n
     <li className="card">
       <div className="row spread">
         <h3 className="grow">{note.title ?? 'Ghi chú'}</h3>
-        <small className="muted" title="Độ tương đồng ngữ nghĩa (cosine)">
-          {Math.round(note.similarity * 100)}%
-        </small>
+        <ConfidenceBadge value={note.similarity} kind="similarity" />
       </div>
       {note.summary ? (
         <div className="clamp">

@@ -8,16 +8,16 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import type { Note, SearchSource } from '@/shared/api/types'
 import { rpc } from '@/shared/messaging/client'
-import { Button, ConfirmDialog, EmptyState, ErrorState, Icon, Input, Select, Spinner, useToast } from '../../components'
+import { Button, ConfirmDialog, EmptyState, ErrorState, GroupSection, Icon, Input, PaneHeader, Select, Spinner, useToast } from '../../components'
 import { useAction, useAsync, useBroadcast } from '../../lib/hooks'
 import { SearchResults } from '../search/SearchResults'
+import { countSearchNotes } from '../search/searchSummary'
 import { FolderManager } from './FolderManager'
 import { groupNotesBySource } from './groupNotes'
 import { MoveNotesDialog } from './MoveNotesDialog'
 import { NoteCard } from './NoteCard'
 import { NoteReader } from './NoteReader'
 import { PendingNotes } from './PendingNotes'
-import { SourceGroup } from './SourceGroup'
 
 export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?: string | null; onOpened?: () => void; onGoSettings: () => void }) {
   const [folderId, setFolderId] = useState<string | null>(null)
@@ -87,7 +87,7 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
   }
 
   const folderName = useMemo(() => new Map((folders.data ?? []).map((f) => [f.id, f.name])), [folders.data])
-  const resultNotes = useMemo(() => hits?.reduce((n, s) => n + s.notes.length, 0) ?? 0, [hits])
+  const resultNotes = useMemo(() => (hits ? countSearchNotes(hits) : 0), [hits])
   const visible = useMemo(() => {
     const q = filter.trim().toLocaleLowerCase('vi')
     const list = notes.data ?? []
@@ -139,7 +139,7 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
 
   return (
     <section className={`library${active ? ' has-active' : ''}`} aria-label="Thư viện ghi chú">
-      <aside className="folder-rail" aria-label="Thư mục">
+      <aside className="folder-rail pane-rail" aria-label="Thư mục">
         <div className="rail-head">
           <h2 className="rail-title">Thư mục</h2>
         </div>
@@ -189,32 +189,40 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
       </aside>
 
       <div className="notes-pane" aria-label="Danh sách ghi chú">
-        <div className="pane-head">
-          <div className="pane-heading">
-            <h2 className="pane-title">
-              {showResults ? 'Kết quả tìm kiếm AI' : folderId ? (folderName.get(folderId) ?? 'Thư mục') : 'Tất cả ghi chú'}
-            </h2>
-            {showResults ? (
-              <p className="pane-subtitle" aria-live="polite">
-                {search.busy ? 'Đang tìm nội dung tương đồng…' : hits ? `${hits.length} nguồn · ${resultNotes} ghi chú cho “${asked}”` : ''}
-              </p>
-            ) : (
-              !notes.loading && !notes.error && <p className="pane-subtitle">{visible.length} ghi chú</p>
-            )}
-          </div>
-          <div className="pane-actions">
-            <Button variant="ghost" size="sm" aria-pressed={selectMode} onClick={() => (setSelectMode(!selectMode), setSelected(new Set()))}>
-              <Icon name="check-square" size={15} />
-              {selectMode ? 'Xong' : 'Chọn'}
-            </Button>
-            <Button variant="ghost" size="sm" title="Đồng bộ với máy chủ" aria-label="Đồng bộ" onClick={() => void rpc('notes/sync').then(notes.reload)}>
-              <Icon name="sync" size={15} />
-            </Button>
-            <Button variant="ghost" size="sm" aria-label="Thư mục" title="Tạo, đổi tên, xoá thư mục" onClick={() => setManaging(true)}>
-              <Icon name="folder" size={15} />
-            </Button>
-          </div>
-        </div>
+        <PaneHeader
+          className="pane-head"
+          rowClassName="pane-head-row"
+          headingClassName="pane-heading"
+          titleClassName="pane-title"
+          subtitleClassName="pane-subtitle"
+          actionsClassName="pane-actions"
+          title={showResults ? 'Kết quả tìm kiếm AI' : folderId ? (folderName.get(folderId) ?? 'Thư mục') : 'Tất cả ghi chú'}
+          subtitle={
+            showResults
+              ? search.busy
+                ? 'Đang tìm nội dung tương đồng…'
+                : hits
+                  ? `${hits.length} nguồn · ${resultNotes} ghi chú cho “${asked}”`
+                  : ''
+              : !notes.loading && !notes.error
+                ? `${visible.length} ghi chú`
+                : undefined
+          }
+          actions={
+            <>
+              <Button variant="ghost" size="sm" aria-pressed={selectMode} onClick={() => (setSelectMode(!selectMode), setSelected(new Set()))}>
+                <Icon name="check-square" size={15} />
+                {selectMode ? 'Xong' : 'Chọn'}
+              </Button>
+              <Button variant="ghost" size="sm" title="Đồng bộ với máy chủ" aria-label="Đồng bộ" onClick={() => void rpc('notes/sync').then(notes.reload)}>
+                <Icon name="sync" size={15} />
+              </Button>
+              <Button variant="ghost" size="sm" aria-label="Thư mục" title="Tạo, đổi tên, xoá thư mục" onClick={() => setManaging(true)}>
+                <Icon name="folder" size={15} />
+              </Button>
+            </>
+          }
+        />
         <div className="pane-tools">
           <form role="search" onSubmit={(e) => void runSearch(e)}>
             <div className="search-row">
@@ -313,7 +321,7 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
                   const ids = g.notes.map((n) => n.id)
                   const allSelected = ids.length > 0 && ids.every((id) => selected.has(id))
                   return (
-                    <SourceGroup
+                    <GroupSection
                       key={key}
                       label={g.label}
                       count={g.notes.length}
@@ -345,7 +353,7 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
                           />
                         ))}
                       </ul>
-                    </SourceGroup>
+                    </GroupSection>
                   )
                 })}
               </div>

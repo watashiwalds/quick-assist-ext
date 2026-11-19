@@ -14,6 +14,11 @@
      Tham chiếu var() nên tự theo light/dark; không cần khai báo lại trong dark. */
   --rail-bg: var(--bg);
   --rail-border: var(--border-soft);
+  /* Một nhịp dọc cho mọi pane: chiều cao header, đệm ngang, đệm thẻ nội dung. */
+  --pane-head-h: 56px;
+  --pane-pad: 14px;
+  --card-pad: 9px 10px;
+  --group-head-bg: var(--surface);
   --accent: #0b57d0;
   --accent-hover: #0a4cb8;
   --accent-fg: #ffffff;
@@ -200,8 +205,10 @@ textarea { resize: vertical; }
 .drawer-scrim { display: none; }
 
 /* --- Rail phiên --- */
-.session-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--rail-bg); border-right: 1px solid var(--rail-border); }
-.session-head { display: grid; flex: 0 0 auto; gap: 10px; padding: 16px 14px 10px; }
+/* Rail dùng chung (Thư mục / Truy vấn / Phiên chat): cùng nền, viền, hướng cột.
+   `.pane-rail` là class chuẩn; class cũ giữ làm alias trong giai đoạn chuyển tiếp. */
+.pane-rail, .session-pane, .folder-rail, .pf-rail { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--rail-bg); border-right: 1px solid var(--rail-border); }
+.session-head { display: grid; flex: 0 0 auto; gap: 10px; padding: 16px var(--pane-pad) 10px; }
 .session-title-row { display: flex; align-items: center; gap: 6px; }
 .session-title-row h2 { margin: 0; font-size: 15px; font-weight: 650; color: var(--fg-strong); letter-spacing: -0.01em; }
 .drawer-close { display: none; }
@@ -236,7 +243,7 @@ textarea { resize: vertical; }
 
 /* --- Hội thoại: header --- */
 .conversation { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--bg); }
-.conv-head { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; min-height: 56px; padding: 9px 24px; background: var(--bg); border-bottom: 1px solid var(--border-soft); }
+.conv-head { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; min-height: var(--pane-head-h); padding: 9px 24px; background: var(--bg); border-bottom: 1px solid var(--border-soft); }
 .conv-drawer-toggle { display: none; }
 .conv-title-wrap { flex: 1; min-width: 0; }
 .conv-title { margin: 0; overflow: hidden; font-size: 15px; font-weight: 650; line-height: 1.35; color: var(--fg-strong); letter-spacing: -0.01em; text-overflow: ellipsis; white-space: nowrap; }
@@ -328,7 +335,7 @@ textarea { resize: vertical; }
 .source-domain-head { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 11px; font-weight: 650; color: var(--muted); }
 .source-domain-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .source-domain-count { flex: 0 0 auto; padding: 1px 7px; font-size: 10.5px; font-weight: 500; color: var(--muted); background: var(--surface); border: 1px solid var(--border-soft); border-radius: 999px; }
-.source-card { display: flex; gap: 9px; padding: 9px 10px; background: var(--bg); border: 1px solid var(--border-soft); border-radius: var(--radius-sm); }
+.source-card { display: flex; gap: 9px; padding: var(--card-pad); background: var(--bg); border: 1px solid var(--border-soft); border-radius: var(--radius-sm); }
 .source-index { flex: 0 0 auto; font-size: 11px; font-weight: 650; line-height: 1.6; color: var(--accent); }
 .source-body { min-width: 0; }
 .source-title { margin: 0; font-size: 12px; font-weight: 600; line-height: 1.5; color: var(--fg-strong); }
@@ -486,9 +493,9 @@ textarea { resize: vertical; }
   background: var(--bg);
 }
 
-/* --- Rail thư mục --- */
-.folder-rail { display: flex; flex-direction: column; min-height: 0; background: var(--rail-bg); border-right: 1px solid var(--rail-border); }
-.rail-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 14px 6px; }
+/* --- Rail thư mục ---
+   Layout nền/viền lấy từ `.pane-rail`; `.folder-rail` giữ alias và chỉ còn phần riêng. */
+.rail-head { display: flex; align-items: center; justify-content: space-between; padding: 14px var(--pane-pad) 6px; }
 .rail-title { margin: 0; font-size: 11px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .folder-nav { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 8px; display: grid; gap: 2px; align-content: start; }
 .folder-item { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 8px; border-radius: var(--radius-sm); color: var(--fg); font-size: 13px; text-decoration: none; }
@@ -505,7 +512,8 @@ textarea { resize: vertical; }
 
 /* --- Cột danh sách --- */
 .notes-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--bg); border-right: 1px solid var(--border-soft); }
-.pane-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 14px 14px 4px; }
+.pane-head { padding: 14px var(--pane-pad) 4px; }
+.pane-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .pane-heading { min-width: 0; }
 .pane-title { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -0.01em; color: var(--fg-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pane-subtitle { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
@@ -528,7 +536,7 @@ textarea { resize: vertical; }
 .pref-check input { margin: 0; }
 .pane-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 0 10px 14px; }
 .note-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 2px; }
-.note-item { display: flex; gap: 8px; align-items: flex-start; padding: 9px 10px; border: 1px solid transparent; border-radius: var(--radius); color: inherit; text-decoration: none; cursor: pointer; }
+.note-item { display: flex; gap: 8px; align-items: flex-start; padding: var(--card-pad); border: 1px solid transparent; border-radius: var(--radius); color: inherit; text-decoration: none; cursor: pointer; }
 a.note-item:hover { background: var(--surface); text-decoration: none; }
 .note-item input[type='checkbox'] { margin-top: 2px; }
 .note-item-body { display: grid; gap: 4px; flex: 1; min-width: 0; }
@@ -549,7 +557,7 @@ a.note-item:hover { background: var(--surface); text-decoration: none; }
 .source-group + .source-group { margin-top: 4px; }
 .source-group-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 2px; }
 .source-group-toggle { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 4px 6px; font: inherit; color: var(--fg); text-align: left; background: none; border: 0; border-radius: var(--radius-sm); cursor: pointer; }
-.source-group-toggle:hover { background: var(--surface); }
+.source-group-toggle:hover { background: var(--group-head-bg); }
 .source-group-toggle .icon { flex: 0 0 auto; color: var(--muted); }
 .source-group-label { overflow: hidden; font-size: 12px; font-weight: 650; letter-spacing: 0.04em; color: var(--muted); text-transform: uppercase; text-overflow: ellipsis; white-space: nowrap; }
 .source-group-count { flex: 0 0 auto; padding: 1px 7px; font-size: 11px; color: var(--muted); background: var(--surface); border: 1px solid var(--border-soft); border-radius: 999px; }
@@ -656,7 +664,7 @@ a.note-item:hover { background: var(--surface); text-decoration: none; }
 .pagematch { display: grid; grid-template-columns: clamp(300px, 32%, 380px) minmax(0, 1fr); height: 100%; min-height: 0; background: var(--bg); }
 
 /* --- Rail truy vấn (headline + lede trên, composer neo đáy) --- */
-.pf-rail { display: flex; flex-direction: column; min-height: 0; padding: 22px 20px 18px; background: var(--rail-bg); border-right: 1px solid var(--rail-border); }
+.pf-rail { padding: 22px 20px 18px; }
 .pf-headline { margin: 0; max-width: 24ch; font-size: 18px; font-weight: 650; line-height: 1.45; letter-spacing: -0.015em; color: var(--fg-strong); }
 .pf-lede { margin: 8px 0 0; max-width: 36ch; font-size: 13px; line-height: 1.6; color: var(--muted); }
 .pf-composer { display: grid; gap: 8px; margin-top: auto; }
@@ -708,8 +716,10 @@ a.note-item:hover { background: var(--surface); text-decoration: none; }
 .pf-select input { margin: 0; }
 .pf-index { font-size: 12.5px; font-weight: 600; color: var(--fg); white-space: nowrap; }
 .pf-cardhead .btn-link { margin-left: auto; }
-.pf-sim { display: inline-flex; align-items: center; justify-content: center; min-width: 38px; height: 18px; padding: 0 6px; font-size: 10.5px; font-weight: 650; line-height: 1; color: var(--accent); background: var(--accent-soft); border: 1px solid var(--accent-soft-border); border-radius: 999px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.pf-sim.is-unverified { color: var(--muted); background: var(--surface); border-color: var(--border); }
+/* Badge tin cậy dùng chung (Phase 5): Tìm trong trang + kết quả tìm kiếm.
+   `.pf-sim` giữ làm alias trong giai đoạn chuyển tiếp (markup cũ/ảnh chụp e2e). */
+.confidence-badge, .pf-sim { display: inline-flex; align-items: center; justify-content: center; min-width: 38px; height: 18px; padding: 0 6px; font-size: 10.5px; font-weight: 650; line-height: 1; color: var(--accent); background: var(--accent-soft); border: 1px solid var(--accent-soft-border); border-radius: 999px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.confidence-badge.is-unverified, .pf-sim.is-unverified { color: var(--muted); background: var(--surface); border-color: var(--border); }
 .pf-text { margin: 7px 0 0; font-size: 14px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* --- Thanh lưu (thư mục + hành động; chỉ hiện "Lưu toàn bộ" khi mode=full_page) --- */

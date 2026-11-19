@@ -18,7 +18,7 @@ import { config } from '@/shared/config'
 import { type SerializedError, toSerialized } from '@/shared/errors'
 import { rpc } from '@/shared/messaging/client'
 import type { PageMatchRun } from '@/shared/messaging/protocol'
-import { Banner, Button, ConfirmDialog, EmptyState, ErrorState, Icon, Modal, Select, TextArea, useToast } from '../../components'
+import { Banner, Button, ConfidenceBadge, ConfirmDialog, EmptyState, ErrorState, Icon, Modal, PaneHeader, Select, TextArea, useToast } from '../../components'
 import { useBroadcast } from '../../lib/hooks'
 
 const SEP = '\n\n'
@@ -338,7 +338,7 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
 
   return (
     <section className="pagematch" aria-label="Tìm trong trang">
-      <aside className="pf-rail" aria-label="Truy vấn">
+      <aside className="pf-rail pane-rail" aria-label="Truy vấn">
         <div className="pf-rail-top">
           <h2 className="pf-headline">{pasteMode ? 'Dán nội dung để tìm và gom đoạn' : 'Nêu câu hỏi, nội dung trên trang sẽ trả lời cho bạn'}</h2>
           <p className="pf-lede">
@@ -396,32 +396,28 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
 
       <section className="pf-results">
         {result && !busy && items.length > 0 && (
-          <header className="pf-head">
-            {result.mode === 'full_page' && (
-              <Banner tone="info">
-                <div className="pf-notice">
-                  <Icon name="info" size={16} />
-                  <span>
-                    {fromPaste ? 'Hầu như toàn bộ nội dung khớp truy vấn (' : 'Hầu như cả trang khớp truy vấn ('}
-                    <strong>{Math.round(result.match_ratio * 100)}%</strong>) — nên lưu toàn bộ thay vì chọn từng đoạn.
-                  </span>
-                </div>
-              </Banner>
-            )}
-            <div className="pf-titlerow">
-              <div>
-                <h2 className="pf-title">Kết quả truy vấn</h2>
-                <p className="pf-meta" aria-live="polite">
-                  <span>
-                    Thấy <strong>{items.length}</strong> đoạn
-                  </span>
-                  <span className="meta-dot" aria-hidden />
-                  <span>
-                    đã chọn <strong>{chosen.length}</strong>
-                  </span>
-                </p>
-              </div>
-              <div className="pf-headactions">
+          <PaneHeader
+            as="header"
+            className="pf-head"
+            rowClassName="pf-titlerow"
+            titleClassName="pf-title"
+            subtitleClassName="pf-meta"
+            actionsClassName="pf-headactions"
+            title="Kết quả truy vấn"
+            subtitle={
+              <>
+                <span>
+                  Thấy <strong>{items.length}</strong> đoạn
+                </span>
+                <span className="meta-dot" aria-hidden />
+                <span>
+                  đã chọn <strong>{chosen.length}</strong>
+                </span>
+              </>
+            }
+            footer={<p className="pf-hint">Khi lưu, các đoạn xếp theo thứ tự trong trang.</p>}
+            actions={
+              <>
                 <div className="pf-sort" role="group" aria-label="Sắp xếp kết quả">
                   <button
                     type="button"
@@ -449,10 +445,21 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
                 <Button variant="ghost" size="sm" onClick={() => setSelected(new Set(allSelected ? [] : items.map((i) => i.id)))}>
                   {allSelected ? 'Bỏ chọn' : 'Chọn tất cả'}
                 </Button>
-              </div>
-            </div>
-            <p className="pf-hint">Khi lưu, các đoạn xếp theo thứ tự trong trang.</p>
-          </header>
+              </>
+            }
+          >
+            {result.mode === 'full_page' && (
+              <Banner tone="info">
+                <div className="pf-notice">
+                  <Icon name="info" size={16} />
+                  <span>
+                    {fromPaste ? 'Hầu như toàn bộ nội dung khớp truy vấn (' : 'Hầu như cả trang khớp truy vấn ('}
+                    <strong>{Math.round(result.match_ratio * 100)}%</strong>) — nên lưu toàn bộ thay vì chọn từng đoạn.
+                  </span>
+                </div>
+              </Banner>
+            )}
+          </PaneHeader>
         )}
 
         <div className="pf-scroll">
@@ -529,13 +536,7 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
                           <input type="checkbox" checked={selected.has(it.id)} onChange={() => toggle(it.id)} aria-label={`Chọn đoạn ${n}`} />
                           <span className="pf-index">Đoạn {n}</span>
                         </label>
-                        <span
-                          className={`pf-sim${it.verified ? '' : ' is-unverified'}`}
-                          title={it.verified ? 'AI tin cậy đoạn này khớp truy vấn' : 'AI chưa thẩm định — theo độ tương đồng cosine'}
-                        >
-                          <span className="sr-only">{it.verified ? 'Độ tin cậy ' : 'Độ tương đồng '}</span>
-                          {Math.round(it.confidence * 100)}%
-                        </span>
+                        <ConfidenceBadge value={it.confidence} verified={it.verified} />
                         <Button
                           variant="link"
                           size="sm"

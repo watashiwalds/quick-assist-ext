@@ -3,6 +3,7 @@
  * A05, C03, R04, A08, SUM-03 — kiểm thử giao diện với RPC giả lập (không cần background/server).
  */
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppError } from '../../src/shared/errors'
 import { installChrome } from '../helpers/chrome'
@@ -11,7 +12,7 @@ installChrome()
 const rpc = vi.fn()
 vi.mock('../../src/shared/messaging/client', () => ({ rpc: (...a: unknown[]) => rpc(...a), onBroadcast: () => () => undefined }))
 
-const { ConfirmDialog, Tabs, ToastProvider } = await import('../../src/ui/components')
+const { ConfidenceBadge, ConfirmDialog, Tabs, ToastProvider } = await import('../../src/ui/components')
 const { NoteEditor } = await import('../../src/ui/features/notes/NoteEditor')
 const { NotesView } = await import('../../src/ui/features/notes/NotesView')
 const { SearchView } = await import('../../src/ui/features/search/SearchView')
@@ -53,6 +54,56 @@ describe('design system (A05)', () => {
     expect(btn.disabled).toBe(false)
     fireEvent.click(btn)
     expect(onConfirm).toHaveBeenCalled()
+  })
+
+  it('Modal: Esc đóng, trả focus về nút mở; Tab giữ focus trong hộp thoại', () => {
+    const onCancel = vi.fn()
+    function Host() {
+      const [open, setOpen] = useState(false)
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            Mở hộp thoại
+          </button>
+          <ConfirmDialog
+            open={open}
+            title="Xác nhận"
+            message="m"
+            onConfirm={() => undefined}
+            onCancel={() => {
+              onCancel()
+              setOpen(false)
+            }}
+          />
+        </>
+      )
+    }
+    render(<Host />)
+    const opener = screen.getByRole('button', { name: 'Mở hộp thoại' })
+    opener.focus()
+    fireEvent.click(opener)
+    const dialog = screen.getByRole('dialog')
+    const focusables = dialog.querySelectorAll<HTMLElement>('button:not([disabled]), input, textarea, select, a[href]')
+    const first = focusables[0]!
+    const last = focusables[focusables.length - 1]!
+    last.focus()
+    fireEvent.keyDown(dialog, { key: 'Tab' })
+    expect(document.activeElement).toBe(first)
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    expect(onCancel).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(document.activeElement).toBe(opener)
+  })
+
+  it('ConfidenceBadge: kẹp 0..1, phân biệt tin cậy/độ tương đồng và fallback', () => {
+    const { rerender } = render(<ConfidenceBadge value={1.4} />)
+    expect(screen.getByTitle('AI tin cậy đoạn này khớp truy vấn').textContent).toBe('Độ tin cậy 100%')
+    rerender(<ConfidenceBadge value={0.58} verified={false} />)
+    const fallback = screen.getByTitle('AI chưa thẩm định — theo độ tương đồng cosine')
+    expect(fallback.textContent).toBe('Độ tương đồng 58%')
+    expect(fallback.className).toContain('is-unverified')
+    rerender(<ConfidenceBadge value={-0.2} kind="similarity" />)
+    expect(screen.getByTitle('Độ tương đồng ngữ nghĩa (cosine)').textContent).toBe('Độ tương đồng 0%')
   })
 })
 
@@ -122,6 +173,9 @@ describe('thư viện (C03)', () => {
     wrap(<NotesView onGoSettings={() => undefined} />)
     const groupA = await screen.findByRole('region', { name: 'Nguồn a.vn' })
     const toggle = screen.getByRole('button', { name: /a\.vn.*2 ghi chú/ })
+    expect(toggle.tagName).toBe('BUTTON')
+    toggle.focus()
+    expect(document.activeElement).toBe(toggle)
     expect(toggle.getAttribute('aria-expanded')).toBe('true')
     expect(groupA.textContent).toContain('Tóm tắt n1')
     expect(groupA.textContent).toContain('Tóm tắt từ ghi chú')
@@ -230,6 +284,38 @@ describe('thanh tìm gộp trong Thư viện (R04 + C03)', () => {
     expect(screen.queryByText('Tiêu đề n1')).toBeNull()
   })
 
+  it('đếm ghi chú theo note_count của nguồn (không phải số note đã tải) + "Xem thêm"', async () => {
+    rpc.mockImplementation(async (type: string) => {
+      if (type === 'folders/list') return FOLDERS
+      if (type === 'notes/list') return [note('n1')]
+      if (type === 'outbox/list') return []
+      if (type === 'search/query')
+        return [{
+          domain: 'pho.vn',
+          label: 'pho.vn',
+          source_rank: 1,
+          note_count: 12, // tổng đạt ngưỡng; API chỉ trả 3 note đầu
+          notes: [1, 2, 3].map((i) => ({
+            note_id: `n${i}`,
+            title: `Phở ${i}`,
+            url: 'https://pho.vn',
+            summary: null,
+            snippet: 'hầm xương 8 tiếng',
+            score: 0.03,
+            similarity: 0.62,
+          })),
+        }]
+      throw new Error(type)
+    })
+    wrap(<NotesView onGoSettings={() => undefined} />)
+    await screen.findByText('Tiêu đề n1')
+    fireEvent.change(screen.getByLabelText('Tìm kiếm hoặc lọc ghi chú'), { target: { value: 'phở' } })
+    fireEvent.submit(screen.getByRole('search'))
+    // subtitle phải cộng note_count (12), không phải notes.length (3)
+    await screen.findByText(/12 ghi chú cho “phở”/)
+    expect(screen.getByText(/và 9 ghi chú khác trong nguồn này/)).toBeTruthy()
+  })
+
   it('tìm sâu hết quota → thông báo rõ + đường tới Cài đặt', async () => {
     const goSettings = vi.fn()
     rpc.mockImplementation(async (type: string) => {
@@ -262,6 +348,9 @@ describe('tìm kiếm (R04)', () => {
     fireEvent.change(screen.getByLabelText('Số nguồn tối đa'), { target: { value: '10' } })
     fireEvent.click(screen.getByRole('button', { name: 'Tìm' }))
     await screen.findByText('Phở bò')
+    const similarity = screen.getByTitle('Độ tương đồng ngữ nghĩa (cosine)')
+    expect(similarity.textContent).toBe('Độ tương đồng 71%')
+    expect(similarity.className).toContain('confidence-badge')
     expect(screen.getByText(/tối đa 10/)).toBeTruthy()
     expect(rpc).toHaveBeenCalledWith('search/query', { query: 'ham xuong', folderId: null, maxSources: 10 })
     expect(screen.getByRole('link', { name: /Mở trang nguồn/ }).getAttribute('href')).toBe('https://pho.vn')

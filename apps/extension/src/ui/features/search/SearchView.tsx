@@ -6,6 +6,7 @@ import { rpc } from '@/shared/messaging/client'
 import { Button, EmptyState, ErrorState, Input, Select, Spinner } from '../../components'
 import { useAction, useAsync } from '../../lib/hooks'
 import { SearchResults } from './SearchResults'
+import { countSearchNotes } from './searchSummary'
 
 export function SearchView({ onOpenNote, onGoSettings }: { onOpenNote: (noteId: string) => void; onGoSettings: () => void }) {
   const [query, setQuery] = useState('')
@@ -27,7 +28,7 @@ export function SearchView({ onOpenNote, onGoSettings }: { onOpenNote: (noteId: 
     }
   }
 
-  const noteCount = sources?.reduce((n, s) => n + s.notes.length, 0) ?? 0
+  const noteCount = sources ? countSearchNotes(sources) : 0
 
   return (
     <section className="stack" aria-label="Tìm kiếm ghi chú">

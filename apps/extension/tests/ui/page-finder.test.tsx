@@ -3,7 +3,7 @@
  * AutoChunk — PageFinderView: quét → chọn nhiều → lưu 1 ghi chú gộp đúng thứ tự trang; badge theo
  * VERIFY_UNAVAILABLE; full_page; các trạng thái lỗi (402/413/422/quyền/mạng) không treo loading.
  */
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppError } from '../../src/shared/errors'
 import { installChrome } from '../helpers/chrome'
@@ -310,6 +310,14 @@ describe('PageFinderView', () => {
     await screen.findByText('Đoạn A')
     const texts = () => screen.getAllByRole('listitem').map((li) => li.textContent ?? '')
     expect(texts()[0]).toContain('Đoạn A')
+    // Nhóm sắp xếp là button thật (Enter/Space của trình duyệt kích hoạt), có aria-pressed.
+    const sortGroup = screen.getByRole('group', { name: 'Sắp xếp kết quả' })
+    for (const b of within(sortGroup).getAllByRole('button')) {
+      expect(b.tagName).toBe('BUTTON')
+      expect(b.getAttribute('type')).toBe('button')
+      b.focus()
+      expect(document.activeElement).toBe(b)
+    }
     fireEvent.click(screen.getByRole('button', { name: 'Tin cậy giảm dần' }))
     expect(screen.getByRole('button', { name: 'Tin cậy giảm dần' }).getAttribute('aria-pressed')).toBe('true')
     expect(texts()[0]).toContain('Đoạn B')

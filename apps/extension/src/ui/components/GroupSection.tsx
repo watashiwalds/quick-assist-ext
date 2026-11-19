@@ -1,12 +1,12 @@
 /**
- * Nhóm kết quả theo NGUỒN (Phase 2 — UX plan §5.2): header domain + số ghi chú,
- * tóm tắt ghép từ ghi chú (không gọi AI), có thể mở/đóng bằng bàn phím
- * (`aria-expanded`). Dùng chung cho Thư viện và tab Tìm kiếm.
+ * GroupSection — nhóm kết quả theo NGUỒN (Phase 2 — UX plan §5.2, dùng chung từ Phase 5):
+ * header domain + số ghi chú, tóm tắt ghép từ ghi chú (không gọi AI), có thể mở/đóng
+ * bằng bàn phím (`aria-expanded` + `aria-controls`). Thư viện và tab Tìm kiếm cùng dùng.
  */
 import { type ReactNode, useId } from 'react'
-import { Icon } from '../../components'
+import { Icon } from './Icon'
 
-export function SourceGroup({
+export function GroupSection({
   label,
   count,
   summary,
