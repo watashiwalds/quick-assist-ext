@@ -117,8 +117,13 @@ export interface RpcMap {
 
   /** Tạo ghi chú mới từ UI (AutoChunk lưu các đoạn đã chọn) — background sinh Idempotency-Key. */
   'notes/create': { req: { content: string; title: string | null; url: string | null; folderId?: string | null }; res: Note }
-  /** AutoChunk: quét tab đang xem hoặc nội dung dán (`text`) theo truy vấn (POST /ai/page-match). */
-  'pageMatch/run': { req: { query: string; text?: string }; res: PageMatchRun }
+  /** AutoChunk: ước lượng độ dài văn bản trang trước khi quét (không tải HTML lên server). */
+  'pageMatch/inspect': { req: void; res: { textChars: number; url: string; title: string } }
+  /** AutoChunk: quét tab đang xem hoặc nội dung dán (`text`) theo truy vấn (POST /ai/page-match/stream).
+   *  `scanAll` = bỏ trần 50k, chia lô; `requestId` để UI huỷ giữa chừng qua `pageMatch/cancel`. */
+  'pageMatch/run': { req: { query: string; text?: string; scanAll?: boolean; requestId?: string }; res: PageMatchRun }
+  /** AutoChunk: huỷ lần quét đang chạy (đóng fetch, server release quota giữ chỗ). */
+  'pageMatch/cancel': { req: { requestId: string }; res: void }
   /** AutoChunk: cuộn tới + làm nổi bật các đoạn trên trang đã quét. */
   'pageMatch/highlight': { req: { tabId: number; items: Array<{ text: string; occ: number }> }; res: { ok: boolean; found: number; total: number } }
 
@@ -151,8 +156,8 @@ export type BroadcastEvent =
   | { channel: 'qa-event'; type: 'outbox/changed' }
   | { channel: 'qa-event'; type: 'selection/pending' }
   | { channel: 'qa-event'; type: 'session/changed'; signedIn: boolean }
-  /** AutoChunk: đã chụp xong trang, đang phân tích + thẩm định trên máy chủ. */
-  | { channel: 'qa-event'; type: 'pageMatch/progress'; phase: 'analyzing' }
+  /** AutoChunk: tiến độ quét — extract → batch i/n → verify (SSE từ server). */
+  | { channel: 'qa-event'; type: 'pageMatch/progress'; phase: 'extract' | 'batch' | 'verify'; index?: number; total?: number }
 
 export function isRpcRequest(m: unknown): m is RpcRequest {
   return typeof m === 'object' && m !== null && (m as RpcRequest).channel === 'qa-rpc'

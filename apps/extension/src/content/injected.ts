@@ -134,8 +134,26 @@ export interface RawPage {
   url: string
   title: string
   bytes: number
+  /** Tổng ký tự văn bản nhìn thấy (sau khi bỏ thẻ không nội dung) — dùng để cảnh báo trước khi quét. */
+  textChars: number
   /** HTML vượt giới hạn → background dừng sớm, không tải lên */
   tooLong: boolean
+}
+
+/**
+ * Số ký tự văn bản của trang (ước lượng trước khi quét, không tải HTML lên server).
+ * Hàm này được `chrome.scripting.executeScript` chuyển sang NGỮ CẢNH TRANG → mọi hằng số phải khai
+ * báo ngay trong thân hàm, không dùng biến module (sẽ không tồn tại ở phía trang).
+ */
+export function getPageTextChars(): number {
+  const DROP = 'script,style,noscript,template,svg,iframe,canvas,object,embed,link,meta,input[type=hidden],input[type=password]'
+  const clone = document.documentElement.cloneNode(true) as HTMLElement
+  clone.querySelectorAll(DROP).forEach((n) => n.remove())
+  clone.querySelectorAll('input,textarea').forEach((n) => {
+    n.removeAttribute('value')
+    if (n.tagName === 'TEXTAREA') n.textContent = ''
+  })
+  return (clone.textContent ?? '').replace(/\s+/g, ' ').trim().length
 }
 
 /**
@@ -144,17 +162,19 @@ export interface RawPage {
  * token form ẩn) trước khi rời máy (AD-3). Không giữ lại thuộc tính `value` của ô nhập.
  */
 export function getRawHtml(maxBytes: number): RawPage {
-  const clone = document.documentElement.cloneNode(true) as HTMLElement
+  // Chạy ở ngữ cảnh trang khi được inject → hằng số phải nằm trong thân hàm.
   const DROP = 'script,style,noscript,template,svg,iframe,canvas,object,embed,link,meta,input[type=hidden],input[type=password]'
+  const clone = document.documentElement.cloneNode(true) as HTMLElement
   clone.querySelectorAll(DROP).forEach((n) => n.remove())
   clone.querySelectorAll('input,textarea').forEach((n) => {
     n.removeAttribute('value')
     if (n.tagName === 'TEXTAREA') n.textContent = ''
   })
+  const textChars = (clone.textContent ?? '').replace(/\s+/g, ' ').trim().length
   const html = '<!DOCTYPE html>' + clone.outerHTML
   const bytes = new TextEncoder().encode(html).length
   const tooLong = bytes > maxBytes
-  return { html: tooLong ? '' : html, url: location.href, title: document.title, bytes, tooLong }
+  return { html: tooLong ? '' : html, url: location.href, title: document.title, bytes, textChars, tooLong }
 }
 
 export interface HighlightTarget {

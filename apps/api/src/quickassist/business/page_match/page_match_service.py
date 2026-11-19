@@ -1,20 +1,26 @@
 """Business Layer — PageMatchService (AutoChunk, ADR-0013): tìm các đoạn trên trang hiện tại khớp
 ý định người dùng. Operation STATELESS trả preview — không ghi DB; lưu bằng POST /notes như note thường.
 
-    HTML ─► Trafilatura (process pool) ──────────► blocks ─► embed([query, *blocks]) 1 batch (quota lease 1)
+    HTML ─► Trafilatura (process pool) ──────────► blocks ─► embed theo lô (quota lease 1)
     text ─► split_paragraphs (reflow + gộp) ────► blocks ─┘
-         ─► cosine ─► lọc min_score / top_candidates ─► LLM thẩm định JSON (quota lease 2)
-         ─► match_ratio ─► mode "segments" | "full_page"
+         ─► cosine ─► lọc min_score / top_candidates ─► LLM thẩm định confidence 0..1 (quota lease 2)
+         ─► confidence ≥ min_confidence ─► match_ratio ─► mode "segments" | "full_page"
 
-LLM lỗi / quá giờ / JSON hỏng / hết quota ở bước thẩm định → degrade có kiểm soát: trả ứng viên theo
-điểm với verified=false + warning="VERIFY_UNAVAILABLE" (tính năng không chết khi AI thẩm định lỗi).
-Log chỉ metadata — KHÔNG log nội dung trang hay truy vấn.
+Phase 3: `scan_all=True` bỏ trần `page_match_max_chars`; block được embed theo lô
+`page_match_embed_batch_blocks`, timeout TÍNH THEO LÔ. Một lease cho toàn bộ embed — commit tổng usage
+khi xong, context manager tự release khi lỗi/huỷ giữa chừng. `stream()` phát tiến độ từng bước cho
+endpoint SSE; `match()` giữ nguyên contract JSON cũ.
+
+LLM lỗi / quá giờ / JSON hỏng / hết quota ở bước thẩm định → degrade có kiểm soát: trả ứng viên cosine
+≥ `page_match_fallback_min_similarity` với verified=false + warning="VERIFY_UNAVAILABLE" (tính năng không
+chết khi AI thẩm định lỗi). Log chỉ metadata — KHÔNG log nội dung trang hay truy vấn.
 """
 
 import asyncio
 import math
 import time
 import uuid
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Literal
 
@@ -52,7 +58,17 @@ class MatchItem:
     occ: int
     text: str
     score: float
+    confidence: float
     verified: bool
+
+
+@dataclass(frozen=True)
+class MatchProgress:
+    """Tiến độ một bước của lần quét — controller SSE chuyển thành event `progress`."""
+
+    phase: Literal["extract", "batch", "verify"]
+    index: int | None = None
+    total: int | None = None
 
 
 @dataclass(frozen=True)
@@ -64,6 +80,9 @@ class PageMatchResult:
     total_chars: int
     truncated: bool
     full_text: str | None  # chỉ có khi mode="full_page" — nội dung cả trang để "Lưu cả trang"
+
+
+PageMatchEvent = MatchProgress | PageMatchResult
 
 
 def cosine(a: list[float], b: list[float]) -> float:
@@ -90,29 +109,74 @@ def compute_match_ratio(
     return round(min(1.0, matched / total_chars), 4)
 
 
+def batch_blocks(blocks: list[Block], size: int) -> list[list[Block]]:
+    """Chia block thành lô cố định; size ≤ 0 → một lô duy nhất (an toàn khi cấu hình sai)."""
+    if size <= 0:
+        return [blocks] if blocks else []
+    return [blocks[i:i + size] for i in range(0, len(blocks), size)]
+
+
+def validate_request(*, query: str, html: str | None, text: str | None) -> str:
+    """Kiểm tra đồng bộ trước khi mở stream → endpoint SSE vẫn trả JSON 413/422 đúng chuẩn.
+
+    Trả truy vấn đã chuẩn hoá. Nội dung rỗng/không trích được vẫn được phát hiện sau khi extract.
+    """
+    cfg = get_settings()
+    q = " ".join(query.replace("\x00", "").split())
+    if not q or len(q) > MAX_QUERY_CHARS:
+        raise Unprocessable("Truy vấn phải có 1–500 ký tự", code="PAGE_MATCH_QUERY_INVALID")
+    if text is not None:
+        if not text.strip():
+            raise Unprocessable("Không có nội dung để quét", code="PAGE_NO_CONTENT",
+                                details={"reason": "empty"})
+        return q
+    html = html or ""
+    html_bytes = len(html.encode("utf-8", errors="ignore"))
+    if html_bytes > cfg.page_match_max_html_bytes:
+        raise PayloadTooLarge("Trang quá dài để quét", code="PAGE_TOO_LONG",
+                              details={"max_bytes": cfg.page_match_max_html_bytes})
+    return q
+
+
 class PageMatchService:
     def __init__(self, ai: AIProvider) -> None:
         self.ai = ai
 
     async def match(
         self, user_id: uuid.UUID, *, query: str, html: str | None = None, text: str | None = None,
-        url: str | None = None,
+        url: str | None = None, scan_all: bool = False,
     ) -> PageMatchResult:
+        """Contract JSON cũ: chạy trọn stream rồi trả kết quả cuối. Lỗi nghiệp vụ vẫn ném ra như trước."""
+        async for event in self.stream(
+            user_id, query=query, html=html, text=text, url=url, scan_all=scan_all,
+        ):
+            if isinstance(event, PageMatchResult):
+                return event
+        raise UpstreamError("Không có kết quả quét", code="AI_UNAVAILABLE")
+
+    async def stream(
+        self, user_id: uuid.UUID, *, query: str, html: str | None = None, text: str | None = None,
+        url: str | None = None, scan_all: bool = False,
+    ) -> AsyncIterator[PageMatchEvent]:
         """Một trong hai nguồn: `html` (trang hiện tại) hoặc `text` (nội dung dán). Schema đã bảo đảm
-        đúng một nguồn; service ưu tiên `text` nếu cả hai cùng có mặt."""
+        đúng một nguồn; service ưu tiên `text` nếu cả hai cùng có mặt.
+
+        Phát `MatchProgress` cho từng bước rồi `PageMatchResult`. Exceptions nghiệp vụ (413/422/402/502)
+        được controller SSE chuyển thành event `error`; endpoint JSON dùng `match()` để giữ HTTP status.
+        """
         cfg = get_settings()
         started = time.perf_counter()
-        query = " ".join(query.replace("\x00", "").split())
-        if not query or len(query) > MAX_QUERY_CHARS:
-            raise Unprocessable("Truy vấn phải có 1–500 ký tự", code="PAGE_MATCH_QUERY_INVALID")
+        q = validate_request(query=query, html=html, text=text)
+        max_chars = None if scan_all else cfg.page_match_max_chars
 
+        yield MatchProgress("extract")
         if text is not None:
             source = "text"
             html_bytes = 0
             try:
                 extraction = extract_text_blocks(
                     text, max_block_chars=cfg.page_match_max_block_chars,
-                    max_chars=cfg.page_match_max_chars,
+                    max_chars=max_chars,
                     min_block_chars=cfg.page_match_min_block_chars,
                 )
             except ExtractError as e:
@@ -122,47 +186,71 @@ class PageMatchService:
             source = "html"
             html = html or ""
             html_bytes = len(html.encode("utf-8", errors="ignore"))
-            if html_bytes > cfg.page_match_max_html_bytes:
-                raise PayloadTooLarge("Trang quá dài để quét", code="PAGE_TOO_LONG",
-                                      details={"max_bytes": cfg.page_match_max_html_bytes})
             try:
                 extraction = await extract_blocks(
                     html, timeout_seconds=cfg.page_match_extract_timeout_seconds,
-                    max_block_chars=cfg.page_match_max_block_chars, max_chars=cfg.page_match_max_chars,
+                    max_block_chars=cfg.page_match_max_block_chars, max_chars=max_chars,
                 )
             except ExtractError as e:
                 raise Unprocessable("Không trích được nội dung chính của trang", code="PAGE_NO_CONTENT",
                                     details={"reason": e.reason}) from e
         blocks = extraction.blocks
 
-        # --- Lease 1: embed truy vấn + mọi khối trong MỘT batch
-        texts = [query, *(b.text for b in blocks)]
+        # --- Lease 1: embed query một lần + mọi block theo lô (timeout từng lô), commit tổng usage.
+        batches = batch_blocks(blocks, cfg.page_match_embed_batch_blocks)
+        estimate = sum(estimate_tokens(t) for t in (q, *(b.text for b in blocks)))
         async with QuotaService.open() as quota, \
-                quota.leased(user_id, "page_match_embed", sum(estimate_tokens(t) for t in texts),
+                quota.leased(user_id, "page_match_embed", estimate,
                              f"page_match_embed:{uuid.uuid4()}") as lease:
             try:
-                emb = await self.ai.embed(texts)
-            except AIProviderError as e:
+                query_emb = await asyncio.wait_for(
+                    self.ai.embed([q]), timeout=cfg.page_match_embed_timeout_seconds)
+            except (AIProviderError, TimeoutError) as e:
+                log.warning("page_match_embed_failed", extra={
+                    "batch": 0, "error_type": type(e).__name__})
                 raise UpstreamError("Dịch vụ AI tạm thời không khả dụng", code="AI_UNAVAILABLE") from e
-            await quota.commit(lease, emb.usage.total)
+            used_tokens = query_emb.usage.total
+            qv = query_emb.vectors[0]
+            bvs: list[list[float]] = []
+            for i, batch in enumerate(batches, 1):
+                yield MatchProgress("batch", i, len(batches))
+                try:
+                    emb = await asyncio.wait_for(
+                        self.ai.embed([b.text for b in batch]),
+                        timeout=cfg.page_match_embed_timeout_seconds,
+                    )
+                except (AIProviderError, TimeoutError) as e:
+                    log.warning("page_match_embed_failed", extra={
+                        "batch": i, "total": len(batches), "error_type": type(e).__name__})
+                    raise UpstreamError("Dịch vụ AI tạm thời không khả dụng", code="AI_UNAVAILABLE") from e
+                used_tokens += emb.usage.total
+                bvs.extend(emb.vectors)
+            await quota.commit(lease, used_tokens)
 
-        qv, bvs = emb.vectors[0], emb.vectors[1:]
         scores = [cosine(qv, v) for v in bvs]
         eligible = [i for i, s in enumerate(scores) if s >= cfg.page_match_min_score]
         top = sorted(eligible, key=lambda i: scores[i], reverse=True)[: cfg.page_match_top_candidates]
         candidates = sorted(top)  # thứ tự trang
 
         warning: str | None = None
-        verified_ids: set[str] = set()
+        verdicts: dict[str, float] = {}
         if candidates:
-            verified_ids, warning = await self._verify(user_id, query, [blocks[i] for i in candidates])
+            yield MatchProgress("verify")
+            verdicts, warning = await self._verify(user_id, q, [blocks[i] for i in candidates])
 
         if warning:
-            chosen = candidates  # fallback: theo điểm, chưa xác nhận
+            # Fallback: chỉ giữ đoạn đủ tương đồng cosine, đánh dấu chưa thẩm định.
+            chosen = [i for i in candidates
+                      if scores[i] >= cfg.page_match_fallback_min_similarity]
+            items = [MatchItem(blocks[i].id, blocks[i].occ, blocks[i].text, round(scores[i], 4),
+                               confidence=round(scores[i], 4), verified=False)
+                     for i in chosen]
         else:
-            chosen = [i for i in candidates if blocks[i].id in verified_ids]
-        items = [MatchItem(blocks[i].id, blocks[i].occ, blocks[i].text, round(scores[i], 4),
-                           verified=not warning) for i in chosen]
+            chosen = [i for i in candidates
+                      if verdicts.get(blocks[i].id, 0.0) >= cfg.page_match_min_confidence]
+            items = [MatchItem(blocks[i].id, blocks[i].occ, blocks[i].text, round(scores[i], 4),
+                               confidence=round(verdicts.get(blocks[i].id, 0.0), 4), verified=True)
+                     for i in chosen]
 
         ratio = compute_match_ratio(
             total_chars=extraction.total_chars,
@@ -176,18 +264,22 @@ class PageMatchService:
 
         log.info("page_match_done", extra={
             "source": source, "html_bytes": html_bytes, "blocks": len(blocks),
+            "batches": len(batches), "scan_all": scan_all,
             "chars": extraction.total_chars, "truncated": extraction.truncated,
             "candidates": len(candidates), "matched": len(items), "mode": mode,
             "match_ratio": ratio, "warning": warning, "has_url": bool(url),
             "duration_ms": round((time.perf_counter() - started) * 1000, 1),
         })
-        return PageMatchResult(mode, ratio, warning, items, extraction.total_chars, extraction.truncated,
-                               full_text)
+        yield PageMatchResult(mode, ratio, warning, items, extraction.total_chars,
+                              extraction.truncated, full_text)
 
     async def _verify(
         self, user_id: uuid.UUID, query: str, candidates: list[Block],
-    ) -> tuple[set[str], str | None]:
-        """Lease 2: LLM thẩm định. Trả (id được xác nhận, warning). Mọi lỗi → (∅, VERIFY_UNAVAILABLE)."""
+    ) -> tuple[dict[str, float], str | None]:
+        """Lease 2: LLM thẩm định confidence. Trả (id → confidence, warning).
+
+        Mọi lỗi → (∅, VERIFY_UNAVAILABLE) — caller fallback theo cosine.
+        """
         cfg = get_settings()
         max_out = cfg.page_match_verify_max_output_tokens
         messages = page_match_messages(query, [(b.id, b.text) for b in candidates])
@@ -202,13 +294,13 @@ class PageMatchService:
                 except (AIProviderError, TimeoutError) as e:
                     await quota.release(lease)  # trả về bình thường (không ném) → tự release
                     log.warning("page_match_verify_failed", extra={"error_type": type(e).__name__})
-                    return set(), VERIFY_UNAVAILABLE
+                    return {}, VERIFY_UNAVAILABLE
                 await quota.commit(lease, result.usage.total)
         except QuotaExceeded:  # chỉ reserve() trong leased() ném lỗi này
             log.info("page_match_verify_skipped", extra={"reason": "quota"})
-            return set(), VERIFY_UNAVAILABLE
+            return {}, VERIFY_UNAVAILABLE
         try:
             return parse_verdicts(result.text, {b.id for b in candidates}), None
         except VerdictParseError as e:
             log.warning("page_match_verify_unparsable", extra={"reason": str(e)})
-            return set(), VERIFY_UNAVAILABLE
+            return {}, VERIFY_UNAVAILABLE

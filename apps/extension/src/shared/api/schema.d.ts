@@ -38,6 +38,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ai/page-match/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Page Match Stream */
+        post: operations["page_match_stream_api_v1_ai_page_match_stream_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/ai/summaries": {
         parameters: {
             query?: never;
@@ -754,6 +771,12 @@ export interface components {
              */
             query: string;
             /**
+             * Scan All
+             * @description True = quét toàn bộ nội dung (bỏ trần PAGE_MATCH_MAX_CHARS), chia lô embed + timeout từng lô. HTML vẫn ≤ PAGE_MATCH_MAX_HTML_BYTES.
+             * @default false
+             */
+            scan_all: boolean;
+            /**
              * Text
              * @description Nội dung văn bản người dùng dán (PDF/Word/chat/email…); cần đúng một trong html/text
              */
@@ -771,6 +794,11 @@ export interface components {
         };
         /** PageMatchItemOut */
         PageMatchItemOut: {
+            /**
+             * Confidence
+             * @description Độ tin cậy cuối 0..1: LLM confidence khi đã thẩm định, hoặc cosine khi fallback (verified=false)
+             */
+            confidence: number;
             /**
              * Id
              * @description Id khối trong lần quét này (b00, b01…)
@@ -790,7 +818,7 @@ export interface components {
             text: string;
             /**
              * Verified
-             * @description True = LLM đã xác nhận; False = chỉ theo điểm (VERIFY_UNAVAILABLE)
+             * @description True = LLM đã đánh giá (confidence từ LLM); False = fallback theo độ tương đồng (VERIFY_UNAVAILABLE)
              */
             verified: boolean;
         };
@@ -1079,6 +1107,65 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PageMatchOut"];
+                };
+            };
+            /** @description Hết quota AI (QUOTA_EXCEEDED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description HTML trang vượt giới hạn (PAGE_TOO_LONG) */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trang không có nội dung chính (PAGE_NO_CONTENT) / dữ liệu sai */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Quá tần suất (Retry-After) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description AI embed lỗi (AI_UNAVAILABLE) */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    page_match_stream_api_v1_ai_page_match_stream_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PageMatchIn"];
+            };
+        };
+        responses: {
+            /** @description Luồng SSE: progress (extract/batch/verify) → done | error */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": unknown;
                 };
             };
             /** @description Hết quota AI (QUOTA_EXCEEDED) */

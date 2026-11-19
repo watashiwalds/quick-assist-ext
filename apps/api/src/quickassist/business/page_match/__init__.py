@@ -7,8 +7,20 @@ from quickassist.business.page_match.extractor import shutdown_extractor
 from quickassist.business.page_match.page_match_service import (
     VERIFY_UNAVAILABLE,
     MatchItem,
+    MatchProgress,
+    PageMatchEvent,
     PageMatchResult,
     PageMatchService,
+    validate_request,
 )
 
-__all__ = ["VERIFY_UNAVAILABLE", "MatchItem", "PageMatchResult", "PageMatchService", "shutdown_extractor"]
+__all__ = [
+    "VERIFY_UNAVAILABLE",
+    "MatchItem",
+    "MatchProgress",
+    "PageMatchEvent",
+    "PageMatchResult",
+    "PageMatchService",
+    "shutdown_extractor",
+    "validate_request",
+]

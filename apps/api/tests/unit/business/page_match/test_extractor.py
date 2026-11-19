@@ -8,6 +8,7 @@ import pytest
 from quickassist.business.page_match import extractor
 from quickassist.business.page_match._trafilatura_worker import extract_texts
 from quickassist.business.page_match.extractor import (
+    Block,
     ExtractError,
     build_blocks,
     extract_blocks,
@@ -94,6 +95,23 @@ def test_build_blocks_occ_renumbered_after_split() -> None:
 def test_build_blocks_caps_total_chars_on_block_boundary() -> None:
     ex = build_blocks(["x" * 40, "y" * 40, "z" * 40], max_block_chars=1200, max_chars=100)
     assert [b.text[0] for b in ex.blocks] == ["x", "y"] and ex.truncated and ex.total_chars == 80
+
+
+def test_build_blocks_max_chars_none_scans_everything() -> None:
+    # Phase 3 "Quét toàn bộ": bỏ trần tổng ký tự, giữ đủ block cuối và không báo truncated.
+    ex = build_blocks(["x" * 40, "y" * 40, "z" * 40], max_block_chars=1200, max_chars=None)
+    assert [b.text[0] for b in ex.blocks] == ["x", "y", "z"]
+    assert ex.total_chars == 120 and ex.truncated is False
+
+
+def test_batch_blocks_splits_evenly_and_keeps_last_partial_batch() -> None:
+    from quickassist.business.page_match.page_match_service import batch_blocks
+
+    blocks = [Block(f"b{i:02d}", "x", 0) for i in range(5)]
+    assert [[b.id for b in batch] for batch in batch_blocks(blocks, 2)] == [
+        ["b00", "b01"], ["b02", "b03"], ["b04"]]
+    assert batch_blocks([], 32) == []
+    assert len(batch_blocks(blocks, 0)) == 1  # cấu hình sai → một lô, không mất block
 
 
 # ---------------------------------------------------------------- nguồn text dán

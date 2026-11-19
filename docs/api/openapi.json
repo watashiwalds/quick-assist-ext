@@ -1013,6 +1013,12 @@
             "title": "Query",
             "type": "string"
           },
+          "scan_all": {
+            "default": false,
+            "description": "True = quét toàn bộ nội dung (bỏ trần PAGE_MATCH_MAX_CHARS), chia lô embed + timeout từng lô. HTML vẫn ≤ PAGE_MATCH_MAX_HTML_BYTES.",
+            "title": "Scan All",
+            "type": "boolean"
+          },
           "text": {
             "anyOf": [
               {
@@ -1062,6 +1068,11 @@
       "PageMatchItemOut": {
         "additionalProperties": false,
         "properties": {
+          "confidence": {
+            "description": "Độ tin cậy cuối 0..1: LLM confidence khi đã thẩm định, hoặc cosine khi fallback (verified=false)",
+            "title": "Confidence",
+            "type": "number"
+          },
           "id": {
             "description": "Id khối trong lần quét này (b00, b01…)",
             "title": "Id",
@@ -1082,7 +1093,7 @@
             "type": "string"
           },
           "verified": {
-            "description": "True = LLM đã xác nhận; False = chỉ theo điểm (VERIFY_UNAVAILABLE)",
+            "description": "True = LLM đã đánh giá (confidence từ LLM); False = fallback theo độ tương đồng (VERIFY_UNAVAILABLE)",
             "title": "Verified",
             "type": "boolean"
           }
@@ -1092,6 +1103,7 @@
           "occ",
           "text",
           "score",
+          "confidence",
           "verified"
         ],
         "title": "PageMatchItemOut",
@@ -1733,6 +1745,53 @@
           }
         ],
         "summary": "Page Match",
+        "tags": [
+          "page-match"
+        ]
+      }
+    },
+    "/api/v1/ai/page-match/stream": {
+      "post": {
+        "operationId": "page_match_stream_api_v1_ai_page_match_stream_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PageMatchIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {}
+            },
+            "description": "Luồng SSE: progress (extract/batch/verify) → done | error"
+          },
+          "402": {
+            "description": "Hết quota AI (QUOTA_EXCEEDED)"
+          },
+          "413": {
+            "description": "HTML trang vượt giới hạn (PAGE_TOO_LONG)"
+          },
+          "422": {
+            "description": "Trang không có nội dung chính (PAGE_NO_CONTENT) / dữ liệu sai"
+          },
+          "429": {
+            "description": "Quá tần suất (Retry-After)"
+          },
+          "502": {
+            "description": "AI embed lỗi (AI_UNAVAILABLE)"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Page Match Stream",
         "tags": [
           "page-match"
         ]

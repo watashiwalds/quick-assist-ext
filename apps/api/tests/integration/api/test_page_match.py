@@ -58,16 +58,36 @@ async def test_segments_verified_in_page_order_and_two_quota_leases(app, client)
     assert data["mode"] == "segments" and data["warning"] is None and data["full_text"] is None
     texts = [i["text"] for i in data["items"]]
     assert texts and all("đất" in t for t in texts) and all(i["verified"] for i in data["items"])
+    assert all(i["confidence"] >= 0.5 for i in data["items"])
     assert any("12/2023" in t for t in texts) and not any("13/2023" in t for t in texts)  # giáo dục
     ids = [i["id"] for i in data["items"]]
     assert ids == sorted(ids)  # thứ tự trang
     assert 0 < data["match_ratio"] < 0.6 and data["total_chars"] > 0 and data["truncated"] is False
-    assert len(spy.embed_calls) == 1 and spy.embed_calls[0] == 1 + 8  # 1 batch: query + 8 khối
+    # Query embed một lần + mọi block trong MỘT lô (8 block < 32) — Phase 3 tách query khỏi block.
+    assert spy.embed_calls == [1, 8]
     assert spy.complete_calls == 1
     ops = await _ledger_ops()
     assert ("page_match_embed", "COMMITTED") in ops and ("page_match_verify", "COMMITTED") in ops
     q = (await client.get("/me/quota", headers=h)).json()
     assert q["used_tokens"] > 0 and q["reserved_tokens"] == 0
+
+
+async def test_llm_confidence_below_half_is_filtered_out(app, client) -> None:  # type: ignore[no-untyped-def]
+    import json
+    import re
+
+    from quickassist.presentation.api.deps import get_user_ai_provider
+
+    class LowConfidence(MockAIClient):
+        async def complete(self, messages, *, max_tokens):  # type: ignore[no-untyped-def,override]
+            ids = re.findall(r'<block id="(b\d+)"', messages[-1].content)
+            raw = json.dumps({"results": [{"id": bid, "confidence": 0.2} for bid in ids]})
+            return CompletionResult(raw, Usage(10, 5), "x")
+
+    app.dependency_overrides[get_user_ai_provider] = lambda: LowConfidence(1536)
+    h = await login(client)
+    data = (await client.post("/ai/page-match", json=_body(), headers=h)).json()
+    assert data["warning"] is None and data["items"] == []
 
 
 async def test_full_page_mode_returns_whole_page_text(client) -> None:
@@ -129,6 +149,56 @@ async def test_text_over_cap_is_truncated_not_413(client, monkeypatch) -> None: 
     assert 0 < data["total_chars"] <= 100
 
 
+async def test_scan_all_ignores_char_cap_and_embeds_in_batches(app, client, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from quickassist.infrastructure.config import get_settings
+    from quickassist.presentation.api.deps import get_user_ai_provider
+
+    monkeypatch.setattr(get_settings(), "page_match_max_chars", 100)
+    monkeypatch.setattr(get_settings(), "page_match_embed_batch_blocks", 2)
+    spy = _Spy()
+    app.dependency_overrides[get_user_ai_provider] = lambda: spy
+    para = "Đoạn {i}: đất đai. " * 40  # ~480 ký tự → mỗi đoạn một block (không gộp)
+    text = "\n\n".join(para.format(i=i).strip() for i in range(5))
+    h = await login(client)
+    r = await client.post("/ai/page-match", json={"query": "đất đai", "text": text, "scan_all": True},
+                          headers=h)
+    data = r.json()
+    assert r.status_code == 200 and data["truncated"] is False
+    assert data["total_chars"] > 100
+    # query 1 lần + 5 block chia lô 2/2/1
+    assert spy.embed_calls == [1, 2, 2, 1]
+    assert (await client.get("/me/quota", headers=h)).json()["reserved_tokens"] == 0
+
+
+def _parse_sse(body: str) -> list[tuple[str, object]]:
+    import json
+
+    events: list[tuple[str, object]] = []
+    for block in body.strip().split("\n\n"):
+        lines = dict(line.split(": ", 1) for line in block.splitlines())
+        events.append((lines["event"], json.loads(lines["data"])))
+    return events
+
+
+async def test_stream_emits_batch_progress_then_done(client, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from quickassist.infrastructure.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "page_match_embed_batch_blocks", 2)
+    para = "Đoạn {i}: đất đai. " * 40
+    text = "\n\n".join(para.format(i=i).strip() for i in range(5))
+    h = await login(client)
+    r = await client.post("/ai/page-match/stream", json={"query": "đất đai", "text": text},
+                          headers=h)
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/event-stream")
+    events = _parse_sse(r.text)
+    assert events[0] == ("progress", {"phase": "extract", "index": None, "total": None})
+    batches = [d for e, d in events if e == "progress" and d["phase"] == "batch"]  # type: ignore[index]
+    assert [(b["index"], b["total"]) for b in batches] == [(1, 3), (2, 3), (3, 3)]  # type: ignore[index]
+    assert any(e == "progress" and d["phase"] == "verify" for e, d in events)  # type: ignore[index]
+    name, done = events[-1]
+    assert name == "done" and done["items"] and done["truncated"] is False  # type: ignore[index]
+
+
 async def test_no_candidate_returns_empty_without_calling_llm(app, client) -> None:
     from quickassist.presentation.api.deps import get_user_ai_provider
 
@@ -156,6 +226,8 @@ async def test_verify_failure_falls_back_to_score_ranked_unverified(app, client,
     data = r.json()
     assert r.status_code == 200 and data["warning"] == "VERIFY_UNAVAILABLE"
     assert data["items"] and not any(i["verified"] for i in data["items"])
+    # Fallback Phase 3: chỉ giữ cosine ≥ 0.5, confidence = cosine (không phải điểm LLM).
+    assert all(i["confidence"] >= 0.5 and i["confidence"] == i["score"] for i in data["items"])
     ops = dict(await _ledger_ops())
     assert ops["page_match_verify"] == ("RELEASED" if failure == "error" else "COMMITTED")
     assert (await client.get("/me/quota", headers=h)).json()["reserved_tokens"] == 0

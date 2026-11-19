@@ -10,16 +10,26 @@ import { installChrome } from '../helpers/chrome'
 
 const { chrome } = installChrome()
 const rpc = vi.fn()
-vi.mock('../../src/shared/messaging/client', () => ({ rpc: (...a: unknown[]) => rpc(...a), onBroadcast: () => () => undefined }))
+type BroadcastHandler = (e: { type: string; phase?: string; index?: number; total?: number }) => void
+let broadcast: BroadcastHandler = () => undefined
+vi.mock('../../src/shared/messaging/client', () => ({
+  rpc: (...a: unknown[]) => rpc(...a),
+  onBroadcast: (h: BroadcastHandler) => {
+    broadcast = h
+    return () => undefined
+  },
+}))
 
 const { ToastProvider } = await import('../../src/ui/components')
-const { PageFinderView, buildNoteParts } = await import('../../src/ui/features/page-finder/PageFinderView')
+const { PageFinderView, buildNoteParts, estimateBatches } = await import('../../src/ui/features/page-finder/PageFinderView')
 
 const FOLDERS = [
   { id: 'inbox', name: 'Inbox', is_default: true, created_at: '', updated_at: '' },
   { id: 'f1', name: 'Pháp luật', is_default: false, created_at: '', updated_at: '' },
 ]
-const item = (id: string, text: string, verified = true, occ = 0) => ({ id, occ, text, score: 0.71, verified })
+const item = (
+  id: string, text: string, verified = true, occ = 0, confidence = 0.71,
+) => ({ id, occ, text, score: 0.71, confidence, verified })
 const run = (over: Record<string, unknown> = {}) => ({
   mode: 'segments', match_ratio: 0.3, warning: null, total_chars: 900, truncated: false, full_text: null,
   tabId: 5, url: 'https://quochoi.vn/nq', title: 'Danh sách nghị quyết',
@@ -27,6 +37,18 @@ const run = (over: Record<string, unknown> = {}) => ({
   ...over,
 })
 const note = { id: 'n1', version: 1 }
+const inspect = (textChars = 400) => ({ textChars, url: 'https://quochoi.vn/nq', title: 'Danh sách nghị quyết' })
+/** Quét trang giờ đo độ dài trước: mặc định trả 400 ký tự, rồi mới tới kết quả quét. */
+const mockPage = (result: unknown, textChars = 400) =>
+  rpc.mockImplementationOnce(async (type: string) => {
+    if (type === 'pageMatch/inspect') return inspect(textChars)
+    throw new Error(type)
+  }).mockResolvedValueOnce(result)
+const mockPageError = (err: unknown) =>
+  rpc.mockImplementationOnce(async (type: string) => {
+    if (type === 'pageMatch/inspect') return inspect()
+    throw new Error(type)
+  }).mockRejectedValueOnce(err)
 
 const view = () =>
   render(
@@ -41,8 +63,17 @@ const scan = async (q = 'nghị quyết đất đai') => {
 
 beforeEach(() => {
   rpc.mockReset()
+  broadcast = () => undefined
 })
 afterEach(cleanup)
+
+describe('estimateBatches', () => {
+  it('chia block theo ký tự rồi gom 32 block/lô', () => {
+    expect(estimateBatches(10_000)).toBe(1) // ~9 block
+    expect(estimateBatches(1200 * 32 * 2)).toBe(2)
+    expect(estimateBatches(0)).toBe(1)
+  })
+})
 
 describe('buildNoteParts', () => {
   it('gộp theo thứ tự bằng dòng trống; vượt giới hạn → nhiều phần theo biên đoạn, không mất chữ', () => {
@@ -57,6 +88,7 @@ describe('buildNoteParts', () => {
 describe('PageFinderView', () => {
   it('quét → đoạn đã xác nhận được tích sẵn → lưu 1 ghi chú gộp theo thứ tự trang, title = truy vấn', async () => {
     rpc.mockImplementation(async (type: string) => {
+      if (type === 'pageMatch/inspect') return inspect()
       if (type === 'pageMatch/run') return run()
       if (type === 'notes/create') return note
       throw new Error(type)
@@ -64,10 +96,10 @@ describe('PageFinderView', () => {
     view()
     await scan()
     await screen.findByText('Nghị quyết 12/2023 về đất đai')
-    expect(rpc).toHaveBeenCalledWith('pageMatch/run', { query: 'nghị quyết đất đai' })
-    const badges = screen.getAllByTitle('AI đã xác nhận đoạn này khớp truy vấn')
+    expect(rpc).toHaveBeenCalledWith('pageMatch/run', expect.objectContaining({ query: 'nghị quyết đất đai', scanAll: false }))
+    const badges = screen.getAllByTitle('AI tin cậy đoạn này khớp truy vấn')
     expect(badges).toHaveLength(2)
-    badges.forEach((b) => expect(b.textContent).toBe('Độ tương đồng 71%'))
+    badges.forEach((b) => expect(b.textContent).toBe('Độ tin cậy 71%'))
     expect((screen.getByLabelText('Chọn đoạn 1') as HTMLInputElement).checked).toBe(true)
     fireEvent.change(screen.getByLabelText('Lưu vào thư mục'), { target: { value: 'f1' } })
     fireEvent.click(screen.getByRole('button', { name: 'Lưu lựa chọn' }))
@@ -93,7 +125,7 @@ describe('PageFinderView', () => {
     fireEvent.change(screen.getByLabelText('Nội dung để quét'), { target: { value: text } })
     fireEvent.click(screen.getByRole('button', { name: 'Quét nội dung' }))
     await screen.findByText('Nghị quyết 12/2023 về đất đai')
-    expect(rpc).toHaveBeenCalledWith('pageMatch/run', { query: 'nghị quyết đất đai', text })
+    expect(rpc).toHaveBeenCalledWith('pageMatch/run', expect.objectContaining({ query: 'nghị quyết đất đai', text, scanAll: false }))
     expect(screen.queryByRole('button', { name: 'Xem tất cả trên trang' })).toBeNull()
     const viewButtons = screen.getAllByRole('button', { name: 'Xem trên trang' }) as HTMLButtonElement[]
     expect(viewButtons.every((b) => b.disabled)).toBe(true)
@@ -128,7 +160,11 @@ describe('PageFinderView', () => {
   })
 
   it('bỏ chọn một đoạn → chỉ lưu đoạn còn lại; không chọn gì → nút Lưu bị khoá', async () => {
-    rpc.mockImplementation(async (type: string) => (type === 'pageMatch/run' ? run() : note))
+    rpc.mockImplementation(async (type: string) => {
+      if (type === 'pageMatch/inspect') return inspect()
+      if (type === 'pageMatch/run') return run()
+      return note
+    })
     view()
     await scan()
     await screen.findByText('Nghị quyết 12/2023 về đất đai')
@@ -140,25 +176,29 @@ describe('PageFinderView', () => {
   })
 
   it('VERIFY_UNAVAILABLE → banner cảnh báo, badge trung tính "theo điểm", không tích sẵn', async () => {
-    rpc.mockResolvedValueOnce(run({ warning: 'VERIFY_UNAVAILABLE', items: [item('b02', 'Đoạn A', false)] }))
+    mockPage(run({ warning: 'VERIFY_UNAVAILABLE', items: [item('b02', 'Đoạn A', false, 0, 0.58)] }))
     view()
     await scan()
     await screen.findByText(/AI chưa thẩm định được/)
-    const badge = screen.getByTitle('Chưa thẩm định — xếp theo độ tương đồng')
-    expect(badge.textContent).toBe('Độ tương đồng 71%')
+    const badge = screen.getByTitle('AI chưa thẩm định — theo độ tương đồng cosine')
+    expect(badge.textContent).toBe('Độ tương đồng 58%')
     expect(badge.className).toContain('is-unverified')
     expect((screen.getByLabelText('Chọn đoạn 1') as HTMLInputElement).checked).toBe(false)
   })
 
   it('không có đoạn nào → trạng thái rỗng rõ ràng', async () => {
-    rpc.mockResolvedValueOnce(run({ items: [] }))
+    mockPage(run({ items: [] }))
     view()
     await scan()
     await screen.findByText('Không tìm thấy đoạn nào đủ tin cậy')
   })
 
   it('click "Xem trên trang" → highlight đúng tab + text/occ; không tìm thấy → toast', async () => {
-    rpc.mockImplementation(async (type: string) => (type === 'pageMatch/run' ? run() : { ok: false, found: 0, total: 1 }))
+    rpc.mockImplementation(async (type: string) => {
+      if (type === 'pageMatch/inspect') return inspect()
+      if (type === 'pageMatch/run') return run()
+      return { ok: false, found: 0, total: 1 }
+    })
     view()
     await scan()
     await screen.findByText('Nghị quyết 12/2023 về đất đai')
@@ -169,7 +209,11 @@ describe('PageFinderView', () => {
 
   it('full_page → banner + "Lưu toàn bộ" (hỏi lại khi nội dung lớn, tách nhiều ghi chú khi vượt 20 000 ký tự)', async () => {
     const full = Array.from({ length: 30 }, (_, i) => `Đoạn ${i} ` + 'đất đai '.repeat(120)).join('\n\n')
-    rpc.mockImplementation(async (type: string) => (type === 'pageMatch/run' ? run({ mode: 'full_page', match_ratio: 0.92, full_text: full, total_chars: full.length }) : note))
+    rpc.mockImplementation(async (type: string) => {
+      if (type === 'pageMatch/inspect') return inspect()
+      if (type === 'pageMatch/run') return run({ mode: 'full_page', match_ratio: 0.92, full_text: full, total_chars: full.length })
+      return note
+    })
     view()
     await scan()
     await screen.findByText(/Hầu như cả trang khớp truy vấn/)
@@ -186,11 +230,96 @@ describe('PageFinderView', () => {
   })
 
   it('banner full_page KHÔNG hiện ở mode segments', async () => {
-    rpc.mockResolvedValueOnce(run())
+    mockPage(run())
     view()
     await scan()
     await screen.findByText('Nghị quyết 12/2023 về đất đai')
     expect(screen.queryByRole('button', { name: 'Lưu toàn bộ' })).toBeNull()
+  })
+
+  it('trang > 50k → cảnh báo trước, chưa quét; chọn "Quét toàn bộ" → scanAll=true', async () => {
+    mockPage(run(), 120_000)
+    view()
+    await scan()
+    await screen.findByText(/Nội dung khá dài — chọn phạm vi quét/)
+    expect(screen.getByText(/120\.000/)).toBeTruthy()
+    expect(screen.getByText(/60\.000/)).toBeTruthy() // ~token
+    expect(rpc.mock.calls.filter((c) => c[0] === 'pageMatch/run')).toHaveLength(0)
+    fireEvent.click(screen.getByRole('button', { name: 'Quét toàn bộ' }))
+    await screen.findByText('Nghị quyết 12/2023 về đất đai')
+    expect(rpc).toHaveBeenCalledWith('pageMatch/run', expect.objectContaining({ scanAll: true }))
+  })
+
+  it('cảnh báo > 50k → chọn "Quét 50k đầu" (mặc định) → scanAll=false', async () => {
+    mockPage(run(), 120_000)
+    view()
+    await scan()
+    await screen.findByText(/Nội dung khá dài/)
+    fireEvent.click(screen.getByRole('button', { name: 'Quét 50k đầu' }))
+    await screen.findByText('Nghị quyết 12/2023 về đất đai')
+    expect(rpc).toHaveBeenCalledWith('pageMatch/run', expect.objectContaining({ scanAll: false }))
+  })
+
+  it('nội dung dán > 50k → cảnh báo không cần đọc trang; chọn phạm vi rồi mới quét', async () => {
+    const long = 'nội dung đất đai. '.repeat(3_000) // ~51k ký tự
+    rpc.mockImplementation(async (type: string) => {
+      if (type === 'pageMatch/run') return run({ tabId: undefined, url: null, title: null })
+      return note
+    })
+    view()
+    fireEvent.click(screen.getByRole('button', { name: 'Dán thủ công' }))
+    fireEvent.change(screen.getByLabelText(/Bạn cần tìm gì/), { target: { value: 'đất đai' } })
+    fireEvent.change(screen.getByLabelText('Nội dung để quét'), { target: { value: long } })
+    fireEvent.click(screen.getByRole('button', { name: 'Quét nội dung' }))
+    await screen.findByText(/Nội dung khá dài/)
+    expect(rpc.mock.calls.filter((c) => c[0] === 'pageMatch/run')).toHaveLength(0)
+    fireEvent.click(screen.getByRole('button', { name: 'Quét toàn bộ' }))
+    await screen.findByText('Nghị quyết 12/2023 về đất đai')
+    expect(rpc).toHaveBeenCalledWith('pageMatch/run', expect.objectContaining({ scanAll: true, text: long }))
+  })
+
+  it('tiến độ SSE: hiện lô i/n + thanh tiến trình; Huỷ gọi pageMatch/cancel', async () => {
+    let resolveRun!: (v: unknown) => void
+    const pending = new Promise((resolve) => { resolveRun = resolve })
+    rpc.mockImplementation(async (type: string) => {
+      if (type === 'pageMatch/inspect') return inspect()
+      if (type === 'pageMatch/run') return pending
+      return note
+    })
+    view()
+    await scan()
+    await screen.findByText('Đang trích nội dung…')
+    act(() => broadcast({ type: 'pageMatch/progress', phase: 'batch', index: 2, total: 5 }))
+    await screen.findByText('Đang xử lý lô 2/5…')
+    const bar = screen.getByRole('progressbar', { name: 'Tiến độ quét' })
+    expect(bar.getAttribute('aria-valuenow')).toBe('2')
+    expect(bar.getAttribute('aria-valuemax')).toBe('5')
+    fireEvent.click(screen.getByRole('button', { name: 'Huỷ' }))
+    expect(rpc).toHaveBeenCalledWith('pageMatch/cancel', { requestId: expect.any(String) })
+    await act(async () => resolveRun(run()))
+    await screen.findByText('Nghị quyết 12/2023 về đất đai')
+  })
+
+  it('sort "Tin cậy giảm dần" đổi thứ tự hiển thị; lưu vẫn theo thứ tự trang', async () => {
+    rpc.mockResolvedValue(note)
+    mockPage(run({
+      items: [item('a', 'Đoạn A', true, 0, 0.6), item('b', 'Đoạn B', true, 0, 0.95)],
+    }))
+    view()
+    await scan()
+    await screen.findByText('Đoạn A')
+    const texts = () => screen.getAllByRole('listitem').map((li) => li.textContent ?? '')
+    expect(texts()[0]).toContain('Đoạn A')
+    fireEvent.click(screen.getByRole('button', { name: 'Tin cậy giảm dần' }))
+    expect(screen.getByRole('button', { name: 'Tin cậy giảm dần' }).getAttribute('aria-pressed')).toBe('true')
+    expect(texts()[0]).toContain('Đoạn B')
+    // Nhãn "Đoạn n" vẫn theo thứ tự trang dù đang sort theo tin cậy.
+    expect(texts()[0]).toContain('Đoạn 2')
+    expect(texts()[1]).toContain('Đoạn 1')
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu lựa chọn' }))
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith(
+      'notes/create', expect.objectContaining({ content: 'Đoạn A\n\nĐoạn B' }),
+    ))
   })
 
   it('rail hiển thị trạng thái trang theo tab hiện tại (sẵn sàng / không hỗ trợ)', async () => {
@@ -210,7 +339,7 @@ describe('PageFinderView', () => {
     ['PAGE_NO_CONTENT', 422, /Không tìm thấy nội dung để quét/, null],
     ['NETWORK_ERROR', 0, /Không kết nối được máy chủ/, 'Thử lại'],
   ])('lỗi %s → thông báo riêng, không treo loading', async (code, status, text, button) => {
-    rpc.mockRejectedValueOnce(new AppError(code, code, status))
+    mockPageError(new AppError(code, code, status))
     view()
     await scan()
     await screen.findByText(text)
@@ -222,7 +351,17 @@ describe('PageFinderView', () => {
   it('chưa có quyền đọc trang → "Cho phép đọc trang" xin quyền tuỳ chọn rồi quét lại', async () => {
     const request = vi.fn(async () => true)
     ;(chrome as unknown as { permissions: unknown }).permissions = { request }
-    rpc.mockRejectedValueOnce(new AppError('PAGE_ACCESS_DENIED', 'x', 0)).mockResolvedValueOnce(run())
+    rpc
+      .mockImplementationOnce(async (type: string) => {
+        if (type === 'pageMatch/inspect') return inspect()
+        throw new Error(type)
+      })
+      .mockRejectedValueOnce(new AppError('PAGE_ACCESS_DENIED', 'x', 0))
+      .mockImplementationOnce(async (type: string) => {
+        if (type === 'pageMatch/inspect') return inspect()
+        throw new Error(type)
+      })
+      .mockResolvedValueOnce(run())
     view()
     await scan()
     fireEvent.click(await screen.findByRole('button', { name: 'Cho phép đọc trang' }))

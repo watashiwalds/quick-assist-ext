@@ -108,10 +108,17 @@ class Settings(BaseSettings):
     # khối ngắn hơn → gộp với khối liền kề (chỉ nguồn text dán; 0 = tắt)
     page_match_min_block_chars: int = 400
     page_match_top_candidates: int = 15  # số ứng viên tối đa đưa LLM thẩm định
-    page_match_min_score: float = 0.35  # ngưỡng cosine vào vòng thẩm định
+    page_match_min_score: float = 0.35  # ngưỡng cosine vào vòng thẩm định (candidate)
     page_match_full_page_ratio: float = 0.6  # match_ratio ≥ ngưỡng → mode "full_page"
     page_match_verify_max_output_tokens: int = 500
     page_match_verify_timeout_seconds: float = 20.0  # quá → trả theo điểm (VERIFY_UNAVAILABLE)
+    # Phase 3 — quét toàn bộ: chia block thành lô để embed, timeout TỪNG LÔ (không phải cả trang),
+    # một quota lease cho toàn bộ lần quét (commit tổng usage, release khi lỗi/huỷ).
+    page_match_embed_batch_blocks: int = 32
+    page_match_embed_timeout_seconds: float = 30.0
+    # Ngưỡng cuối: LLM confidence ≥ mức này mới giữ đoạn. Fallback khi LLM lỗi dùng cosine ≥ mức này.
+    page_match_min_confidence: float = 0.5
+    page_match_fallback_min_similarity: float = 0.5
 
     # --- Giới hạn tần suất theo user (request/phút; 0 = tắt) — H02, R03 ---
     rate_limit_search_per_minute: int = 30

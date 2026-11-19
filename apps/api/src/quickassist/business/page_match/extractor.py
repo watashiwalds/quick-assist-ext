@@ -106,9 +106,12 @@ def split_paragraphs(text: str) -> list[str]:
 
 
 def build_blocks(
-    texts: list[str], *, max_block_chars: int, max_chars: int, min_block_chars: int = 0,
+    texts: list[str], *, max_block_chars: int, max_chars: int | None, min_block_chars: int = 0,
 ) -> Extraction:
     """Text khối thô (thứ tự tài liệu) → Block có id/occ, đã tách câu, gộp khối ngắn và cap tổng ký tự.
+
+    `max_chars=None` = quét toàn bộ (Phase 3 "Quét toàn bộ"): không cắt cuối trang; chi phí được
+    kiểm soát bằng ước lượng trước ở UI + chia lô embed + timeout từng lô.
 
     `min_block_chars` > 0 (nguồn text dán): khối ngắn hơn ngưỡng được gộp với khối liền kề — cosine,
     thẩm định LLM và ghi chú cần đoạn đủ ngữ cảnh. Giới hạn mỗi lần gộp là `min(max_block_chars,
@@ -119,7 +122,7 @@ def build_blocks(
     seen: dict[str, int] = {}
     total = 0
     truncated = False
-    group_limit = min(max_block_chars, max_chars)
+    group_limit = min(max_block_chars, max_chars) if max_chars is not None else max_block_chars
     buf = ""
 
     def flush(text: str) -> bool:
@@ -127,7 +130,7 @@ def build_blocks(
         nonlocal total, truncated
         if not text:
             return True
-        if total + len(text) > max_chars:
+        if max_chars is not None and total + len(text) > max_chars:
             truncated = True
             return False
         occ = seen.get(text, 0)
@@ -152,7 +155,7 @@ def build_blocks(
 
 
 def extract_text_blocks(
-    text: str, *, max_block_chars: int, max_chars: int, min_block_chars: int = 0,
+    text: str, *, max_block_chars: int, max_chars: int | None, min_block_chars: int = 0,
 ) -> Extraction:
     """Text dán → Extraction, không qua Trafilatura/process pool. Rỗng → ExtractError("empty")."""
     extraction = build_blocks(
@@ -205,7 +208,7 @@ def shutdown_extractor() -> None:
 
 
 async def extract_blocks(
-    html: str, *, timeout_seconds: float, max_block_chars: int, max_chars: int,
+    html: str, *, timeout_seconds: float, max_block_chars: int, max_chars: int | None,
 ) -> Extraction:
     loop = asyncio.get_running_loop()
     try:

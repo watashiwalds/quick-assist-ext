@@ -12,18 +12,20 @@
  * bộ" khi gần như cả trang khớp). Nguồn dán không có trang gốc nên "Xem trên trang" bị khoá và ghi chú
  * lưu không kèm URL. Không tự lưu khi người dùng chưa bấm.
  */
-import { type FormEvent, type KeyboardEvent, useEffect, useId, useMemo, useState } from 'react'
+import { type FormEvent, type KeyboardEvent, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { Folder, PageMatchItem } from '@/shared/api/types'
 import { config } from '@/shared/config'
 import { type SerializedError, toSerialized } from '@/shared/errors'
 import { rpc } from '@/shared/messaging/client'
 import type { PageMatchRun } from '@/shared/messaging/protocol'
-import { Banner, Button, ConfirmDialog, EmptyState, ErrorState, Icon, Select, Spinner, TextArea, useToast } from '../../components'
+import { Banner, Button, ConfirmDialog, EmptyState, ErrorState, Icon, Modal, Select, TextArea, useToast } from '../../components'
 import { useBroadcast } from '../../lib/hooks'
 
 const SEP = '\n\n'
 /** Ngưỡng hỏi lại trước khi lưu (ký tự) — nội dung lớn tốn hạn mức AI khi tạo chỉ mục tìm kiếm. */
 const CONFIRM_CHARS = 8_000
+/** = PAGE_MATCH_MAX_CHARS: vượt ngưỡng → hỏi "50k đầu" hay "toàn bộ" trước khi quét. */
+const SCAN_WARN_CHARS = config.pageMatchMaxChars
 
 /**
  * Gộp các đoạn (theo thứ tự trang) thành nội dung ghi chú, tách thành nhiều phần nếu vượt giới hạn
@@ -50,7 +52,60 @@ export function buildNoteParts(texts: string[], maxChars: number = config.maxNot
 /** Ước lượng token hạn mức AI để tạo chỉ mục (≈ 2 ký tự/token như backend estimate_tokens). */
 const estimateTokens = (chars: number) => Math.ceil(chars / 2)
 
+/** Ước lượng số lô embed: block tối đa `pageMatchBlockChars`, mỗi lô `pageMatchBatchBlocks` block. */
+export function estimateBatches(chars: number): number {
+  const blocks = Math.max(1, Math.ceil(chars / config.pageMatchBlockChars))
+  return Math.max(1, Math.ceil(blocks / config.pageMatchBatchBlocks))
+}
+
+type ScanScope = 'capped' | 'all'
+interface ScanPrompt {
+  chars: number
+  source: 'page' | 'paste'
+}
+
+/** Cảnh báo trước khi quét nội dung dài (Phase 3): nêu chi phí ước tính, mặc định chỉ 50k đầu. */
+function ScanScopeDialog({
+  prompt,
+  onChoose,
+  onCancel,
+}: {
+  prompt: ScanPrompt | null
+  onChoose: (scope: ScanScope) => void
+  onCancel: () => void
+}) {
+  const chars = prompt?.chars ?? 0
+  return (
+    <Modal
+      open={!!prompt}
+      title="Nội dung khá dài — chọn phạm vi quét"
+      onClose={onCancel}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onCancel}>Huỷ</Button>
+          <Button variant="ghost" onClick={() => onChoose('all')}>Quét toàn bộ</Button>
+          <Button onClick={() => onChoose('capped')}>Quét 50k đầu</Button>
+        </>
+      }
+    >
+      <div className="stack">
+        <p style={{ margin: 0 }}>
+          Nội dung khoảng <strong>{chars.toLocaleString('vi-VN')}</strong> ký tự, ước tính{' '}
+          <strong>~{estimateTokens(chars).toLocaleString('vi-VN')}</strong> token hạn mức AI, chia khoảng{' '}
+          <strong>{estimateBatches(chars)}</strong> lô xử lý.
+        </p>
+        <p className="muted" style={{ margin: 0 }}>
+          {prompt?.source === 'paste' ? 'Nội dung dán' : 'Trang này'} dài hơn {SCAN_WARN_CHARS.toLocaleString('vi-VN')} ký tự.
+          Quét toàn bộ lâu hơn và tốn nhiều hạn mức hơn; bạn có thể huỷ giữa chừng.
+        </p>
+      </div>
+    </Modal>
+  )
+}
+
 type Phase = 'idle' | 'reading' | 'analyzing'
+type ScanProgress = { phase: 'extract' | 'batch' | 'verify'; index?: number; total?: number }
+type SortMode = 'page' | 'confidence'
 interface PendingSave {
   parts: string[]
   label: string
@@ -80,11 +135,20 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
   const [saving, setSaving] = useState(false)
   const [confirm, setConfirm] = useState<PendingSave>()
   const [pageStatus, setPageStatus] = useState<PageStatusKey | null>(null)
+  const [scanPrompt, setScanPrompt] = useState<ScanPrompt | null>(null)
+  const [checking, setChecking] = useState(false)
+  const [progress, setProgress] = useState<ScanProgress>()
+  const [sort, setSort] = useState<SortMode>('page')
+  const requestRef = useRef<string>(undefined)
+  const cancelledRef = useRef(false)
   const folderSelectId = useId()
   const toast = useToast()
 
   useBroadcast((e) => {
-    if (e.type === 'pageMatch/progress') setPhase((p) => (p === 'reading' ? 'analyzing' : p))
+    if (e.type === 'pageMatch/progress') {
+      setPhase('analyzing')
+      setProgress({ phase: e.phase, index: e.index, total: e.total })
+    }
   })
 
   // Trạng thái trang: đổi khi người dùng chuyển tab hoặc trang điều hướng.
@@ -112,30 +176,78 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
     }
   }, [pasteMode])
 
-  const scan = async (e?: FormEvent) => {
-    e?.preventDefault()
+  const scan = async (scanAll: boolean) => {
     const q = query.trim()
-    if (!q || phase !== 'idle' || (pasteMode && !pasted.trim())) return
+    if (!q || phase !== 'idle' || checking || (pasteMode && !pasted.trim())) return
+    const requestId = crypto.randomUUID()
+    requestRef.current = requestId
+    cancelledRef.current = false
     setPhase(pasteMode ? 'analyzing' : 'reading')
+    setProgress(undefined)
     setError(undefined)
     setResult(undefined)
     try {
-      const r = await rpc('pageMatch/run', pasteMode ? { query: q, text: pasted } : { query: q })
+      const r = await rpc('pageMatch/run', pasteMode
+        ? { query: q, text: pasted, scanAll, requestId }
+        : { query: q, scanAll, requestId })
       setResult(r)
-      // Đoạn đã được AI xác nhận được tích sẵn; kết quả "theo điểm" để người dùng tự chọn.
+      // Đoạn đã được AI thẩm định được tích sẵn; kết quả fallback để người dùng tự chọn.
       setSelected(new Set(r.items.filter((i) => i.verified).map((i) => i.id)))
     } catch (err) {
-      setError(toSerialized(err))
+      const e = toSerialized(err)
+      if (!cancelledRef.current && e.code !== 'ABORTED') setError(e)
     } finally {
       setPhase('idle')
+      setProgress(undefined)
+      requestRef.current = undefined
     }
   }
 
+  /** Bấm Quét: đo độ dài trước; nội dung > 50k mở dialog chọn 50k đầu / toàn bộ, chưa quét ngay. */
+  const beginScan = async (e?: FormEvent) => {
+    e?.preventDefault()
+    const q = query.trim()
+    if (!q || phase !== 'idle' || checking || (pasteMode && !pasted.trim())) return
+    if (pasteMode) {
+      if (pasted.length > SCAN_WARN_CHARS) {
+        setScanPrompt({ chars: pasted.length, source: 'paste' })
+        return
+      }
+      void scan(false)
+      return
+    }
+    setChecking(true)
+    try {
+      const info = await rpc('pageMatch/inspect')
+      if (info.textChars > SCAN_WARN_CHARS) {
+        setScanPrompt({ chars: info.textChars, source: 'page' })
+        return
+      }
+    } catch {
+      // Không đọc được để ước lượng → vẫn thử quét; lỗi quyền hiện ở ErrorState như cũ.
+    } finally {
+      setChecking(false)
+    }
+    void scan(false)
+  }
+
+  const chooseScope = (scope: ScanScope) => {
+    setScanPrompt(null)
+    void scan(scope === 'all')
+  }
+
+  const cancelScan = () => {
+    if (!requestRef.current) return
+    cancelledRef.current = true
+    void rpc('pageMatch/cancel', { requestId: requestRef.current }).catch(() => undefined)
+  }
+
   const togglePaste = () => {
-    if (phase !== 'idle') return
+    if (phase !== 'idle' || checking) return
     setPasteMode((v) => !v)
     setError(undefined)
     setResult(undefined)
+    setScanPrompt(null)
   }
 
   const grantAndRetry = async () => {
@@ -143,13 +255,18 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
     const granted = await chrome.permissions
       .request({ origins: ['http://*/*', 'https://*/*'] })
       .catch(() => false)
-    if (granted) void scan()
+    if (granted) void beginScan()
     else toast('Chưa được cấp quyền đọc trang', 'error')
   }
 
   const items = result?.items ?? []
   const fromPaste = result !== undefined && result.tabId == null
   const chosen = useMemo(() => items.filter((i) => selected.has(i.id)), [items, selected])
+  // Sort chỉ đổi thứ tự HIỂN THỊ; `chosen` vẫn theo thứ tự trang nên lưu luôn giữ mạch đọc.
+  const visibleItems = sort === 'confidence'
+    ? [...items].sort((a, b) => b.confidence - a.confidence || a.id.localeCompare(b.id))
+    : items
+  const pageOrder = new Map(items.map((it, n) => [it.id, n + 1]))
   const toggle = (id: string) =>
     setSelected((s) => {
       const n = new Set(s)
@@ -198,7 +315,15 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
     }
   }
 
-  const busy = phase !== 'idle'
+  const busy = phase !== 'idle' || checking
+  const progressLabel =
+    phase === 'reading'
+      ? 'Đang đọc trang…'
+      : !progress || progress.phase === 'extract'
+        ? 'Đang trích nội dung…'
+        : progress.phase === 'batch'
+          ? `Đang xử lý lô ${progress.index ?? 1}/${progress.total ?? 1}…`
+          : 'AI đang thẩm định các đoạn…'
   const confirmChars = confirm ? confirm.parts.reduce((n, p) => n + p.length, 0) : 0
   const status = pageStatus ? PAGE_STATUS[pageStatus] : null
   const allSelected = chosen.length === items.length
@@ -207,7 +332,7 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
   const submitOnEnter = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      void scan()
+      void beginScan()
     }
   }
 
@@ -223,7 +348,7 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
           </p>
         </div>
 
-        <form className="pf-composer" role="search" aria-label="Tìm trong trang" onSubmit={(e) => void scan(e)}>
+        <form className="pf-composer" role="search" aria-label="Tìm trong trang" onSubmit={(e) => void beginScan(e)}>
           {!pasteMode && (
             <p className={`pf-status is-${pageStatus ?? 'unknown'}`} title={status?.hint}>
               <span className="status-dot" aria-hidden />
@@ -239,7 +364,7 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
                 placeholder="Dán nội dung vào đây (Ctrl+V)…"
                 onChange={(e) => setPasted(e.target.value)}
               />
-              <small className="muted">{pasted.length.toLocaleString('vi-VN')} ký tự · khoảng 50 000 ký tự đầu được quét</small>
+              <small className="muted">{pasted.length.toLocaleString('vi-VN')} ký tự · nội dung dài sẽ hỏi phạm vi quét trước</small>
             </div>
           )}
           <TextArea
@@ -297,6 +422,24 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
                 </p>
               </div>
               <div className="pf-headactions">
+                <div className="pf-sort" role="group" aria-label="Sắp xếp kết quả">
+                  <button
+                    type="button"
+                    className={sort === 'page' ? 'is-active' : ''}
+                    aria-pressed={sort === 'page'}
+                    onClick={() => setSort('page')}
+                  >
+                    Thứ tự trong trang
+                  </button>
+                  <button
+                    type="button"
+                    className={sort === 'confidence' ? 'is-active' : ''}
+                    aria-pressed={sort === 'confidence'}
+                    onClick={() => setSort('confidence')}
+                  >
+                    Tin cậy giảm dần
+                  </button>
+                </div>
                 {!fromPaste && (
                   <Button variant="link" size="sm" onClick={() => void highlight(items)}>
                     <Icon name="locate" size={14} />
@@ -308,17 +451,43 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
                 </Button>
               </div>
             </div>
+            <p className="pf-hint">Khi lưu, các đoạn xếp theo thứ tự trong trang.</p>
           </header>
         )}
 
         <div className="pf-scroll">
-          {phase === 'reading' && <Spinner label="Đang đọc trang…" />}
-          {phase === 'analyzing' && <Spinner label="Đang phân tích & thẩm định bằng AI…" />}
+          {busy && (
+            <div className="pf-progress" role="status" aria-live="polite">
+              <div className="pf-progress-head">
+                <span>{progressLabel}</span>
+                <Button variant="quiet" size="sm" onClick={cancelScan}>
+                  <Icon name="x" size={13} />
+                  Huỷ
+                </Button>
+              </div>
+              {progress?.phase === 'batch' && progress.total ? (
+                <div
+                  className="pf-progress-track"
+                  role="progressbar"
+                  aria-label="Tiến độ quét"
+                  aria-valuemin={0}
+                  aria-valuemax={progress.total}
+                  aria-valuenow={progress.index ?? 0}
+                >
+                  <span style={{ width: `${Math.round(((progress.index ?? 0) / progress.total) * 100)}%` }} />
+                </div>
+              ) : (
+                <div className="pf-progress-track is-indeterminate" aria-hidden>
+                  <span />
+                </div>
+              )}
+            </div>
+          )}
 
           {error && !busy && (
             <ErrorState
               error={error}
-              onRetry={['QUOTA_EXCEEDED', 'PAGE_ACCESS_DENIED', 'PAGE_TOO_LONG', 'PAGE_NO_CONTENT'].includes(error.code) ? undefined : () => void scan()}
+              onRetry={['QUOTA_EXCEEDED', 'PAGE_ACCESS_DENIED', 'PAGE_TOO_LONG', 'PAGE_NO_CONTENT'].includes(error.code) ? undefined : () => void beginScan()}
               action={
                 error.code === 'QUOTA_EXCEEDED' ? (
                   <Button variant="link" size="sm" onClick={onGoSettings}>
@@ -351,19 +520,21 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
                 </EmptyState>
               ) : (
                 <ol className="pf-list" aria-label="Các đoạn tìm thấy">
-                  {items.map((it, n) => (
+                  {visibleItems.map((it) => {
+                    const n = pageOrder.get(it.id) ?? 1
+                    return (
                     <li key={it.id} className={`card pf-card${selected.has(it.id) ? ' is-selected' : ''}`}>
                       <div className="pf-cardhead">
                         <label className="pf-select">
-                          <input type="checkbox" checked={selected.has(it.id)} onChange={() => toggle(it.id)} aria-label={`Chọn đoạn ${n + 1}`} />
-                          <span className="pf-index">Đoạn {n + 1}</span>
+                          <input type="checkbox" checked={selected.has(it.id)} onChange={() => toggle(it.id)} aria-label={`Chọn đoạn ${n}`} />
+                          <span className="pf-index">Đoạn {n}</span>
                         </label>
                         <span
                           className={`pf-sim${it.verified ? '' : ' is-unverified'}`}
-                          title={it.verified ? 'AI đã xác nhận đoạn này khớp truy vấn' : 'Chưa thẩm định — xếp theo độ tương đồng'}
+                          title={it.verified ? 'AI tin cậy đoạn này khớp truy vấn' : 'AI chưa thẩm định — theo độ tương đồng cosine'}
                         >
-                          <span className="sr-only">Độ tương đồng </span>
-                          {Math.round(it.score * 100)}%
+                          <span className="sr-only">{it.verified ? 'Độ tin cậy ' : 'Độ tương đồng '}</span>
+                          {Math.round(it.confidence * 100)}%
                         </span>
                         <Button
                           variant="link"
@@ -377,7 +548,8 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
                       </div>
                       <p className="pf-text">{it.text}</p>
                     </li>
-                  ))}
+                    )
+                  })}
                 </ol>
               )}
             </>
@@ -437,6 +609,8 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
           </footer>
         )}
       </section>
+
+      <ScanScopeDialog prompt={scanPrompt} onChoose={chooseScope} onCancel={() => setScanPrompt(null)} />
 
       <ConfirmDialog
         open={!!confirm}

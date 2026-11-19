@@ -29,10 +29,11 @@ _BLOCK = re.compile(r'<block id="(b\d+)">(.*?)</block>', re.DOTALL)
 
 
 def _verdict_json(query: str, blocks: list[tuple[str, str]]) -> str:
-    """Thẩm định giả lập: đoạn liên quan khi chứa ≥ một nửa số từ (≥2 ký tự) của truy vấn."""
+    """Thẩm định giả lập: confidence 0.9 khi chứa ≥ một nửa số từ (≥2 ký tự) của truy vấn, ngược lại 0.1."""
     q = {w for w in _WORD.findall(query.lower()) if len(w) >= 2}
     need = max(1, (len(q) + 1) // 2)
-    results = [{"id": bid, "relevant": len(q & set(_WORD.findall(text.lower()))) >= need}
+    results = [{"id": bid,
+                "confidence": 0.9 if len(q & set(_WORD.findall(text.lower()))) >= need else 0.1}
                for bid, text in blocks]
     return json.dumps({"results": results}, ensure_ascii=False)
 

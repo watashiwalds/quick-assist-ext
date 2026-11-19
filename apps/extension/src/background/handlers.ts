@@ -14,7 +14,7 @@ import { broadcast } from './broadcast'
 import { rememberFolders } from './menus'
 import { discardPending, flushOutbox, listPending, retryPending, undoQuickNote } from './notes/quick-note'
 import { syncNotes } from './notes/sync'
-import { highlightInTab, runPageMatch } from './page-match'
+import { cancelPageMatch, highlightInTab, inspectPage, runPageMatch } from './page-match'
 import { clearPrefs, getPrefs, setPrefs } from './prefs'
 import { takePendingSelection } from './selection'
 
@@ -209,7 +209,12 @@ export const handlers: Handlers = {
     broadcast({ channel: 'qa-event', type: 'notes/changed' })
     return note
   },
-  'pageMatch/run': ({ query, text }) => runPageMatch({ query, text }),
+  'pageMatch/inspect': () => inspectPage(),
+  'pageMatch/run': ({ query, text, scanAll, requestId }) => runPageMatch({ query, text, scanAll, requestId }),
+  'pageMatch/cancel': ({ requestId }) => {
+    cancelPageMatch(requestId)
+    return Promise.resolve()
+  },
   'pageMatch/highlight': ({ tabId, items }) => highlightInTab(tabId, items),
 
   'chatSessions/load': () => loadChatSessions(),

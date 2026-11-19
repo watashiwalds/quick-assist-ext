@@ -18,6 +18,10 @@ class PageMatchIn(ApiModel):
                                          "cần đúng một trong html/text")
     url: str | None = Field(default=None, max_length=2048, description="Chỉ để log/metadata")
     title: str | None = Field(default=None, max_length=500, description="Chỉ để log/metadata")
+    scan_all: bool = Field(default=False,
+                           description="True = quét toàn bộ nội dung (bỏ trần PAGE_MATCH_MAX_CHARS), "
+                                       "chia lô embed + timeout từng lô. "
+                                       "HTML vẫn ≤ PAGE_MATCH_MAX_HTML_BYTES.")
 
     @model_validator(mode="after")
     def _exactly_one_source(self) -> Self:
@@ -31,7 +35,10 @@ class PageMatchItemOut(ApiModel):
     occ: int = Field(description="Lần xuất hiện thứ n (từ 0) của đúng text này trên trang — để highlight")
     text: str
     score: float = Field(description="Cosine giữa truy vấn và đoạn")
-    verified: bool = Field(description="True = LLM đã xác nhận; False = chỉ theo điểm (VERIFY_UNAVAILABLE)")
+    confidence: float = Field(description="Độ tin cậy cuối 0..1: LLM confidence khi đã thẩm định, "
+                                          "hoặc cosine khi fallback (verified=false)")
+    verified: bool = Field(description="True = LLM đã đánh giá (confidence từ LLM); "
+                                       "False = fallback theo độ tương đồng (VERIFY_UNAVAILABLE)")
 
 
 class PageMatchOut(ApiModel):

@@ -5,14 +5,34 @@
  * không để lại dấu vết trên DOM); background runPageMatch/highlightInTab.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getRawHtml, highlightBlocksByText } from '../src/content/injected'
+import { getPageTextChars, getRawHtml, highlightBlocksByText } from '../src/content/injected'
 import { AppError } from '../src/shared/errors'
 import { installChrome } from './helpers/chrome'
 
 const { chrome, sent } = installChrome()
-const pageMatch = vi.fn()
-vi.mock('../src/background/api', () => ({ api: { ai: { pageMatch: (...a: unknown[]) => pageMatch(...a) } } }))
-const { runPageMatch, highlightInTab } = await import('../src/background/page-match')
+const pageMatchStream = vi.fn()
+vi.mock('../src/background/api', () => ({ api: { ai: { pageMatchStream: (...a: unknown[]) => pageMatchStream(...a) } } }))
+const { runPageMatch, highlightInTab, inspectPage, cancelPageMatch } = await import('../src/background/page-match')
+
+/** Response giả cho http.stream: một mảnh SSE chứa toàn bộ event rồi kết thúc. */
+function sse(events: Array<[string, unknown]>) {
+  const text = events.map(([e, d]) => `event: ${e}\ndata: ${JSON.stringify(d)}\n\n`).join('')
+  let read = false
+  return {
+    body: {
+      pipeThrough: () => ({
+        getReader: () => ({
+          read: async () => (read ? { done: true } : ((read = true), { done: false, value: text })),
+        }),
+      }),
+    },
+  }
+}
+
+const done = (over: Record<string, unknown> = {}) => ({
+  mode: 'segments', match_ratio: 0.2, warning: null, items: [], total_chars: 10,
+  truncated: false, full_text: null, ...over,
+})
 
 afterEach(() => {
   document.head.innerHTML = ''
@@ -39,6 +59,24 @@ describe('getRawHtml', () => {
     }
     expect(document.documentElement.outerHTML).toBe(before) // làm việc trên bản sao
     expect(r.url).toBe(location.href)
+    // Phase 3: đếm ký tự văn bản sau khi bỏ script/style…, dùng để cảnh báo trước khi quét.
+    expect(r.textChars).toBe('Tiêu đềNội dung chính'.length)
+  })
+
+  it('getPageTextChars: đếm văn bản nhìn thấy, bỏ script/style và nội dung ô nhập', () => {
+    document.body.innerHTML = `
+      <p>Đoạn một</p><script>KHONG_DEM</script><style>.x{}</style>
+      <textarea>nháp</textarea><p>Đoạn hai</p>`
+    expect(getPageTextChars()).toBe('Đoạn một Đoạn hai'.length)
+  })
+
+  it('hàm tiêm tự chứa — chạy được khi không có closure của module (bị chuyển sang ngữ cảnh trang)', () => {
+    document.body.innerHTML = '<p>Nội dung</p>'
+    // `new Function` không giữ closure: nếu hàm còn tham chiếu hằng/biến module thì test này nổ.
+    const isolated = (fn: { toString(): string }, ...args: unknown[]) =>
+      new Function(`return (${fn.toString()})(...${JSON.stringify(args)})`)() as unknown
+    expect(isolated(getPageTextChars)).toBe('Nội dung'.length)
+    expect((isolated(getRawHtml, 2_000_000) as { html: string }).html).toContain('Nội dung')
   })
 
   it('trang vượt giới hạn → tooLong, không trả HTML', () => {
@@ -126,44 +164,76 @@ describe('highlightBlocksByText', () => {
 
 describe('background page-match', () => {
   beforeEach(() => {
-    pageMatch.mockReset()
+    pageMatchStream.mockReset()
     sent.length = 0
-    ;(chrome as unknown as { tabs: unknown }).tabs = { query: vi.fn(async () => [{ id: 7 }]) }
+    ;(chrome as unknown as { tabs: unknown }).tabs = { query: vi.fn(async () => [{ id: 7, url: 'https://a.vn/nq', title: 'NQ' }]) }
   })
 
-  const page = (over = {}) => ({ html: '<!DOCTYPE html><p>x</p>', url: 'https://a.vn/nq', title: 'NQ', bytes: 30, tooLong: false, ...over })
+  const page = (over = {}) => ({ html: '<!DOCTYPE html><p>x</p>', url: 'https://a.vn/nq', title: 'NQ', bytes: 30, textChars: 20, tooLong: false, ...over })
 
-  it('chụp trang → POST /ai/page-match, phát tiến độ, trả kèm tabId/url', async () => {
+  it('chụp trang → stream SSE, phát tiến độ từng bước, trả kèm tabId/url', async () => {
     chrome.scripting.executeScript.mockResolvedValueOnce([{ result: page() }])
-    pageMatch.mockResolvedValueOnce({ mode: 'segments', match_ratio: 0.2, warning: null, items: [], total_chars: 10, truncated: false, full_text: null })
-    const r = await runPageMatch({ query: 'đất đai' })
+    pageMatchStream.mockResolvedValueOnce(sse([
+      ['progress', { phase: 'extract' }],
+      ['progress', { phase: 'batch', index: 1, total: 2 }],
+      ['progress', { phase: 'verify' }],
+      ['done', done()],
+    ]))
+    const r = await runPageMatch({ query: 'đất đai', requestId: 'r1' })
     expect(chrome.scripting.executeScript).toHaveBeenCalledWith(expect.objectContaining({ target: { tabId: 7 }, args: [2_000_000] }))
-    expect(pageMatch).toHaveBeenCalledWith({ query: 'đất đai', html: '<!DOCTYPE html><p>x</p>', url: 'https://a.vn/nq', title: 'NQ' })
+    expect(pageMatchStream).toHaveBeenCalledWith(
+      { query: 'đất đai', html: '<!DOCTYPE html><p>x</p>', url: 'https://a.vn/nq', title: 'NQ', scan_all: false },
+      expect.any(AbortSignal),
+    )
     expect(r).toMatchObject({ tabId: 7, url: 'https://a.vn/nq', mode: 'segments' })
-    expect(sent).toContainEqual({ channel: 'qa-event', type: 'pageMatch/progress', phase: 'analyzing' })
+    expect(sent).toContainEqual({ channel: 'qa-event', type: 'pageMatch/progress', phase: 'extract' })
+    expect(sent).toContainEqual({ channel: 'qa-event', type: 'pageMatch/progress', phase: 'batch', index: 1, total: 2 })
+    expect(sent).toContainEqual({ channel: 'qa-event', type: 'pageMatch/progress', phase: 'verify' })
   })
 
-  it('nguồn dán → không chụp trang, gọi API với text, kết quả không có tabId/url', async () => {
+  it('nguồn dán → không chụp trang, gửi text + scan_all, kết quả không có tabId/url', async () => {
     chrome.scripting.executeScript.mockClear()
-    pageMatch.mockResolvedValueOnce({ mode: 'segments', match_ratio: 0.2, warning: null, items: [], total_chars: 10, truncated: false, full_text: null })
-    const r = await runPageMatch({ query: 'đất đai', text: 'Đoạn một.\n\nĐoạn hai.' })
+    pageMatchStream.mockResolvedValueOnce(sse([['done', done()]]))
+    const r = await runPageMatch({ query: 'đất đai', text: 'Đoạn một.\n\nĐoạn hai.', scanAll: true })
     expect(chrome.scripting.executeScript).not.toHaveBeenCalled()
-    expect(pageMatch).toHaveBeenCalledWith({ query: 'đất đai', text: 'Đoạn một.\n\nĐoạn hai.', url: null })
+    expect(pageMatchStream).toHaveBeenCalledWith(
+      { query: 'đất đai', text: 'Đoạn một.\n\nĐoạn hai.', url: null, scan_all: true },
+      expect.any(AbortSignal),
+    )
     expect(r.tabId).toBeUndefined()
     expect(r).toMatchObject({ url: null, title: null, mode: 'segments' })
-    expect(sent).toContainEqual({ channel: 'qa-event', type: 'pageMatch/progress', phase: 'analyzing' })
   })
 
   it('nguồn dán rỗng → PAGE_NO_CONTENT, không gọi API', async () => {
-    pageMatch.mockReset()
     await expect(runPageMatch({ query: 'x', text: '   ' })).rejects.toMatchObject({ code: 'PAGE_NO_CONTENT', status: 422 })
-    expect(pageMatch).not.toHaveBeenCalled()
+    expect(pageMatchStream).not.toHaveBeenCalled()
+  })
+
+  it('server phát event error → AppError tương ứng xuyên suốt tới UI', async () => {
+    pageMatchStream.mockResolvedValueOnce(sse([['error', { code: 'QUOTA_EXCEEDED', message: 'hết', status: 402 }]]))
+    await expect(runPageMatch({ query: 'x', text: 'nội dung' })).rejects.toMatchObject({ code: 'QUOTA_EXCEEDED', status: 402 })
+  })
+
+  it('stream đóng mà không có done → NETWORK_ERROR', async () => {
+    pageMatchStream.mockResolvedValueOnce(sse([['progress', { phase: 'extract' }]]))
+    await expect(runPageMatch({ query: 'x', text: 'nội dung' })).rejects.toMatchObject({ code: 'NETWORK_ERROR' })
+  })
+
+  it('huỷ giữa chừng → abort signal của fetch và báo ABORTED', async () => {
+    pageMatchStream.mockImplementationOnce(async (_b: unknown, signal: AbortSignal) =>
+      await new Promise((_, reject) => {
+        signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))
+      }))
+    const p = runPageMatch({ query: 'x', text: 'nội dung', requestId: 'req-1' })
+    await vi.waitFor(() => expect(pageMatchStream).toHaveBeenCalled())
+    cancelPageMatch('req-1')
+    await expect(p).rejects.toMatchObject({ code: 'ABORTED' })
   })
 
   it('trang quá lớn → PAGE_TOO_LONG, không tải lên', async () => {
     chrome.scripting.executeScript.mockResolvedValueOnce([{ result: page({ html: '', tooLong: true, bytes: 3e6 }) }])
     await expect(runPageMatch({ query: 'x' })).rejects.toMatchObject({ code: 'PAGE_TOO_LONG', status: 413 })
-    expect(pageMatch).not.toHaveBeenCalled()
+    expect(pageMatchStream).not.toHaveBeenCalled()
   })
 
   it('không tiêm được script (chưa có quyền / trang chrome://) → PAGE_ACCESS_DENIED', async () => {
@@ -173,10 +243,12 @@ describe('background page-match', () => {
     await expect(runPageMatch({ query: 'x' })).rejects.toMatchObject({ code: 'PAGE_ACCESS_DENIED' })
   })
 
-  it('lỗi API (402/413/422/502) xuyên suốt tới UI', async () => {
-    chrome.scripting.executeScript.mockResolvedValueOnce([{ result: page() }])
-    pageMatch.mockRejectedValueOnce(new AppError('QUOTA_EXCEEDED', 'hết', 402))
-    await expect(runPageMatch({ query: 'x' })).rejects.toMatchObject({ code: 'QUOTA_EXCEEDED', status: 402 })
+  it('inspectPage: trả textChars + metadata tab, không tải HTML', async () => {
+    chrome.scripting.executeScript.mockResolvedValueOnce([{ result: 123_456 }])
+    expect(await inspectPage()).toEqual({ textChars: 123_456, url: 'https://a.vn/nq', title: 'NQ' })
+    expect(chrome.scripting.executeScript).toHaveBeenLastCalledWith(
+      expect.objectContaining({ target: { tabId: 7 }, func: getPageTextChars }),
+    )
   })
 
   it('highlightInTab: tiêm vào đúng tab đã quét; tab đóng → ok:false', async () => {

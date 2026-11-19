@@ -86,6 +86,9 @@ export function createApi(http: HttpRequest) {
       /** AutoChunk: Trafilatura + embed + LLM thẩm định có thể lâu hơn timeout mặc định. */
       pageMatch: (b: PageMatchRequest) =>
         http<PageMatchResult>('/ai/page-match', { method: 'POST', body: b, timeoutMs: config.pageMatchRequestTimeoutMs }),
+      /** Phase 3: cùng endpoint nhưng SSE tiến độ (extract → batch i/n → verify → done). */
+      pageMatchStream: (b: PageMatchRequest, signal?: AbortSignal) =>
+        http.stream('/ai/page-match/stream', { method: 'POST', body: b, signal }),
     },
     aiSettings: {
       get: () => http<AiSettings>('/me/ai-settings'),

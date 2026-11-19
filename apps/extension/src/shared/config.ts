@@ -12,6 +12,11 @@ export const config = {
   maxSummaryChars: 30_000,
   /** = PAGE_MATCH_MAX_HTML_BYTES của backend: trang lớn hơn → dừng ở máy, không tải lên (AutoChunk). */
   pageMatchMaxHtmlBytes: 2_000_000,
+  /** = PAGE_MATCH_MAX_CHARS: ngưỡng cảnh báo trước khi quét; "Quét toàn bộ" gửi scan_all=true. */
+  pageMatchMaxChars: 50_000,
+  /** = PAGE_MATCH_EMBED_BATCH_BLOCKS / MAX_BLOCK_CHARS của backend — chỉ dùng để ước lượng số lô. */
+  pageMatchBatchBlocks: 32,
+  pageMatchBlockChars: 1_200,
   /** Quét trang = trích nội dung + embed + LLM thẩm định (timeout server 10s + 20s) → nới hơn mặc định. */
   pageMatchRequestTimeoutMs: 45_000,
   /** Bản build E2E (VITE_E2E=true) mới có đăng nhập thử & hook kiểm thử — bản phát hành KHÔNG có. */
