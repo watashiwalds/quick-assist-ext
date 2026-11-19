@@ -335,6 +335,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notes/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move Notes
+         * @description Chuyển nhiều ghi chú ĐÃ CHỌN sang thư mục khác (Phase 2 — bulk move).
+         */
+        post: operations["move_notes_api_v1_notes_move_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notes/{note_id}": {
         parameters: {
             query?: never;
@@ -700,6 +720,26 @@ export interface components {
              * @description Version client đang giữ — lệch sẽ trả 409
              */
             version: number;
+        };
+        /**
+         * NotesMoveIn
+         * @description Chuyển nhiều ghi chú sang một thư mục (Phase 2, UX plan §6.4).
+         *
+         *     ``folder_id = None`` → Inbox. Chỉ ghi chú thuộc user và chưa bị xoá mới được chuyển;
+         *     id không tồn tại/không sở hữu trả trong ``missing`` thay vì làm hỏng cả lô.
+         */
+        NotesMoveIn: {
+            /** Folder Id */
+            folder_id?: string | null;
+            /** Ids */
+            ids: string[];
+        };
+        /** NotesMoveOut */
+        NotesMoveOut: {
+            /** Missing */
+            missing: string[];
+            /** Moved */
+            moved: number;
         };
         /** PageMatchIn */
         PageMatchIn: {
@@ -1721,6 +1761,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BulkDeleteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    move_notes_api_v1_notes_move_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotesMoveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotesMoveOut"];
                 };
             };
             /** @description Validation Error */

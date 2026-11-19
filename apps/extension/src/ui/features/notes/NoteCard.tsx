@@ -1,5 +1,7 @@
 /**
  * Hàng ghi chú trong danh sách (W03): tiêu đề + trích đoạn + ngày/thư mục + trạng thái.
+ * Summary-first (Phase 2 — UX plan §5.2): hiện `summary_text` đã lưu trước, kèm badge
+ * "Tóm tắt"; không có thì dùng excerpt nội dung gốc.
  * Bấm hàng → mở reader; ở chế độ chọn, hàng trở thành checkbox (bấm cả hàng để chọn).
  * Thao tác (Sửa/Xoá/Tóm tắt/Thử lại AI) nằm ở reader — xem NoteReader.
  */
@@ -30,7 +32,10 @@ export function NoteCard({
   const body = (
     <div className="note-item-body">
       <h3 className="note-item-title">{heading}</h3>
-      <div className="note-item-excerpt">{note.content}</div>
+      <div className="note-item-excerpt">
+        {note.summary_text && <span className="note-item-badge">Tóm tắt</span>}
+        {note.summary_text ?? note.content}
+      </div>
       <div className="note-item-meta">
         <span>{formatDate(note.created_at)}</span>
         {folderName && (

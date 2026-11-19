@@ -158,6 +158,13 @@ export const handlers: Handlers = {
     await notesCache.remove(ids)
     return res
   },
+  'notes/move': async ({ ids, folderId }) => {
+    const res = await api.notes.move(ids, folderId)
+    // Note đổi folder_id + updated_at ở server → sync tăng dần cập nhật cache rồi báo UI.
+    await syncNotes()
+    broadcast({ channel: 'qa-event', type: 'notes/changed' })
+    return res
+  },
   'notes/reindex': async ({ id }) => {
     const note = await api.notes.reindex(id)
     await notesCache.apply([note])
@@ -170,19 +177,9 @@ export const handlers: Handlers = {
   'outbox/discard': ({ id }) => discardPending(id),
 
   'search/query': async ({ query, folderId, maxSources }) => {
-    // Backend trả grouped (nguồn → ghi chú, Phase 1); UI hiện tại render phẳng — Phase 2 sẽ
-    // dùng thẳng grouped. Ở đây phẳng hoá theo thứ hạng nguồn rồi thứ hạng note.
+    // Backend trả grouped theo nguồn (Phase 1) — Phase 2 UI render trực tiếp, không phẳng hoá.
     const r = await api.search.query({ query, folder_id: folderId, max_sources: maxSources })
-    return r.sources.flatMap((s) =>
-      s.notes.map((n) => ({
-        note_id: n.note_id,
-        note_title: n.title,
-        note_url: n.url,
-        text: n.snippet,
-        score: n.score,
-        similarity: n.similarity,
-      })),
-    )
+    return r.sources
   },
   'summary/preview': ({ noteId, text }) =>
     api.ai.summarize(noteId ? { note_id: noteId } : { text: (text ?? '').slice(0, config.maxSummaryChars) }),

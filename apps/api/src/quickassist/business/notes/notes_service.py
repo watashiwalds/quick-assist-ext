@@ -158,6 +158,25 @@ class NotesService:
         await self.s.refresh(note)
         return note
 
+    async def move_many(
+        self, user_id: uuid.UUID, ids: list[uuid.UUID], folder_id: uuid.UUID | None,
+    ) -> tuple[int, list[uuid.UUID]]:
+        """Chuyển các ghi chú ĐÃ CHỌN sang thư mục đích (None → Inbox).
+
+        Chỉ note của chính user và chưa xoá mới được cập nhật; id lạ/không sở hữu trả ở
+        ``missing``. Ghi ``folder_id`` + enqueue job index trong CÙNG transaction với note
+        (outbox ADR-0003) → nếu commit lỗi cả hai cùng rollback; job cập nhật
+        ``NoteChunk.folder_id`` (business của semantic_search sở hữu bảng chunk).
+        """
+        folder = await self._resolve_folder(user_id, folder_id)
+        unique = list(dict.fromkeys(ids))
+        moved = await self.notes.move_many(user_id, unique, folder.id)
+        for nid in moved:
+            await publish_note_changed(self.s, nid)
+        await self.s.commit()
+        moved_set = set(moved)
+        return len(moved), [nid for nid in unique if nid not in moved_set]
+
     async def delete_many(self, user_id: uuid.UUID, ids: list[uuid.UUID]) -> int:
         deleted = await self.notes.soft_delete_many(user_id, list(dict.fromkeys(ids)))
         for nid in deleted:

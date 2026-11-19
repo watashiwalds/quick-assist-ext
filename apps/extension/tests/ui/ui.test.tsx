@@ -2,7 +2,7 @@
 /**
  * A05, C03, R04, A08, SUM-03 — kiểm thử giao diện với RPC giả lập (không cần background/server).
  */
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppError } from '../../src/shared/errors'
 import { installChrome } from '../helpers/chrome'
@@ -106,6 +106,79 @@ describe('thư viện (C03)', () => {
     expect(screen.getByText('Tiêu đề n2')).toBeTruthy()
   })
 
+  it('nhóm theo nguồn + summary-first: nhóm có aria-expanded, tóm tắt hiện trước nội dung', async () => {
+    rpc.mockImplementation(async (type: string) => {
+      if (type === 'folders/list') return FOLDERS
+      if (type === 'notes/list')
+        return [
+          note('n1', { domain: 'a.vn', summary_text: 'Tóm tắt n1' }),
+          note('n2', { domain: 'a.vn', content: 'Nội dung gốc n2' }),
+          note('n3', { domain: 'b.vn' }),
+          note('n4', { domain: null, url: null, title: 'Không nguồn' }),
+        ]
+      if (type === 'outbox/list') return []
+      throw new Error(type)
+    })
+    wrap(<NotesView onGoSettings={() => undefined} />)
+    const groupA = await screen.findByRole('region', { name: 'Nguồn a.vn' })
+    const toggle = screen.getByRole('button', { name: /a\.vn.*2 ghi chú/ })
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    expect(groupA.textContent).toContain('Tóm tắt n1')
+    expect(groupA.textContent).toContain('Tóm tắt từ ghi chú')
+    // "Không rõ nguồn" luôn cuối danh sách nhóm
+    const regions = screen.getAllByRole('region', { name: /^Nguồn / })
+    expect(regions.at(-1)!.getAttribute('aria-label')).toBe('Nguồn Không rõ nguồn')
+    // đóng nhóm → ẩn danh sách note, aria-expanded=false
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(screen.queryByRole('heading', { name: 'Tiêu đề n1' })).toBeNull()
+  })
+
+  it('bulk move: chỉ chuyển note đã chọn, dialog chọn thư mục đích rồi reload', async () => {
+    let list = [note('n1'), note('n2'), note('n3')]
+    rpc.mockImplementation(async (type: string, p: { ids?: string[]; folderId?: string | null }) => {
+      if (type === 'folders/list') return FOLDERS
+      if (type === 'notes/list') return list
+      if (type === 'outbox/list') return []
+      if (type === 'notes/move') {
+        list = list.filter((n) => !p.ids!.includes(n.id))
+        return { moved: p.ids!.length, missing: [] }
+      }
+      throw new Error(type)
+    })
+    wrap(<NotesView onGoSettings={() => undefined} />)
+    await screen.findByText('Tiêu đề n1')
+    fireEvent.click(screen.getByRole('button', { name: 'Chọn' }))
+    fireEvent.click(screen.getByLabelText('Chọn “Tiêu đề n1”'))
+    fireEvent.click(screen.getByLabelText('Chọn “Tiêu đề n3”'))
+    fireEvent.click(screen.getByRole('button', { name: 'Chuyển thư mục' }))
+    const dlg = await screen.findByRole('dialog')
+    expect(dlg.textContent).toContain('Chỉ 2 ghi chú đã chọn')
+    fireEvent.change(screen.getByLabelText('Thư mục đích'), { target: { value: 'f1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Chuyển (2)' }))
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('notes/move', { ids: ['n1', 'n3'], folderId: 'f1' }))
+    await waitFor(() => expect(screen.queryByText('Tiêu đề n1')).toBeNull())
+    expect(screen.getByText('Tiêu đề n2')).toBeTruthy()
+    expect(screen.getByText('Đã chuyển 2 ghi chú')).toBeTruthy()
+  })
+
+  it('"Chọn cả nhóm" chọn đúng các note trong nhóm, không tự chuyển', async () => {
+    rpc.mockImplementation(async (type: string) => {
+      if (type === 'folders/list') return FOLDERS
+      if (type === 'notes/list') return [note('n1'), note('n2'), note('n3', { domain: 'b.vn' })]
+      if (type === 'outbox/list') return []
+      throw new Error(type)
+    })
+    wrap(<NotesView onGoSettings={() => undefined} />)
+    await screen.findByText('Tiêu đề n1')
+    fireEvent.click(screen.getByRole('button', { name: 'Chọn' }))
+    fireEvent.click(within(screen.getByRole('region', { name: 'Nguồn a.vn' })).getByRole('button', { name: 'Chọn cả nhóm' }))
+    expect((screen.getByLabelText('Chọn “Tiêu đề n1”') as HTMLInputElement).checked).toBe(true)
+    expect((screen.getByLabelText('Chọn “Tiêu đề n2”') as HTMLInputElement).checked).toBe(true)
+    expect((screen.getByLabelText('Chọn “Tiêu đề n3”') as HTMLInputElement).checked).toBe(false)
+    expect(rpc).not.toHaveBeenCalledWith('notes/move', expect.anything())
+  })
+
   it('hiện ghi chú chưa gửi được (N06) và cho Gửi lại', async () => {
     rpc.mockImplementation(async (type: string) => {
       if (type === 'folders/list') return FOLDERS
@@ -130,7 +203,7 @@ describe('thanh tìm gộp trong Thư viện (R04 + C03)', () => {
       if (type === 'notes/list') return [note('n1'), note('n2', { content: 'phở bò' }), note('n3')]
       if (type === 'outbox/list') return []
       if (type === 'search/query')
-        return [{ chunk_id: 'c1', note_id: 'n2', text: 'hầm xương 8 tiếng', score: 0.03, note_title: 'Tiêu đề n2', note_url: 'https://pho.vn', folder_id: 'inbox' }]
+        return [{ domain: 'pho.vn', label: 'pho.vn', source_rank: 1, note_count: 1, notes: [{ note_id: 'n2', title: 'Tiêu đề n2', url: 'https://pho.vn', summary: null, snippet: 'hầm xương 8 tiếng', score: 0.03, similarity: 0.62 }] }]
       if (type === 'notes/get') return note(p.id!)
       throw new Error(type)
     })
@@ -141,10 +214,10 @@ describe('thanh tìm gộp trong Thư viện (R04 + C03)', () => {
     fireEvent.change(screen.getByLabelText('Tìm kiếm hoặc lọc ghi chú'), { target: { value: 'PHỞ' } })
     expect(screen.queryByText('Tiêu đề n1')).toBeNull()
     expect(rpc).not.toHaveBeenCalledWith('search/query', expect.anything())
-    // Enter → tìm kiếm ngữ nghĩa với thư mục đang chọn + số kết quả đã chọn
-    fireEvent.change(screen.getByLabelText('Số kết quả tối đa'), { target: { value: '10' } })
+    // Enter → tìm kiếm ngữ nghĩa với thư mục đang chọn + số nguồn đã chọn
+    fireEvent.change(screen.getByLabelText('Số nguồn tối đa'), { target: { value: '10' } })
     fireEvent.submit(screen.getByRole('search'))
-    await screen.findByText('1. Tiêu đề n2')
+    await screen.findByText('Tiêu đề n2')
     expect(rpc).toHaveBeenCalledWith('search/query', { query: 'PHỞ', folderId: null, maxSources: 10 })
     expect(screen.getByRole('link', { name: /Mở trang nguồn/ }).getAttribute('href')).toBe('https://pho.vn')
     // mở ngay trong reader, không cần chuyển tab
@@ -181,14 +254,14 @@ describe('tìm kiếm (R04)', () => {
     const onOpen = vi.fn()
     rpc.mockImplementation(async (type: string) => {
       if (type === 'folders/list') return FOLDERS
-      if (type === 'search/query') return [{ chunk_id: 'c1', note_id: 'n9', text: 'hầm xương 8 tiếng', score: 0.03, note_title: 'Phở bò', note_url: 'https://pho.vn', folder_id: 'inbox' }]
+      if (type === 'search/query') return [{ domain: 'pho.vn', label: 'pho.vn', source_rank: 1, note_count: 1, notes: [{ note_id: 'n9', title: 'Phở bò', url: 'https://pho.vn', summary: null, snippet: 'hầm xương 8 tiếng', score: 0.03, similarity: 0.71 }] }]
       throw new Error(type)
     })
     wrap(<SearchView onOpenNote={onOpen} onGoSettings={() => undefined} />)
     fireEvent.change(screen.getByLabelText('Câu hỏi tìm kiếm'), { target: { value: 'ham xuong' } })
-    fireEvent.change(screen.getByLabelText('Số kết quả tối đa'), { target: { value: '10' } })
+    fireEvent.change(screen.getByLabelText('Số nguồn tối đa'), { target: { value: '10' } })
     fireEvent.click(screen.getByRole('button', { name: 'Tìm' }))
-    await screen.findByText('1. Phở bò')
+    await screen.findByText('Phở bò')
     expect(screen.getByText(/tối đa 10/)).toBeTruthy()
     expect(rpc).toHaveBeenCalledWith('search/query', { query: 'ham xuong', folderId: null, maxSources: 10 })
     expect(screen.getByRole('link', { name: /Mở trang nguồn/ }).getAttribute('href')).toBe('https://pho.vn')

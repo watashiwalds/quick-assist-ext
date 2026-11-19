@@ -18,7 +18,7 @@ import type {
   Note,
   PageMatchResult,
   Quota,
-  SearchHit,
+  SearchSource,
   SummaryPreview,
   User,
 } from '../api/types'
@@ -97,6 +97,8 @@ export interface RpcMap {
   'notes/sync': { req: void; res: { changed: number } }
   'notes/update': { req: { id: string; version: number; content?: string; title?: string; folderId?: string }; res: Note }
   'notes/delete': { req: { ids: string[] }; res: { deleted: number } }
+  /** Phase 2 — chuyển các ghi chú ĐÃ CHỌN sang thư mục đích (null → Inbox). */
+  'notes/move': { req: { ids: string[]; folderId: string | null }; res: { moved: number; missing: string[] } }
   'notes/reindex': { req: { id: string }; res: Note }
 
   'quickNote/undo': { req: { pendingId: string }; res: { undone: boolean } }
@@ -104,9 +106,9 @@ export interface RpcMap {
   'outbox/retry': { req: { id: string }; res: void }
   'outbox/discard': { req: { id: string }; res: void }
 
-  /** Backend trả grouped (nguồn → ghi chú); res phẳng hoá ở background cho UI hiện tại
-   * (chuyển tiếp Phase 1 → Phase 2 sẽ trả `SearchSource[]`). `maxSources` = số nguồn tối đa. */
-  'search/query': { req: { query: string; folderId?: string | null; maxSources?: number }; res: SearchHit[] }
+  /** Kết quả grouped theo nguồn (Phase 1 contract; Phase 2 UI dùng thẳng).
+   * `maxSources` = số nguồn (domain) tối đa; mỗi nguồn API trả tối đa 10 note. */
+  'search/query': { req: { query: string; folderId?: string | null; maxSources?: number }; res: SearchSource[] }
   'summary/preview': { req: { noteId?: string; text?: string }; res: SummaryPreview }
   'summary/save': { req: { noteId: string; version: number; summary: string }; res: Note }
   /** Lưu vùng chọn thành ghi chú mới kèm bản tóm tắt đã xác nhận. */

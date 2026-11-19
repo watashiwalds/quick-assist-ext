@@ -71,3 +71,19 @@ class BulkDeleteIn(ApiModel):
 
 class BulkDeleteOut(ApiModel):
     deleted: int
+
+
+class NotesMoveIn(ApiModel):
+    """Chuyển nhiều ghi chú sang một thư mục (Phase 2, UX plan §6.4).
+
+    ``folder_id = None`` → Inbox. Chỉ ghi chú thuộc user và chưa bị xoá mới được chuyển;
+    id không tồn tại/không sở hữu trả trong ``missing`` thay vì làm hỏng cả lô.
+    """
+
+    ids: list[uuid.UUID] = Field(min_length=1, max_length=200)
+    folder_id: uuid.UUID | None = None
+
+
+class NotesMoveOut(ApiModel):
+    moved: int
+    missing: list[uuid.UUID]

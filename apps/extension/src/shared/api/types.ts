@@ -10,20 +10,12 @@ type S = components['schemas']
 export type Note = S['NoteOut']
 export type NoteCreate = S['NoteCreateIn']
 export type NoteUpdate = S['NoteUpdateIn']
+export type NotesMove = S['NotesMoveIn']
+export type NotesMoveResult = S['NotesMoveOut']
 export type Folder = S['FolderOut']
-/** Kết quả tìm kiếm grouped theo nguồn (Phase 1, UX plan §6.1) — dùng cho UI Phase 2. */
+/** Kết quả tìm kiếm grouped theo nguồn (Phase 1 contract, UX plan §6.1) — UI Phase 2 dùng thẳng. */
 export type SearchSource = S['SearchSourceOut']
 export type SearchNote = S['SearchNoteOut']
-/** Chuyển tiếp (Phase 1): kết quả phẳng cho UI hiện tại — background phẳng hoá từ
- * `SearchSource[]`; Phase 2 đổi UI sang grouped rồi xoá kiểu này. */
-export interface SearchHit {
-  note_id: string
-  note_title: string | null
-  note_url: string | null
-  text: string
-  score: number
-  similarity: number
-}
 export type TokenPair = S['TokenPairOut']
 export type Quota = S['QuotaOut']
 export type User = S['UserOut']

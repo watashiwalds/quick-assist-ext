@@ -6,30 +6,37 @@
  * Thanh tìm kiếm gộp cả tìm sâu AI (R04): gõ → lọc nhanh cục bộ, Enter → tìm kiếm ngữ nghĩa.
  */
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
-import type { Note, SearchHit } from '@/shared/api/types'
+import type { Note, SearchSource } from '@/shared/api/types'
 import { rpc } from '@/shared/messaging/client'
 import { Button, ConfirmDialog, EmptyState, ErrorState, Icon, Input, Select, Spinner, useToast } from '../../components'
 import { useAction, useAsync, useBroadcast } from '../../lib/hooks'
+import { SearchResults } from '../search/SearchResults'
 import { FolderManager } from './FolderManager'
+import { groupNotesBySource } from './groupNotes'
+import { MoveNotesDialog } from './MoveNotesDialog'
 import { NoteCard } from './NoteCard'
 import { NoteReader } from './NoteReader'
 import { PendingNotes } from './PendingNotes'
+import { SourceGroup } from './SourceGroup'
 
 export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?: string | null; onOpened?: () => void; onGoSettings: () => void }) {
   const [folderId, setFolderId] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
-  const [topK, setTopK] = useState(5)
-  const [hits, setHits] = useState<SearchHit[] | null>(null)
+  const [maxSources, setMaxSources] = useState(5)
+  const [hits, setHits] = useState<SearchSource[] | null>(null)
   const [asked, setAsked] = useState('')
   const [selectMode, setSelectMode] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [active, setActive] = useState<Note | null>(null)
   const [confirmIds, setConfirmIds] = useState<string[] | null>(null)
   const [managing, setManaging] = useState(false)
   const [highlight, setHighlight] = useState<string | null>(null)
   const folders = useAsync(() => rpc('folders/list'), [])
   const notes = useAsync(() => rpc('notes/list', { folderId }), [folderId])
+  const [moveOpen, setMoveOpen] = useState(false)
   const del = useAction()
+  const move = useAction()
   const search = useAction()
   const toast = useToast()
   useBroadcast((e) => {
@@ -58,7 +65,7 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
     e?.preventDefault()
     const q = filter.trim()
     if (!q || search.busy) return
-    const r = await search.run(() => rpc('search/query', { query: q, folderId, maxSources: topK }))
+    const r = await search.run(() => rpc('search/query', { query: q, folderId, maxSources }))
     if (r) {
       setHits(r)
       setAsked(q)
@@ -80,18 +87,44 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
   }
 
   const folderName = useMemo(() => new Map((folders.data ?? []).map((f) => [f.id, f.name])), [folders.data])
+  const resultNotes = useMemo(() => hits?.reduce((n, s) => n + s.notes.length, 0) ?? 0, [hits])
   const visible = useMemo(() => {
     const q = filter.trim().toLocaleLowerCase('vi')
     const list = notes.data ?? []
     if (!q) return list
     return list.filter((n) => `${n.title ?? ''} ${n.content} ${n.domain ?? ''}`.toLocaleLowerCase('vi').includes(q))
   }, [notes.data, filter])
+  const groups = useMemo(() => groupNotesBySource(visible), [visible])
 
   const replace = (n: Note) => {
     notes.setData((notes.data ?? []).map((x) => (x.id === n.id ? n : x)).filter((x) => !folderId || x.folder_id === folderId))
     setActive((cur) => (cur?.id === n.id ? n : cur))
   }
   const toggle = (id: string) => setSelected((s) => (s.has(id) ? (s.delete(id), new Set(s)) : new Set(s.add(id))))
+  // "Chọn cả nhóm": chọn/bỏ chọn đúng các note đang hiện trong nhóm — không tự move.
+  const toggleGroup = (ids: string[]) =>
+    setSelected((s) => {
+      const allSelected = ids.every((id) => s.has(id))
+      const next = new Set(s)
+      for (const id of ids) {
+        if (allSelected) next.delete(id)
+        else next.add(id)
+      }
+      return next
+    })
+
+  const doMove = async (folderId: string | null) => {
+    const ids = [...selected]
+    if (ids.length === 0) return
+    const r = await move.run(() => rpc('notes/move', { ids, folderId }))
+    setMoveOpen(false)
+    if (!r) return
+    toast(`Đã chuyển ${r.moved} ghi chú`)
+    if (r.missing.length > 0) toast(`${r.missing.length} ghi chú không còn tồn tại`, 'error')
+    setSelected(new Set())
+    setSelectMode(false)
+    await notes.reload()
+  }
 
   const doDelete = async (ids: string[]) => {
     const r = await del.run(() => rpc('notes/delete', { ids }))
@@ -163,7 +196,7 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
             </h2>
             {showResults ? (
               <p className="pane-subtitle" aria-live="polite">
-                {search.busy ? 'Đang tìm nội dung tương đồng…' : hits ? `${hits.length} kết quả cho “${asked}”` : ''}
+                {search.busy ? 'Đang tìm nội dung tương đồng…' : hits ? `${hits.length} nguồn · ${resultNotes} ghi chú cho “${asked}”` : ''}
               </p>
             ) : (
               !notes.loading && !notes.error && <p className="pane-subtitle">{visible.length} ghi chú</p>
@@ -196,10 +229,10 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
                   onChange={(e) => changeFilter(e.target.value)}
                 />
               </label>
-              <Select className="topk-select" aria-label="Số kết quả tối đa" value={String(topK)} onChange={(e) => setTopK(Number(e.target.value))}>
-                <option value="5">Tối đa 5</option>
-                <option value="10">Tối đa 10</option>
-                <option value="20">Tối đa 20</option>
+              <Select className="topk-select" aria-label="Số nguồn tối đa" value={String(maxSources)} onChange={(e) => setMaxSources(Number(e.target.value))}>
+                <option value="5">Tối đa 5 nguồn</option>
+                <option value="10">Tối đa 10 nguồn</option>
+                <option value="20">Tối đa 20 nguồn</option>
               </Select>
             </div>
             <small className="search-hint">
@@ -242,33 +275,11 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
                 />
               )}
               {!search.busy && hits?.length === 0 && (
-                <EmptyState title="Không có kết quả phù hợp">Thử diễn đạt khác, bỏ lọc thư mục, hoặc đợi ghi chú mới chuyển “Sẵn sàng tìm kiếm”.</EmptyState>
+                <EmptyState title="Không có nguồn/ghi chú đủ tin cậy">
+                  Thử diễn đạt khác, bỏ lọc thư mục, hoặc đợi ghi chú mới chuyển “Sẵn sàng tìm kiếm”.
+                </EmptyState>
               )}
-              <ol className="list hit-list">
-                {hits?.map((h, i) => (
-                  <li key={h.note_id} className="card">
-                    <div className="row spread">
-                      <h3 className="grow">
-                        {i + 1}. {h.note_title ?? 'Ghi chú'}
-                      </h3>
-                      <small className="muted" title="Điểm liên quan (RRF)">
-                        {h.score.toFixed(3)}
-                      </small>
-                    </div>
-                    <div className="clamp">{h.text}</div>
-                    <div className="row actions">
-                      <Button variant="ghost" size="sm" onClick={() => void openNoteById(h.note_id)}>
-                        Mở ghi chú
-                      </Button>
-                      {h.note_url && (
-                        <a className="btn btn-ghost btn-sm" href={h.note_url} target="_blank" rel="noreferrer noopener">
-                          Mở trang nguồn ↗
-                        </a>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ol>
+              {!!hits?.length && <SearchResults sources={hits} onOpenNote={(id) => void openNoteById(id)} />}
             </div>
           ) : (
             <>
@@ -280,34 +291,64 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
                     <Button size="sm" variant="ghost" onClick={() => setSelected(new Set(visible.map((n) => n.id)))}>
                       Chọn tất cả
                     </Button>
+                    <Button size="sm" variant="ghost" disabled={selected.size === 0} onClick={() => setMoveOpen(true)}>
+                      Chuyển thư mục
+                    </Button>
                     <Button size="sm" variant="danger" disabled={selected.size === 0} onClick={() => setConfirmIds([...selected])}>
                       Xoá ({selected.size})
                     </Button>
                   </div>
                 </div>
               )}
-              {del.error && <ErrorState error={del.error} />}
+              {(del.error || move.error) && <ErrorState error={(del.error ?? move.error)!} />}
               {notes.loading && !notes.data && <Spinner />}
               {notes.error && <ErrorState error={notes.error} onRetry={notes.reload} />}
               {notes.data?.length === 0 && (
                 <EmptyState title="Chưa có ghi chú">Bôi đen văn bản trên trang → chuột phải → “Ghi chú văn bản này” (hoặc Alt+Shift+N).</EmptyState>
               )}
               {!!notes.data?.length && visible.length === 0 && <EmptyState title="Không có ghi chú khớp bộ lọc" />}
-              <ul className="note-list" aria-live="polite">
-                {visible.map((n) => (
-                  <NoteCard
-                    key={n.id}
-                    note={n}
-                    folderName={folderId ? undefined : folderName.get(n.folder_id)}
-                    selectMode={selectMode}
-                    selected={selected.has(n.id)}
-                    active={active?.id === n.id}
-                    highlight={highlight === n.id}
-                    onToggle={() => toggle(n.id)}
-                    onOpen={() => setActive(n)}
-                  />
-                ))}
-              </ul>
+              <div className="note-groups" aria-live="polite">
+                {groups.map((g) => {
+                  const key = g.domain ?? '__unknown__'
+                  const ids = g.notes.map((n) => n.id)
+                  const allSelected = ids.length > 0 && ids.every((id) => selected.has(id))
+                  return (
+                    <SourceGroup
+                      key={key}
+                      label={g.label}
+                      count={g.notes.length}
+                      summary={g.summary}
+                      collapsed={collapsedGroups.has(key)}
+                      onToggle={() =>
+                        setCollapsedGroups((s) => (s.has(key) ? (s.delete(key), new Set(s)) : new Set(s.add(key))))
+                      }
+                      actions={
+                        selectMode ? (
+                          <Button variant="ghost" size="sm" aria-pressed={allSelected} onClick={() => toggleGroup(ids)}>
+                            {allSelected ? 'Bỏ chọn nhóm' : 'Chọn cả nhóm'}
+                          </Button>
+                        ) : undefined
+                      }
+                    >
+                      <ul className="note-list">
+                        {g.notes.map((n) => (
+                          <NoteCard
+                            key={n.id}
+                            note={n}
+                            folderName={folderId ? undefined : folderName.get(n.folder_id)}
+                            selectMode={selectMode}
+                            selected={selected.has(n.id)}
+                            active={active?.id === n.id}
+                            highlight={highlight === n.id}
+                            onToggle={() => toggle(n.id)}
+                            onOpen={() => setActive(n)}
+                          />
+                        ))}
+                      </ul>
+                    </SourceGroup>
+                  )
+                })}
+              </div>
             </>
           )}
         </div>
@@ -325,6 +366,14 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
       </div>
 
       <FolderManager open={managing} folders={folders.data ?? []} onClose={() => setManaging(false)} onChanged={() => void folders.reload().then(notes.reload)} />
+      <MoveNotesDialog
+        open={moveOpen}
+        count={selected.size}
+        folders={folders.data ?? []}
+        busy={move.busy}
+        onCancel={() => setMoveOpen(false)}
+        onConfirm={(id) => void doMove(id)}
+      />
       <ConfirmDialog
         open={!!confirmIds}
         title={confirmIds && confirmIds.length > 1 ? `Xoá ${confirmIds.length} ghi chú?` : 'Xoá ghi chú?'}

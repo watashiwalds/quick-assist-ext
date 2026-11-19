@@ -934,6 +934,62 @@
         "title": "NoteUpdateIn",
         "type": "object"
       },
+      "NotesMoveIn": {
+        "additionalProperties": false,
+        "description": "Chuyển nhiều ghi chú sang một thư mục (Phase 2, UX plan §6.4).\n\n``folder_id = None`` → Inbox. Chỉ ghi chú thuộc user và chưa bị xoá mới được chuyển;\nid không tồn tại/không sở hữu trả trong ``missing`` thay vì làm hỏng cả lô.",
+        "properties": {
+          "folder_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Id"
+          },
+          "ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "title": "NotesMoveIn",
+        "type": "object"
+      },
+      "NotesMoveOut": {
+        "additionalProperties": false,
+        "properties": {
+          "missing": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "moved": {
+            "title": "Moved",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "moved",
+          "missing"
+        ],
+        "title": "NotesMoveOut",
+        "type": "object"
+      },
       "PageMatchIn": {
         "additionalProperties": false,
         "properties": {
@@ -2576,6 +2632,53 @@
           }
         ],
         "summary": "Bulk Delete",
+        "tags": [
+          "notes"
+        ]
+      }
+    },
+    "/api/v1/notes/move": {
+      "post": {
+        "description": "Chuyển nhiều ghi chú ĐÃ CHỌN sang thư mục khác (Phase 2 — bulk move).",
+        "operationId": "move_notes_api_v1_notes_move_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotesMoveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotesMoveOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Move Notes",
         "tags": [
           "notes"
         ]

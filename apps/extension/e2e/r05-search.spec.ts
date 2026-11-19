@@ -27,7 +27,7 @@ for (const [q, title] of [
     const input = panel.getByLabel('Tìm kiếm hoặc lọc ghi chú')
     await input.fill(q)
     await input.press('Enter')
-    await expect(panel.locator('ol.list > li').first().getByRole('heading')).toHaveText(`1. ${title}`)
+    await expect(panel.locator('ol.list > li').first().getByRole('heading')).toHaveText(title)
   })
 }
 
@@ -50,7 +50,7 @@ test('lọc thư mục + không thấy dữ liệu của người khác', async 
   const input = panel.getByLabel('Tìm kiếm hoặc lọc ghi chú')
   await input.fill('phở bò')
   await input.press('Enter')
-  await expect(panel.getByText('Không có kết quả phù hợp')).toBeVisible()
+  await expect(panel.getByText('Không có nguồn/ghi chú đủ tin cậy')).toBeVisible()
   // user khác có ghi chú "bí mật" trùng từ khoá → không bao giờ xuất hiện
   const other = await fetch(`${process.env.E2E_API_BASE_URL ?? 'http://localhost:8000/api/v1'}/auth/dev-login`, {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: `other-${email}` }),

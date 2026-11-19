@@ -62,6 +62,23 @@ class NoteRepository:
         )
         return list((await self.s.execute(stmt)).scalars())
 
+    async def move_many(
+        self, user_id: uuid.UUID, ids: list[uuid.UUID], folder_id: uuid.UUID
+    ) -> list[uuid.UUID]:
+        """Chuyển các note ĐÃ CHỌN sang thư mục đích; trả id thực sự đổi (loại id lạ/đã xoá).
+
+        Tăng version + index_rev và updated_at như mọi thay đổi note để client sync được;
+        business enqueue job index trong CÙNG transaction (outbox) → chunk cập nhật folder_id.
+        """
+        stmt = (
+            update(Note)
+            .where(Note.user_id == user_id, Note.id.in_(ids), Note.deleted_at.is_(None))
+            .values(folder_id=folder_id, version=Note.version + 1,
+                    index_rev=Note.index_rev + 1, updated_at=func.now())
+            .returning(Note.id)
+        )
+        return list((await self.s.execute(stmt)).scalars())
+
     async def move_all(
         self, user_id: uuid.UUID, from_folder: uuid.UUID, to_folder: uuid.UUID
     ) -> list[uuid.UUID]:

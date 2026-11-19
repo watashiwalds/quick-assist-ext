@@ -1,15 +1,17 @@
-/** Tìm kiếm ngữ nghĩa (R04 — kịch bản #4, SDS §5.1.3): câu hỏi + lọc thư mục → đoạn liên quan kèm nguồn. */
+/** Tìm kiếm ngữ nghĩa (R04 — kịch bản #4, SDS §5.1.3): câu hỏi + lọc thư mục → nguồn/ghi chú
+ * liên quan, nhóm theo domain (Phase 2 — dùng chung `SearchResults` với Thư viện). */
 import { type FormEvent, useState } from 'react'
-import type { SearchHit } from '@/shared/api/types'
+import type { SearchSource } from '@/shared/api/types'
 import { rpc } from '@/shared/messaging/client'
 import { Button, EmptyState, ErrorState, Input, Select, Spinner } from '../../components'
 import { useAction, useAsync } from '../../lib/hooks'
+import { SearchResults } from './SearchResults'
 
 export function SearchView({ onOpenNote, onGoSettings }: { onOpenNote: (noteId: string) => void; onGoSettings: () => void }) {
   const [query, setQuery] = useState('')
   const [folderId, setFolderId] = useState<string | null>(null)
-  const [topK, setTopK] = useState(5)
-  const [hits, setHits] = useState<SearchHit[]>()
+  const [maxSources, setMaxSources] = useState(5)
+  const [sources, setSources] = useState<SearchSource[]>()
   const [asked, setAsked] = useState('')
   const folders = useAsync(() => rpc('folders/list'), [])
   const act = useAction()
@@ -18,12 +20,14 @@ export function SearchView({ onOpenNote, onGoSettings }: { onOpenNote: (noteId: 
     e.preventDefault()
     const q = query.trim()
     if (!q || act.busy) return
-    const r = await act.run(() => rpc('search/query', { query: q, folderId, maxSources: topK }))
+    const r = await act.run(() => rpc('search/query', { query: q, folderId, maxSources }))
     if (r) {
-      setHits(r)
+      setSources(r)
       setAsked(q)
     }
   }
+
+  const noteCount = sources?.reduce((n, s) => n + s.notes.length, 0) ?? 0
 
   return (
     <section className="stack" aria-label="Tìm kiếm ghi chú">
@@ -49,10 +53,10 @@ export function SearchView({ onOpenNote, onGoSettings }: { onOpenNote: (noteId: 
             </option>
           ))}
         </Select>
-        <Select aria-label="Số kết quả tối đa" value={String(topK)} onChange={(e) => setTopK(Number(e.target.value))}>
-          <option value="5">Tối đa 5 kết quả</option>
-          <option value="10">Tối đa 10 kết quả</option>
-          <option value="20">Tối đa 20 kết quả</option>
+        <Select aria-label="Số nguồn tối đa" value={String(maxSources)} onChange={(e) => setMaxSources(Number(e.target.value))}>
+          <option value="5">Tối đa 5 nguồn</option>
+          <option value="10">Tối đa 10 nguồn</option>
+          <option value="20">Tối đa 20 nguồn</option>
         </Select>
       </form>
       {act.busy && <Spinner label="Đang tìm nội dung tương đồng cho bạn…" />}
@@ -68,39 +72,17 @@ export function SearchView({ onOpenNote, onGoSettings }: { onOpenNote: (noteId: 
           }
         />
       )}
-      {!act.busy && hits?.length === 0 && (
-        <EmptyState title="Không có kết quả phù hợp">Thử diễn đạt khác, bỏ lọc thư mục, hoặc đợi ghi chú mới chuyển “Sẵn sàng tìm kiếm”.</EmptyState>
+      {!act.busy && sources?.length === 0 && (
+        <EmptyState title="Không có nguồn/ghi chú đủ tin cậy">
+          Thử diễn đạt khác, bỏ lọc thư mục, hoặc đợi ghi chú mới chuyển “Sẵn sàng tìm kiếm”.
+        </EmptyState>
       )}
-      {!!hits?.length && (
+      {!!sources?.length && (
         <p className="muted" aria-live="polite">
-          Hiển thị {hits.length} kết quả liên quan nhất tới “{asked}” (tối đa {topK})
+          {sources.length} nguồn · {noteCount} ghi chú liên quan tới “{asked}” (tối đa {maxSources} nguồn)
         </p>
       )}
-      <ol className="list">
-        {hits?.map((h, i) => (
-          <li key={h.note_id} className="card">
-            <div className="row spread">
-              <h3 className="grow">
-                {i + 1}. {h.note_title ?? 'Ghi chú'}
-              </h3>
-              <small className="muted" title="Điểm liên quan (RRF)">
-                {h.score.toFixed(3)}
-              </small>
-            </div>
-            <div className="clamp">{h.text}</div>
-            <div className="row actions">
-              <Button variant="ghost" size="sm" onClick={() => onOpenNote(h.note_id)}>
-                Mở ghi chú
-              </Button>
-              {h.note_url && (
-                <a className="btn btn-ghost btn-sm" href={h.note_url} target="_blank" rel="noreferrer noopener">
-                  Mở trang nguồn ↗
-                </a>
-              )}
-            </div>
-          </li>
-        ))}
-      </ol>
+      {!!sources?.length && <SearchResults sources={sources} onOpenNote={onOpenNote} />}
     </section>
   )
 }

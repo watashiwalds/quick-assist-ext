@@ -14,6 +14,8 @@ from quickassist.presentation.schemas.notes import (
     BulkDeleteOut,
     NoteCreateIn,
     NoteOut,
+    NotesMoveIn,
+    NotesMoveOut,
     NoteSummaryIn,
     NoteUpdateIn,
 )
@@ -77,6 +79,13 @@ async def delete_note(note_id: uuid.UUID, user_id: CurrentUserId, session: DbSes
 @router.post("/bulk-delete", response_model=BulkDeleteOut, dependencies=_write_limit)
 async def bulk_delete(body: BulkDeleteIn, user_id: CurrentUserId, session: DbSession) -> BulkDeleteOut:
     return BulkDeleteOut(deleted=await NotesService(session).delete_many(user_id, body.ids))
+
+
+@router.post("/move", response_model=NotesMoveOut, dependencies=_write_limit)
+async def move_notes(body: NotesMoveIn, user_id: CurrentUserId, session: DbSession) -> NotesMoveOut:
+    """Chuyển nhiều ghi chú ĐÃ CHỌN sang thư mục khác (Phase 2 — bulk move)."""
+    moved, missing = await NotesService(session).move_many(user_id, body.ids, body.folder_id)
+    return NotesMoveOut(moved=moved, missing=missing)
 
 
 @router.post("/{note_id}/reindex", response_model=NoteOut, status_code=status.HTTP_202_ACCEPTED,

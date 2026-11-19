@@ -86,6 +86,64 @@ async def test_cursor_pagination_has_no_gaps_or_duplicates(client) -> None:
     assert bad.status_code == 400 and bad.json()["error"]["code"] == "CURSOR_INVALID"
 
 
+async def test_bulk_move_selected_notes(client) -> None:
+    """Phase 2 — chỉ chuyển note đã chọn; id lạ/không sở hữu trả `missing`, không hỏng lô."""
+    a, b = await login(client, "a@x.vn"), await login(client, "b@x.vn")
+    f = (await client.post("/folders", json={"name": "Học"}, headers=a)).json()
+    ids = [(await client.post("/notes", json={"content": f"n{i}"}, headers=a)).json()["id"] for i in range(3)]
+    keep = (await client.post("/notes", json={"content": "giữ lại"}, headers=a)).json()["id"]
+    other = (await client.post("/notes", json={"content": "của B"}, headers=b)).json()["id"]
+    unknown = str(uuid.uuid4())
+    r = await client.post("/notes/move",
+                          json={"ids": [ids[0], ids[1], other, unknown], "folder_id": f["id"]},
+                          headers=a)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["moved"] == 2 and set(body["missing"]) == {other, unknown}
+    assert [x["id"] for x in (await client.get("/notes", params={"folder_id": f["id"]},
+                                               headers=a)).json()["items"]] == ids[:2]
+    assert {x["id"] for x in (await client.get("/notes", headers=a)).json()["items"]} == {ids[2], keep}
+    assert (await client.get(f"/notes/{other}", headers=b)).json()["folder_id"] != f["id"]
+    assert (await client.post("/notes/move", json={"ids": [], "folder_id": f["id"]},
+                              headers=a)).status_code == 422
+
+
+async def test_bulk_move_to_inbox_and_foreign_folder(client) -> None:
+    h = await login(client)
+    inbox = (await client.get("/folders", headers=h)).json()[0]
+    f = (await client.post("/folders", json={"name": "Tạm"}, headers=h)).json()
+    n = (await client.post("/notes", json={"content": "x", "folder_id": f["id"]}, headers=h)).json()
+    # folder_id null → Inbox
+    r = await client.post("/notes/move", json={"ids": [n["id"]], "folder_id": None}, headers=h)
+    assert r.status_code == 200 and r.json() == {"moved": 1, "missing": []}
+    assert (await client.get(f"/notes/{n['id']}", headers=h)).json()["folder_id"] == inbox["id"]
+    # thư mục của người khác → 404, không đổi gì
+    b = await login(client, "b@x.vn")
+    fb = (await client.post("/folders", json={"name": "B riêng"}, headers=b)).json()
+    bad = await client.post("/notes/move", json={"ids": [n["id"]], "folder_id": fb["id"]}, headers=h)
+    assert bad.status_code == 404 and bad.json()["error"]["code"] == "FOLDER_NOT_FOUND"
+
+
+async def test_bulk_move_updates_chunk_folder(client) -> None:
+    """Job index (outbox cùng transaction) cập nhật NoteChunk.folder_id để lọc thư mục đúng."""
+    from sqlalchemy import text
+
+    from quickassist.data.database import get_sessionmaker
+    from quickassist.infrastructure.jobs import drain
+
+    h = await login(client)
+    f = (await client.post("/folders", json={"name": "Chunk"}, headers=h)).json()
+    n = (await client.post("/notes", json={"content": "nội dung để tạo chunk"}, headers=h)).json()
+    await drain()
+    assert (await client.post("/notes/move", json={"ids": [n["id"]], "folder_id": f["id"]},
+                              headers=h)).status_code == 200
+    await drain()
+    async with get_sessionmaker()() as s:
+        folder_ids = (await s.execute(text("SELECT DISTINCT folder_id FROM note_chunks WHERE note_id = :id"),
+                                      {"id": n["id"]})).scalars().all()
+    assert {str(x) for x in folder_ids} == {f["id"]}
+
+
 async def test_folder_rules(client) -> None:
     h = await login(client)
     inbox = (await client.get("/folders", headers=h)).json()[0]

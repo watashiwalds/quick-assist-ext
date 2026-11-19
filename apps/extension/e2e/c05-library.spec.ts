@@ -59,6 +59,33 @@ test('xoá một và xoá nhiều ghi chú có xác nhận', async ({ panel, api
   expect((await api.notes()).map((x: any) => x.title)).toEqual(['Note 2'])
 })
 
+test('nhóm theo nguồn + chuyển nhiều ghi chú đã chọn sang thư mục khác', async ({ panel, api }) => {
+  await api.send('POST', '/notes', { content: 'nội dung A', title: 'A', url: 'https://same.example/a' })
+  await api.send('POST', '/notes', { content: 'nội dung B', title: 'B', url: 'https://same.example/b' })
+  await api.send('POST', '/notes', { content: 'nội dung C', title: 'C' })
+  const f = (await api.send('POST', '/folders', { name: 'Đích' })).body
+  await panel.reload()
+
+  // cùng domain → cùng nhóm; note không URL → "Không rõ nguồn"
+  const group = panel.getByRole('region', { name: 'Nguồn same.example' })
+  await expect(group.getByRole('heading', { name: 'A' })).toBeVisible()
+  await expect(group.getByRole('heading', { name: 'B' })).toBeVisible()
+  await expect(panel.getByRole('region', { name: 'Nguồn Không rõ nguồn' })).toBeVisible()
+
+  // chọn 2 note trong nhóm rồi chuyển; note C không bị chuyển
+  await panel.getByRole('button', { name: 'Chọn', exact: true }).click()
+  await panel.getByLabel('Chọn “A”').check()
+  await panel.getByLabel('Chọn “B”').check()
+  await panel.getByRole('button', { name: 'Chuyển thư mục' }).click()
+  const dlg = panel.getByRole('dialog')
+  await dlg.getByLabel('Thư mục đích').selectOption(f.id)
+  await dlg.getByRole('button', { name: 'Chuyển (2)' }).click()
+  await expect(panel.getByText('Đã chuyển 2 ghi chú')).toBeVisible()
+  await expect.poll(async () => (await api.get(`/notes?folder_id=${f.id}`)).items.map((x: any) => x.title)).toEqual(['A', 'B'])
+  await expect(panel.getByRole('heading', { name: 'A' })).toHaveCount(0)
+  await expect(panel.getByRole('heading', { name: 'C' })).toBeVisible()
+})
+
 test('quản lý thư mục: tạo, đổi tên, xoá → ghi chú về Inbox', async ({ panel, api }) => {
   await panel.getByRole('button', { name: 'Thư mục', exact: true }).click()
   const dlg = panel.getByRole('dialog')

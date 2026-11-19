@@ -14,6 +14,7 @@ import type {
   Note,
   NoteCreate,
   NoteUpdate,
+  NotesMoveResult,
   PageMatchRequest,
   PageMatchResult,
   Quota,
@@ -70,6 +71,9 @@ export function createApi(http: HttpRequest) {
       remove: (id: string) => http<void>(`/notes/${id}`, { method: 'DELETE' }),
       bulkDelete: (ids: string[]) =>
         http<{ deleted: number }>('/notes/bulk-delete', { method: 'POST', body: { ids } }),
+      /** Phase 2 — chuyển nhiều ghi chú ĐÃ CHỌN sang thư mục đích (null → Inbox). */
+      move: (ids: string[], folder_id: string | null) =>
+        http<NotesMoveResult>('/notes/move', { method: 'POST', body: { ids, folder_id } }),
       reindex: (id: string) => http<Note>(`/notes/${id}/reindex`, { method: 'POST' }),
     },
     search: {
