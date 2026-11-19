@@ -50,7 +50,14 @@ def _idempotency_key(cfg: SteadyConfig, run_scope: str, content: str) -> str:
     # Với folder riêng mỗi run, khóa PHẢI theo run: khóa "shared" sẽ trả lại note
     # của folder run trước (backend idempotency theo user+key), phá cô lập corpus.
     scope = run_scope if (cfg.fresh_notes or cfg.folder_mode == "run") else "shared"
-    return f"steady-{scope}-{digest}"
+    key = f"steady-{scope}-{digest}"
+    if len(key) > 100:
+        # Backend giới hạn header Idempotency-Key ≤ 100 ký tự (422 nếu vượt).
+        # run_id dài (do nhãn model dài) + digest vượt hạn → băm scope cho ngắn,
+        # vẫn giữ tính duy nhất theo run và tính tất định trong cùng run.
+        scope = hashlib.sha256(scope.encode("utf-8")).hexdigest()[:16]
+        key = f"steady-{scope}-{digest}"
+    return key
 
 
 def not_ready_files(cases: list[IngestCase]) -> list[str]:
