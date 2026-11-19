@@ -51,7 +51,7 @@ describe('ChatView', () => {
     expect(askChat.mock.calls[0]![0]).toEqual({ question: 'cách nấu phở?', folderId: null, history: [] })
     expect(screen.getByRole('button', { name: 'Dừng' })).toBeTruthy()
     act(() => {
-      emit({ type: 'sources', sources: [{ index: 1, note_id: 'n1', chunk_id: 'c1', title: 'Phở bò', url: null, snippet: 'hầm xương' }] })
+      emit({ type: 'sources', sources: [{ index: 1, source_index: 1, source_domain: null, note_id: 'n1', chunk_id: 'c1', title: 'Phở bò', url: null, snippet: 'hầm xương' }] })
       emit({ type: 'delta', text: 'Hầm xương 8 tiếng ' })
       emit({ type: 'delta', text: '[1].' })
     })
@@ -81,7 +81,7 @@ describe('ChatView', () => {
   it('nhãn Nguồn (n) + chi tiết nguồn chỉ mở sau khi trả lời xong', async () => {
     await ask('phở?')
     act(() => {
-      emit({ type: 'sources', sources: [{ index: 1, note_id: 'n1', chunk_id: 'c1', title: 'Phở bò', url: null, snippet: 'hầm xương 8 tiếng' }] })
+      emit({ type: 'sources', sources: [{ index: 1, source_index: 1, source_domain: null, note_id: 'n1', chunk_id: 'c1', title: 'Phở bò', url: null, snippet: 'hầm xương 8 tiếng' }] })
       emit({ type: 'delta', text: 'Nội dung [1]' })
     })
     expect(screen.getByText('Nguồn (1)')).toBeTruthy()
@@ -166,7 +166,7 @@ describe('ChatView', () => {
 })
 
 describe('Markdown trong câu trả lời AI', () => {
-  const SOURCE: ChatSource = { index: 1, note_id: 'n1', chunk_id: 'c1', title: 'Phở bò', url: null, snippet: 'hầm xương' }
+  const SOURCE: ChatSource = { index: 1, source_index: 1, source_domain: null, note_id: 'n1', chunk_id: 'c1', title: 'Phở bò', url: null, snippet: 'hầm xương' }
 
   /** Hỏi rồi đẩy nguyên một câu trả lời (kèm nguồn) vào hội thoại. */
   async function answerWith(text: string, sources: ChatSource[] = []) {

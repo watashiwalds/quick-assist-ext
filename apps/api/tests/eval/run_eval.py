@@ -49,6 +49,10 @@ class Metrics:
     chunks: int
     p50_ms: float
     p95_ms: float
+    # Phase 1 (source-first): tỉ lệ truy vấn rỗng + số nguồn trả về trung bình —
+    # theo dõi khi chỉnh ngưỡng OR (similarity/RRF); baseline cần đo trước khi chốt ngưỡng.
+    empty_rate: float = 0.0
+    sources_avg: float = 0.0
 
 
 def _setup_env() -> None:
@@ -111,20 +115,24 @@ async def run_config(name: str, overrides: dict[str, Any]) -> Metrics:
             async with get_engine().connect() as conn:
                 n_chunks = (await conn.execute(text("SELECT count(*) FROM note_chunks"))).scalar_one()
 
-            hits = rr = ans = 0.0
+            hits = rr = ans = empty = srcs = 0.0
             per_kind: dict[str, list[tuple[float, float, float]]] = {}
             lat: list[float] = []
             for q in DATASET["queries"]:
                 t0 = time.perf_counter()
-                r = await c.post("/search", json={"query": q["q"], "top_k": 5}, headers=h)
+                r = await c.post("/search", json={"query": q["q"], "max_sources": 5}, headers=h)
                 lat.append((time.perf_counter() - t0) * 1000)
                 r.raise_for_status()
-                items = r.json()["items"]
-                ranked = [ids.get(i["note_id"]) for i in items]
+                sources = r.json()["sources"]
+                # Phẳng theo thứ hạng nguồn rồi note — "top-5" = 5 note đầu tiên
+                notes = [n for s in sources for n in s["notes"]][:5]
+                ranked = [ids.get(n["note_id"]) for n in notes]
                 rank = next((k + 1 for k, nid in enumerate(ranked) if nid in q["relevant"]), None)
                 h1, r1 = (1.0, 1.0 / rank) if rank else (0.0, 0.0)
-                a1 = 1.0 if any(q["answer"] in i["text"] for i in items) else 0.0
+                a1 = 1.0 if any(q["answer"] in n["snippet"] for n in notes) else 0.0
                 hits, rr, ans = hits + h1, rr + r1, ans + a1
+                empty += 1.0 if not sources else 0.0
+                srcs += len(sources)
                 per_kind.setdefault(q["kind"], []).append((h1, r1, a1))
         total = len(DATASET["queries"])
         by_kind = {
@@ -136,7 +144,8 @@ async def run_config(name: str, overrides: dict[str, Any]) -> Metrics:
         lat.sort()
         return Metrics(name, s.ai_provider, total, round(hits / total, 3), round(rr / total, 3),
                        round(ans / total, 3), by_kind, n_chunks, round(statistics.median(lat), 1),
-                       round(lat[max(0, int(len(lat) * 0.95) - 1)], 1))
+                       round(lat[max(0, int(len(lat) * 0.95) - 1)], 1),
+                       round(empty / total, 3), round(srcs / total, 2))
     finally:
         for k, v in saved.items():
             setattr(s, k, v)
@@ -145,14 +154,15 @@ async def run_config(name: str, overrides: dict[str, Any]) -> Metrics:
 
 def to_markdown(results: list[Metrics]) -> str:
     rows = ["| Cấu hình | Provider | Chunks | Recall@5 | MRR | AnswerHit@5 | keyword R@5 | không dấu R@5 "
-            "| paraphrase R@5 | p50 ms | p95 ms |",
-            "|---|---|---|---|---|---|---|---|---|---|---|"]
+            "| paraphrase R@5 | Rỗng | Nguồn tb | p50 ms | p95 ms |",
+            "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for m in results:
         k = m.by_kind
         kinds = " | ".join(str(k.get(x, {}).get("recall_at_5", "-"))
                            for x in ("keyword", "unaccent", "paraphrase"))
         rows.append(f"| {m.config} | {m.provider} | {m.chunks} | {m.recall_at_5} | {m.mrr} "
-                    f"| {m.answer_hit_at_5} | {kinds} | {m.p50_ms} | {m.p95_ms} |")
+                    f"| {m.answer_hit_at_5} | {kinds} | {m.empty_rate} | {m.sources_avg} "
+                    f"| {m.p50_ms} | {m.p95_ms} |")
     return "\n".join(rows)
 
 

@@ -817,48 +817,55 @@ export interface components {
             /** Refresh Token */
             refresh_token: string;
         };
-        /** SearchHitOut */
-        SearchHitOut: {
+        /** SearchIn */
+        SearchIn: {
+            /** Folder Id */
+            folder_id?: string | null;
             /**
-             * Chunk Id
-             * Format: uuid
+             * Max Sources
+             * @default 5
              */
-            chunk_id: string;
-            /**
-             * Folder Id
-             * Format: uuid
-             */
-            folder_id: string;
+            max_sources: number;
+            /** Query */
+            query: string;
+        };
+        /** SearchNoteOut */
+        SearchNoteOut: {
             /**
              * Note Id
              * Format: uuid
              */
             note_id: string;
-            /** Note Title */
-            note_title: string | null;
-            /** Note Url */
-            note_url: string | null;
             /** Score */
             score: number;
-            /** Text */
-            text: string;
-        };
-        /** SearchIn */
-        SearchIn: {
-            /** Folder Id */
-            folder_id?: string | null;
-            /** Query */
-            query: string;
-            /**
-             * Top K
-             * @default 5
-             */
-            top_k: number;
+            /** Similarity */
+            similarity: number;
+            /** Snippet */
+            snippet: string;
+            /** Summary */
+            summary: string | null;
+            /** Title */
+            title: string | null;
+            /** Url */
+            url: string | null;
         };
         /** SearchOut */
         SearchOut: {
-            /** Items */
-            items: components["schemas"]["SearchHitOut"][];
+            /** Sources */
+            sources: components["schemas"]["SearchSourceOut"][];
+        };
+        /** SearchSourceOut */
+        SearchSourceOut: {
+            /** Domain */
+            domain: string | null;
+            /** Label */
+            label: string;
+            /** Note Count */
+            note_count: number;
+            /** Notes */
+            notes: components["schemas"]["SearchNoteOut"][];
+            /** Source Rank */
+            source_rank: number;
         };
         /**
          * ServerDefaultOut

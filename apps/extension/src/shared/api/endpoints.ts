@@ -17,7 +17,7 @@ import type {
   PageMatchRequest,
   PageMatchResult,
   Quota,
-  SearchHit,
+  SearchSource,
   SummaryPreview,
   TokenPair,
   User,
@@ -73,8 +73,8 @@ export function createApi(http: HttpRequest) {
       reindex: (id: string) => http<Note>(`/notes/${id}/reindex`, { method: 'POST' }),
     },
     search: {
-      query: (b: { query: string; folder_id?: string | null; top_k?: number }) =>
-        http<{ items: SearchHit[] }>('/search', { method: 'POST', body: b }),
+      query: (b: { query: string; folder_id?: string | null; max_sources?: number }) =>
+        http<{ sources: SearchSource[] }>('/search', { method: 'POST', body: b }),
     },
     ai: {
       summarize: (b: { text?: string; note_id?: string }) =>

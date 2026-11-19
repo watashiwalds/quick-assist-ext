@@ -1192,67 +1192,6 @@
         "title": "RefreshIn",
         "type": "object"
       },
-      "SearchHitOut": {
-        "additionalProperties": false,
-        "properties": {
-          "chunk_id": {
-            "format": "uuid",
-            "title": "Chunk Id",
-            "type": "string"
-          },
-          "folder_id": {
-            "format": "uuid",
-            "title": "Folder Id",
-            "type": "string"
-          },
-          "note_id": {
-            "format": "uuid",
-            "title": "Note Id",
-            "type": "string"
-          },
-          "note_title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Note Title"
-          },
-          "note_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Note Url"
-          },
-          "score": {
-            "title": "Score",
-            "type": "number"
-          },
-          "text": {
-            "title": "Text",
-            "type": "string"
-          }
-        },
-        "required": [
-          "chunk_id",
-          "note_id",
-          "text",
-          "score",
-          "note_title",
-          "note_url",
-          "folder_id"
-        ],
-        "title": "SearchHitOut",
-        "type": "object"
-      },
       "SearchIn": {
         "additionalProperties": false,
         "properties": {
@@ -1268,18 +1207,18 @@
             ],
             "title": "Folder Id"
           },
+          "max_sources": {
+            "default": 5,
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Max Sources",
+            "type": "integer"
+          },
           "query": {
             "maxLength": 1000,
             "minLength": 1,
             "title": "Query",
             "type": "string"
-          },
-          "top_k": {
-            "default": 5,
-            "maximum": 20.0,
-            "minimum": 1.0,
-            "title": "Top K",
-            "type": "integer"
           }
         },
         "required": [
@@ -1288,21 +1227,131 @@
         "title": "SearchIn",
         "type": "object"
       },
+      "SearchNoteOut": {
+        "additionalProperties": false,
+        "properties": {
+          "note_id": {
+            "format": "uuid",
+            "title": "Note Id",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "similarity": {
+            "title": "Similarity",
+            "type": "number"
+          },
+          "snippet": {
+            "title": "Snippet",
+            "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "note_id",
+          "title",
+          "url",
+          "summary",
+          "snippet",
+          "score",
+          "similarity"
+        ],
+        "title": "SearchNoteOut",
+        "type": "object"
+      },
       "SearchOut": {
         "additionalProperties": false,
         "properties": {
-          "items": {
+          "sources": {
             "items": {
-              "$ref": "#/components/schemas/SearchHitOut"
+              "$ref": "#/components/schemas/SearchSourceOut"
             },
-            "title": "Items",
+            "title": "Sources",
             "type": "array"
           }
         },
         "required": [
-          "items"
+          "sources"
         ],
         "title": "SearchOut",
+        "type": "object"
+      },
+      "SearchSourceOut": {
+        "additionalProperties": false,
+        "properties": {
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "note_count": {
+            "title": "Note Count",
+            "type": "integer"
+          },
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/SearchNoteOut"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "source_rank": {
+            "title": "Source Rank",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "domain",
+          "label",
+          "source_rank",
+          "note_count",
+          "notes"
+        ],
+        "title": "SearchSourceOut",
         "type": "object"
       },
       "ServerDefaultOut": {

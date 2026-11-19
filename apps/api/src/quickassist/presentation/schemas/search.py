@@ -1,4 +1,8 @@
-"""Presentation Layer — DTO request/response (search)."""
+"""Presentation Layer — DTO request/response (search).
+
+Contract source-first (Phase 1, UX plan §6.1): kết quả gom theo NGUỒN (domain),
+mỗi nguồn chứa các ghi chú đã đạt ngưỡng tin cậy OR (similarity >= 0.5 HOẶC RRF >= 0.03).
+"""
 
 import uuid
 
@@ -10,18 +14,28 @@ from quickassist.presentation.schemas.common import ApiModel
 class SearchIn(ApiModel):
     query: str = Field(min_length=1, max_length=1000)
     folder_id: uuid.UUID | None = None
-    top_k: int = Field(default=5, ge=1, le=20)
+    # Số nguồn (domain) tối đa trả về — mặc định 5; mỗi nguồn trả tối đa
+    # search_notes_per_source note (Thư viện hiển thị 3 + "Xem thêm").
+    max_sources: int = Field(default=5, ge=1, le=20)
 
 
-class SearchHitOut(ApiModel):
-    chunk_id: uuid.UUID
+class SearchNoteOut(ApiModel):
     note_id: uuid.UUID
-    text: str
-    score: float
-    note_title: str | None
-    note_url: str | None
-    folder_id: uuid.UUID
+    title: str | None
+    url: str | None
+    summary: str | None  # tóm tắt AI đã lưu của note (nếu có) — summary-first
+    snippet: str  # chunk tốt nhất của note, đã chuẩn hoá khoảng trắng
+    score: float  # RRF tốt nhất của note (khớp cả vector lẫn từ khoá)
+    similarity: float  # cosine 0..1 tốt nhất của note (khớp ngữ nghĩa)
+
+
+class SearchSourceOut(ApiModel):
+    domain: str | None  # None = nhóm "Không rõ nguồn" (note không có URL), luôn xếp cuối
+    label: str  # domain hoặc "Không rõ nguồn"
+    source_rank: int  # 1..N theo thứ hạng nguồn
+    note_count: int  # tổng số note đạt ngưỡng trong nguồn (trước khi cắt theo notes_per_source)
+    notes: list[SearchNoteOut]
 
 
 class SearchOut(ApiModel):
-    items: list[SearchHitOut]
+    sources: list[SearchSourceOut]

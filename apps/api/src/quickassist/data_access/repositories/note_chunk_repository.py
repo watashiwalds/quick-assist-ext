@@ -18,10 +18,13 @@ class ChunkHit:
     note_id: uuid.UUID
     text: str
     score: float
+    similarity: float  # cosine 0..1 (1 - khoảng cách <=>), tính độc lập với RRF
 
 
 # Hybrid retrieval: vector (cosine, HNSW) + từ khoá (tsvector) → hợp nhất bằng
 # Reciprocal Rank Fusion (k=60). RRF không cần chuẩn hoá thang điểm giữa 2 nguồn.
+# Cột `similarity` trả kèm cosine gốc của từng chunk (1 - khoảng cách <=>), kẹp [0,1]
+# — dùng cho ngưỡng tin cậy OR (similarity >= ngưỡng HOẶC RRF >= ngưỡng) ở tầng grouping.
 # Điều kiện user_id nằm TRONG từng nhánh → không bao giờ rò dữ liệu chéo user.
 # Nhánh từ khoá so khớp KHÔNG DẤU (qa_unaccent ở cả chỉ mục lẫn truy vấn — R01) và theo OR
 # giữa các từ: câu hỏi tự nhiên ("mua quà gì ở đà lạt") không cần chứa ĐỦ mọi từ; ts_rank_cd
@@ -49,7 +52,8 @@ fused AS (
     FROM (SELECT * FROM vec UNION ALL SELECT * FROM kw) u
     GROUP BY id
 )
-SELECT c.id, c.note_id, c.text, f.score
+SELECT c.id, c.note_id, c.text, f.score,
+       LEAST(1.0, GREATEST(0.0, 1.0 - (c.embedding <=> CAST(:qvec AS vector)))) AS similarity
 FROM fused f JOIN note_chunks c ON c.id = f.id
 ORDER BY f.score DESC
 LIMIT :k
@@ -86,4 +90,4 @@ class NoteChunkRepository:
             "uid": user_id, "fid": folder_id, "qtext": query_text, "k": k, "cand": candidate_k,
             "qvec": "[" + ",".join(f"{x:.7f}" for x in query_vec) + "]",
         })
-        return [ChunkHit(r.id, r.note_id, r.text, float(r.score)) for r in res]
+        return [ChunkHit(r.id, r.note_id, r.text, float(r.score), float(r.similarity)) for r in res]

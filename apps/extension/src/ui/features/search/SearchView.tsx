@@ -18,7 +18,7 @@ export function SearchView({ onOpenNote, onGoSettings }: { onOpenNote: (noteId: 
     e.preventDefault()
     const q = query.trim()
     if (!q || act.busy) return
-    const r = await act.run(() => rpc('search/query', { query: q, folderId, topK }))
+    const r = await act.run(() => rpc('search/query', { query: q, folderId, maxSources: topK }))
     if (r) {
       setHits(r)
       setAsked(q)
@@ -78,7 +78,7 @@ export function SearchView({ onOpenNote, onGoSettings }: { onOpenNote: (noteId: 
       )}
       <ol className="list">
         {hits?.map((h, i) => (
-          <li key={h.chunk_id} className="card">
+          <li key={h.note_id} className="card">
             <div className="row spread">
               <h3 className="grow">
                 {i + 1}. {h.note_title ?? 'Ghi chú'}

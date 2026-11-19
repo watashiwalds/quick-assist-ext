@@ -9,6 +9,7 @@ from collections.abc import AsyncIterator, Sequence
 import pytest
 
 from quickassist.business.rag.prompts import CHAT_SYSTEM, NO_CONTEXT_ANSWER
+from quickassist.infrastructure.config import get_settings
 from quickassist.infrastructure.jobs import drain
 from quickassist.infrastructure.openai.base import AIProviderError, ChatMessage, StreamChunk, Usage
 from quickassist.infrastructure.openai.mock_client import MockAIClient
@@ -64,6 +65,8 @@ async def test_answer_streams_sources_then_deltas_then_done(client) -> None:
     assert names[0] == "sources" and names[-1] == "done" and "delta" in names
     sources = events[0][1]
     assert isinstance(sources, list) and sources[0]["index"] == 1
+    # Phase 1: nguồn nhóm theo domain — source_index là thứ hạng nguồn, citation [n] vẫn theo note
+    assert sources[0]["source_index"] == 1 and sources[0]["source_domain"] == "amthuc.example"
     assert sources[0]["note_id"] == notes[0]["id"] and sources[0]["title"] == "Phở bò"
     assert sources[0]["url"] == "https://amthuc.example/pho" and "phở bò" in sources[0]["snippet"].lower()
     answer = "".join(d["text"] for e, d in events if e == "delta")  # type: ignore[index]
@@ -106,8 +109,33 @@ async def test_prompt_wraps_notes_keeps_last_5_pairs_and_neutralizes_tags(app, c
     assert [m.content for m in msgs[1:-1]] == [c for i in range(2, 7) for c in (f"hỏi {i}", f"đáp {i}")]
     last = msgs[-1]
     assert last.role == "user" and last.content.startswith("Câu hỏi: phở bò")
-    assert last.content.count("</notes>") == 1
+    # Phase 1: dữ liệu bọc trong <sources>, gom theo nguồn; thẻ giả bị vô hiệu hoá
+    assert last.content.count("<source") == 1 and last.content.count("</sources>") == 1
+    assert "<source>\n" in last.content  # note không URL → nguồn "Không rõ nguồn" (không attr domain)
     assert "‹/notes›" in last.content and '‹note id="9"›' in last.content
+
+
+async def test_rag_uses_grouped_sources_with_notes_per_source_cap(app, client, monkeypatch) -> None:
+    """Phase 1: RAG nhận đúng nguồn×note×chunk — mỗi note 1 chunk tốt nhất, cap note/nguồn."""
+    from quickassist.presentation.api.deps import get_user_ai_provider
+
+    monkeypatch.setattr(get_settings(), "rag_notes_per_source", 2)
+    ai = Recording()
+    app.dependency_overrides[get_user_ai_provider] = lambda: ai
+    h = await login(client)
+    for i in range(4):  # 4 note cùng domain, cùng chủ đề → 1 nguồn, 4 note đạt ngưỡng
+        await client.post("/notes", json={
+            "content": f"Phở bò Hà Nội hầm xương {i} tiếng, thêm quế hồi.", "title": f"Phở {i}",
+            "url": "https://amthuc.example/pho"}, headers=h)
+    await drain()
+    r = await client.post("/ai/chat", json={"question": "phở bò hầm xương"}, headers=h)
+    sources = parse_sse(r.text)[0][1]
+    assert len(sources) == 2  # cap rag_notes_per_source=2 (dù 4 note đạt)
+    assert len({s["note_id"] for s in sources}) == 2  # mỗi note 1 chunk, không trùng note
+    assert all(s["source_index"] == 1 and s["source_domain"] == "amthuc.example" for s in sources)
+    assert [s["index"] for s in sources] == [1, 2]  # số trích dẫn [n] liên tục theo note
+    prompt = ai.seen[0][-1].content
+    assert prompt.count('<source domain="amthuc.example">') == 1 and prompt.count("<note id=") == 2
 
 
 async def test_ai_error_mid_stream_charges_generated_part_and_emits_error(app, client) -> None:

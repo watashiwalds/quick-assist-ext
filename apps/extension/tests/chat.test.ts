@@ -56,7 +56,7 @@ describe('background ask()', () => {
 
   it('chuyển tiếp sources → delta → done, gửi đúng body', async () => {
     stream.mockResolvedValue(sse([
-      'event: sources\ndata: [{"index":1,"note_id":"n1","chunk_id":"c1","title":"Phở","url":null,"snippet":"s"}]\n\n',
+      'event: sources\ndata: [{"index":1,"source_index":1,"source_domain":null,"note_id":"n1","chunk_id":"c1","title":"Phở","url":null,"snippet":"s"}]\n\n',
       'event: delta\ndata: {"text":"Phở bò [1]"}\n\nevent: do',
       'ne\ndata: {"tokens_used": 42}\n\n',
     ]))

@@ -1,8 +1,9 @@
 """Business Layer — RAGService (SDS Hình 1, §5.1.6): hỏi đáp trên ghi chú cá nhân, trả lời từng phần (stream).
 
 Luồng (task X01):
-  1. prepare(): kiểm tra đầu vào → SemanticSearchService.retrieve() lấy top-k đoạn ghi chú của CHÍNH user
-     (quota_operation="rag_retrieve") → dựng prompt (system + tối đa 5 cặp hỏi–đáp gần nhất + ghi chú)
+  1. prepare(): kiểm tra đầu vào → SemanticSearchService.search_sources() lấy ngữ cảnh theo hợp đồng
+     source-first của CHÍNH user (5 nguồn × notes_per_source note × 1 chunk tốt nhất/note,
+     quota_operation="rag_retrieve") → dựng prompt (system + tối đa 5 cặp hỏi–đáp gần nhất + nguồn)
      → QuotaService.reserve ước lượng "chat".
      Lỗi ở bước này (hết quota, đầu vào sai) trả HTTP lỗi bình thường.
   2. stream(): phát sự kiện `sources` → các `delta` → `done` (hoặc `error`). Kết thúc, lỗi giữa chừng hay bị
@@ -23,14 +24,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from quickassist.business.common.exceptions import AppError, PayloadTooLarge
 from quickassist.business.quota import QuotaLease, QuotaService
 from quickassist.business.rag.prompts import NO_CONTEXT_ANSWER, chat_messages
-from quickassist.business.semantic_search import SemanticSearchService
+from quickassist.business.semantic_search import ScoredNote, ScoredSource, SemanticSearchService
+from quickassist.infrastructure.config import get_settings
 from quickassist.infrastructure.logging import get_logger
 from quickassist.infrastructure.openai.base import AIProvider, ChatMessage, estimate_tokens
 
 log = get_logger(__name__)
 
 CHAT_MAX_OUTPUT_TOKENS = 800
-CHAT_CONTEXT_TOP_K = 5
+# RAG cố định 5 nguồn (UX plan §5.2.4); số note/nguồn theo cấu hình (mặc định 3).
+CHAT_MAX_SOURCES = 5
 MAX_QUESTION_CHARS = 2_000
 MAX_HISTORY_PAIRS = 5
 MAX_HISTORY_MESSAGE_CHARS = 2_000
@@ -39,7 +42,9 @@ SNIPPET_CHARS = 240
 
 @dataclass(frozen=True)
 class ChatSource:
-    index: int  # số trích dẫn [n] trong câu trả lời
+    index: int  # số trích dẫn [n] trong câu trả lời — đánh số LIÊN TỤC theo note
+    source_index: int  # nhóm nguồn 1..5 (source_rank của nguồn chứa note này)
+    source_domain: str | None  # domain của nguồn; None = "Không rõ nguồn"
     note_id: uuid.UUID
     chunk_id: uuid.UUID
     title: str | None
@@ -76,6 +81,22 @@ def clean_history(history: Sequence[tuple[str, str]]) -> list[tuple[str, str]]:
     return turns
 
 
+def clip_context(notes: Sequence[tuple[ScoredSource, ScoredNote]], max_chars: int,
+                 ) -> list[tuple[ScoredSource, ScoredNote]]:
+    """Trần ngữ cảnh (CHAT_CONTEXT_MAX_CHARS): giữ note xếp CAO trước; vượt → bỏ các note thấp.
+
+    Note tốt nhất luôn được giữ (chunk ≤ ~1200 ký tự nên không thể vượt trần một mình).
+    """
+    kept: list[tuple[ScoredSource, ScoredNote]] = []
+    used = 0
+    for i, (src, note) in enumerate(notes):
+        if i > 0 and used + len(note.chunk_text) > max_chars:
+            break
+        kept.append((src, note))
+        used += len(note.chunk_text)
+    return kept
+
+
 class RAGService:
     def __init__(self, session: AsyncSession, ai: AIProvider) -> None:
         self.s = session
@@ -91,18 +112,27 @@ class RAGService:
         if len(question) > MAX_QUESTION_CHARS:
             raise PayloadTooLarge("Câu hỏi quá dài", code="CHAT_INPUT_TOO_LONG")
 
-        hits = await SemanticSearchService(self.s, self.ai).retrieve(
-            user_id, question, folder_id=folder_id, top_k=CHAT_CONTEXT_TOP_K, quota_operation="rag_retrieve")
+        cfg = get_settings()
+        grouped = await SemanticSearchService(self.s, self.ai).search_sources(
+            user_id, question, folder_id=folder_id, max_sources=CHAT_MAX_SOURCES,
+            notes_per_source=cfg.rag_notes_per_source, quota_operation="rag_retrieve")
+        # Phẳng theo thứ hạng: (nguồn, note) theo nguồn rồi note trong nguồn; mỗi note 1 chunk tốt nhất.
+        ranked = [(src, n) for src in grouped for n in src.notes]
+        ranked = clip_context(ranked, cfg.chat_context_max_chars)
         sources = [
-            ChatSource(i, h.note_id, h.chunk_id, h.note_title, h.note_url,
-                       " ".join(h.text.split())[:SNIPPET_CHARS])
-            for i, h in enumerate(hits, start=1)
+            ChatSource(i, src.source_rank, src.domain, n.note_id, n.chunk_id, n.title, n.url, n.snippet)
+            for i, (src, n) in enumerate(ranked, start=1)
         ]
-        if not hits:
+        if not sources:
             return PreparedChat(user_id, [], [], None)
 
-        messages = chat_messages(question, clean_history(history),
-                                 [(s.index, s.title, h.text) for s, h in zip(sources, hits, strict=True)])
+        # Prompt gom theo nguồn, giữ thứ hạng: [(domain, [(số [n], tiêu đề, toàn văn chunk)])]
+        domain_by_rank = {src.source_rank: src.domain for src, _ in ranked}
+        by_rank: dict[int, list[tuple[int, str | None, str]]] = {}
+        for s, (_, n) in zip(sources, ranked, strict=True):
+            by_rank.setdefault(s.source_index, []).append((s.index, s.title, n.chunk_text))
+        source_groups = [(domain_by_rank[rank], by_rank[rank]) for rank in sorted(by_rank)]
+        messages = chat_messages(question, clean_history(history), source_groups)
         prompt_tokens = sum(estimate_tokens(m.content) for m in messages)
         async with QuotaService.open() as quota:
             lease = await quota.reserve(user_id, "chat", prompt_tokens + CHAT_MAX_OUTPUT_TOKENS,
@@ -111,7 +141,8 @@ class RAGService:
 
     async def stream(self, prepared: PreparedChat) -> AsyncIterator[ChatEvent]:
         yield ChatEvent("sources", [
-            {"index": s.index, "note_id": str(s.note_id), "chunk_id": str(s.chunk_id),
+            {"index": s.index, "source_index": s.source_index, "source_domain": s.source_domain,
+             "note_id": str(s.note_id), "chunk_id": str(s.chunk_id),
              "title": s.title, "url": s.url, "snippet": s.snippet}
             for s in prepared.sources
         ])

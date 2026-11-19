@@ -11,7 +11,19 @@ export type Note = S['NoteOut']
 export type NoteCreate = S['NoteCreateIn']
 export type NoteUpdate = S['NoteUpdateIn']
 export type Folder = S['FolderOut']
-export type SearchHit = S['SearchHitOut']
+/** Kết quả tìm kiếm grouped theo nguồn (Phase 1, UX plan §6.1) — dùng cho UI Phase 2. */
+export type SearchSource = S['SearchSourceOut']
+export type SearchNote = S['SearchNoteOut']
+/** Chuyển tiếp (Phase 1): kết quả phẳng cho UI hiện tại — background phẳng hoá từ
+ * `SearchSource[]`; Phase 2 đổi UI sang grouped rồi xoá kiểu này. */
+export interface SearchHit {
+  note_id: string
+  note_title: string | null
+  note_url: string | null
+  text: string
+  score: number
+  similarity: number
+}
 export type TokenPair = S['TokenPairOut']
 export type Quota = S['QuotaOut']
 export type User = S['UserOut']
@@ -36,9 +48,13 @@ export type ServerDefault = S['ServerDefaultOut']
 export type AuthConfig = S['AuthConfigOut']
 export type AiProvider = NonNullable<AiSettings['provider']>
 
-/** Dữ liệu sự kiện SSE `sources` của POST /ai/chat (luồng SSE nên không có trong OpenAPI components). */
+/** Dữ liệu sự kiện SSE `sources` của POST /ai/chat (luồng SSE nên không có trong OpenAPI components).
+ * Phase 1: `index` là số trích dẫn [n] theo note (liên tục); `source_index`/`source_domain` để nhóm
+ * chip theo nguồn (UI Phase 4). */
 export interface ChatSource {
   index: number
+  source_index: number
+  source_domain: string | null
   note_id: string
   chunk_id: string
   title: string | null

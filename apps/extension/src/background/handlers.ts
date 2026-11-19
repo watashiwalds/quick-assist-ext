@@ -169,7 +169,21 @@ export const handlers: Handlers = {
   'outbox/retry': ({ id }) => retryPending(id),
   'outbox/discard': ({ id }) => discardPending(id),
 
-  'search/query': async ({ query, folderId, topK }) => (await api.search.query({ query, folder_id: folderId, top_k: topK })).items,
+  'search/query': async ({ query, folderId, maxSources }) => {
+    // Backend trả grouped (nguồn → ghi chú, Phase 1); UI hiện tại render phẳng — Phase 2 sẽ
+    // dùng thẳng grouped. Ở đây phẳng hoá theo thứ hạng nguồn rồi thứ hạng note.
+    const r = await api.search.query({ query, folder_id: folderId, max_sources: maxSources })
+    return r.sources.flatMap((s) =>
+      s.notes.map((n) => ({
+        note_id: n.note_id,
+        note_title: n.title,
+        note_url: n.url,
+        text: n.snippet,
+        score: n.score,
+        similarity: n.similarity,
+      })),
+    )
+  },
   'summary/preview': ({ noteId, text }) =>
     api.ai.summarize(noteId ? { note_id: noteId } : { text: (text ?? '').slice(0, config.maxSummaryChars) }),
   'summary/save': async ({ noteId, version, summary }) => {

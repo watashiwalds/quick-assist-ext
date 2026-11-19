@@ -29,6 +29,7 @@ class NoteBrief:
     title: str | None
     url: str | None
     domain: str | None
+    summary_text: str | None = None  # tóm tắt AI đã lưu (nếu có) — hiển thị summary-first
 
 
 async def get_note_for_indexing(session: AsyncSession, note_id: uuid.UUID) -> NoteForIndexing | None:
@@ -47,7 +48,7 @@ async def get_note_content(session: AsyncSession, user_id: uuid.UUID, note_id: u
 async def get_briefs(session: AsyncSession, user_id: uuid.UUID,
                      note_ids: list[uuid.UUID]) -> dict[uuid.UUID, NoteBrief]:
     rows = await NoteRepository(session).get_many(user_id, note_ids)
-    return {n.id: NoteBrief(n.id, n.folder_id, n.title, n.url, n.domain) for n in rows}
+    return {n.id: NoteBrief(n.id, n.folder_id, n.title, n.url, n.domain, n.summary_text) for n in rows}
 
 
 async def set_index_status(session: AsyncSession, note_id: uuid.UUID, *, status: str, index_rev: int,

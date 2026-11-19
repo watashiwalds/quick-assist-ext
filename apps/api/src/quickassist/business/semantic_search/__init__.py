@@ -4,7 +4,12 @@ Sở hữu bảng: note_chunks. Xử lý job SEMANTIC_SEARCH_INDEX_NOTE (indexin
 worker.py nạp). Public API: chỉ import từ package này.
 """
 
+from quickassist.business.semantic_search.contracts import SearchResult
+from quickassist.business.semantic_search.grouping import ScoredNote, ScoredSource, group_by_source
 from quickassist.business.semantic_search.rebuild import RebuildPlan, start_rebuild
-from quickassist.business.semantic_search.semantic_search_service import SearchResult, SemanticSearchService
+from quickassist.business.semantic_search.semantic_search_service import SemanticSearchService
 
-__all__ = ["RebuildPlan", "SearchResult", "SemanticSearchService", "start_rebuild"]
+__all__ = [
+    "RebuildPlan", "ScoredNote", "ScoredSource", "SearchResult", "SemanticSearchService",
+    "group_by_source", "start_rebuild",
+]

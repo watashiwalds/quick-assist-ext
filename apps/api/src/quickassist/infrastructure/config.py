@@ -84,6 +84,16 @@ class Settings(BaseSettings):
     search_top_k: int = 5
     search_candidate_k: int = 30
     search_rerank_enabled: bool = False
+    # Phase 1 — truy xuất source-first (UX plan §5.1): note đạt nếu
+    # similarity >= ngưỡng cosine HOẶC RRF >= ngưỡng RRF (OR, không AND — giữ cả
+    # khớp ngữ nghĩa lẫn khớp từ khoá; không dùng RRF một mình vì mất khớp diễn đạt lại).
+    search_min_similarity: float = 0.5
+    search_min_rrf: float = 0.03
+    search_max_sources: int = 5  # top nguồn trả về cho cả Thư viện lẫn RAG
+    search_notes_per_source: int = 10  # Thư viện hiển thị 3 + "Xem thêm" trên nền này
+    # RAG: cố định 5 nguồn × rag_notes_per_source note/nguồn × 1 chunk tốt nhất/note.
+    rag_notes_per_source: int = 3
+    chat_context_max_chars: int = 18_000  # trần ký tự ngữ cảnh ghi chú đưa vào prompt chat
 
     # --- Quota & giới hạn ---
     quota_default_tokens: int = 200_000

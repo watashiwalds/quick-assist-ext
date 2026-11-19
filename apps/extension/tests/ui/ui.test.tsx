@@ -145,7 +145,7 @@ describe('thanh tìm gộp trong Thư viện (R04 + C03)', () => {
     fireEvent.change(screen.getByLabelText('Số kết quả tối đa'), { target: { value: '10' } })
     fireEvent.submit(screen.getByRole('search'))
     await screen.findByText('1. Tiêu đề n2')
-    expect(rpc).toHaveBeenCalledWith('search/query', { query: 'PHỞ', folderId: null, topK: 10 })
+    expect(rpc).toHaveBeenCalledWith('search/query', { query: 'PHỞ', folderId: null, maxSources: 10 })
     expect(screen.getByRole('link', { name: /Mở trang nguồn/ }).getAttribute('href')).toBe('https://pho.vn')
     // mở ngay trong reader, không cần chuyển tab
     fireEvent.click(screen.getByRole('button', { name: 'Mở ghi chú' }))
@@ -190,7 +190,7 @@ describe('tìm kiếm (R04)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Tìm' }))
     await screen.findByText('1. Phở bò')
     expect(screen.getByText(/tối đa 10/)).toBeTruthy()
-    expect(rpc).toHaveBeenCalledWith('search/query', { query: 'ham xuong', folderId: null, topK: 10 })
+    expect(rpc).toHaveBeenCalledWith('search/query', { query: 'ham xuong', folderId: null, maxSources: 10 })
     expect(screen.getByRole('link', { name: /Mở trang nguồn/ }).getAttribute('href')).toBe('https://pho.vn')
     fireEvent.click(screen.getByRole('button', { name: 'Mở ghi chú' }))
     expect(onOpen).toHaveBeenCalledWith('n9')
