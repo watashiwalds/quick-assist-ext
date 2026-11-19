@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 /** X02 — giao diện Hỏi AI: stream từng phần, trích dẫn [n] mở ghi chú, nút Dừng, lỗi hết quota. */
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ChatSource } from '../../src/shared/api/types'
 import type { ChatPortEvent } from '../../src/shared/messaging/protocol'
@@ -91,6 +91,103 @@ describe('ChatView', () => {
     act(() => emit({ type: 'done', tokensUsed: 3 }))
     expect(screen.getByText('Chi tiết nguồn')).toBeTruthy()
     expect(screen.getByText('hầm xương 8 tiếng')).toBeTruthy()
+  })
+
+  it('chip nguồn nhóm theo domain; "Nguồn (N)" đếm số domain; "Không rõ nguồn" xếp cuối', async () => {
+    await ask('phở?')
+    act(() => {
+      emit({
+        type: 'sources',
+        sources: [
+          { index: 1, source_index: 1, source_domain: 'amthuc.example', note_id: 'n1', chunk_id: 'c1', title: 'Phở bò', url: null, snippet: 'hầm xương' },
+          { index: 2, source_index: 1, source_domain: 'amthuc.example', note_id: 'n2', chunk_id: 'c2', title: 'Bún bò', url: null, snippet: 'sả hành' },
+          { index: 3, source_index: 2, source_domain: 'wiki.example', note_id: 'n3', chunk_id: 'c3', title: 'Bò', url: null, snippet: 'giống bò' },
+          { index: 4, source_index: 3, source_domain: null, note_id: 'n4', chunk_id: 'c4', title: 'Ghi chú tay', url: null, snippet: 'mẹo vặt' },
+        ],
+      })
+      emit({ type: 'done', tokensUsed: 1 })
+    })
+    // 4 note thuộc 3 domain → nhãn đếm theo domain, không phải số chip.
+    expect(screen.getByText('Nguồn (3)')).toBeTruthy()
+    const labels = [...document.querySelectorAll('.source-cluster-label')].map((el) => el.textContent)
+    expect(labels).toEqual(['amthuc.example', 'wiki.example', 'Không rõ nguồn'])
+    // Mỗi note đúng một chip, thuộc đúng nhóm của mình (không trùng giữa các nhóm).
+    const chips = [...document.querySelectorAll('.source-chip')]
+    expect(chips).toHaveLength(4)
+    expect(new Set(chips.map((c) => c.getAttribute('aria-label')))).toHaveLength(4)
+  })
+
+  it('trích dẫn [n] và chi tiết nguồn nhóm đúng: bấm mở đúng ghi chú trong nhóm', async () => {
+    await ask('bò?')
+    act(() => {
+      emit({
+        type: 'sources',
+        sources: [
+          { index: 1, source_index: 1, source_domain: 'amthuc.example', note_id: 'n1', chunk_id: 'c1', title: 'Phở bò', url: null, snippet: 'hầm xương' },
+          { index: 2, source_index: 2, source_domain: 'wiki.example', note_id: 'n2', chunk_id: 'c2', title: 'Bò', url: null, snippet: 'giống bò' },
+          { index: 3, source_index: 3, source_domain: null, note_id: 'n3', chunk_id: 'c3', title: 'Ghi chú tay', url: null, snippet: 'mẹo vặt' },
+        ],
+      })
+      emit({ type: 'delta', text: 'Xem [2].' })
+      emit({ type: 'done', tokensUsed: 1 })
+    })
+    // Trích dẫn [2] trong câu trả lời mở đúng note của nhóm wiki.example.
+    fireEvent.click(screen.getByRole('button', { name: 'Mở ghi chú nguồn 2: Bò' }))
+    expect(onOpenNote).toHaveBeenCalledWith('n2')
+
+    fireEvent.click(screen.getByText('Chi tiết nguồn'))
+    const blocks = [...document.querySelectorAll('.source-group-block')]
+    expect(blocks).toHaveLength(3)
+    expect([...document.querySelectorAll('.source-domain-name')].map((el) => el.textContent)).toEqual([
+      'amthuc.example',
+      'wiki.example',
+      'Không rõ nguồn',
+    ])
+    expect([...document.querySelectorAll('.source-domain-count')].map((el) => el.textContent)).toEqual([
+      '1 ghi chú',
+      '1 ghi chú',
+      '1 ghi chú',
+    ])
+    // "Mở ghi chú" trong khối wiki.example là note n2, không lẫn note nhóm khác.
+    fireEvent.click(within(blocks[1] as HTMLElement).getByRole('button', { name: 'Mở ghi chú' }))
+    expect(onOpenNote).toHaveBeenCalledWith('n2')
+    expect(onOpenNote).toHaveBeenCalledTimes(2)
+  })
+
+  it('đếm ghi chú của nhóm theo note khác nhau (chip cũ nhiều chunk/note không phình số)', async () => {
+    await ask('phở?')
+    act(() => {
+      emit({
+        type: 'sources',
+        sources: [
+          { index: 1, source_index: 1, source_domain: 'amthuc.example', note_id: 'n1', chunk_id: 'c1', title: 'Phở bò', url: null, snippet: 'phần 1' },
+          { index: 2, source_index: 1, source_domain: 'amthuc.example', note_id: 'n1', chunk_id: 'c2', title: 'Phở bò', url: null, snippet: 'phần 2' },
+        ],
+      })
+      emit({ type: 'done', tokensUsed: 1 })
+    })
+    fireEvent.click(screen.getByText('Chi tiết nguồn'))
+    // Cùng một note xuất hiện 2 chunk (dữ liệu cũ) vẫn đếm 1 ghi chú.
+    expect(screen.getByText('1 ghi chú')).toBeTruthy()
+    expect(screen.getAllByText('Phở bò').length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('nguồn lưu trước Phase 1 (chưa có source_index) vẫn nhóm theo domain, không crash', async () => {
+    await ask('hỏi')
+    act(() => {
+      emit({
+        type: 'sources',
+        sources: [
+          { index: 1, note_id: 'n1', chunk_id: 'c1', title: 'Phở bò', url: null, snippet: 's' },
+          { index: 2, note_id: 'n2', chunk_id: 'c2', title: 'Ghi chú tay', url: null, snippet: 's' },
+        ] as unknown as ChatSource[],
+      })
+      emit({ type: 'done', tokensUsed: 1 })
+    })
+    expect(screen.getByText('Nguồn (1)')).toBeTruthy()
+    const labels = [...document.querySelectorAll('.source-cluster-label')].map((el) => el.textContent)
+    expect(labels).toEqual(['Không rõ nguồn'])
+    expect(document.querySelectorAll('.source-chip')).toHaveLength(2)
   })
 
   it('sao chép câu trả lời vào clipboard', async () => {

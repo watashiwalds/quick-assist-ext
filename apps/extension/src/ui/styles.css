@@ -311,12 +311,23 @@ textarea { resize: vertical; }
 .chip-index { flex: 0 0 auto; font-weight: 650; color: var(--muted); }
 .source-chip.is-cited .chip-index { color: var(--accent); }
 .chip-title { overflow: hidden; text-overflow: ellipsis; }
+/* Chip nhóm theo domain (P4): nhãn domain + các chip ghi chú của domain đó. */
+.source-cluster { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.source-cluster + .source-cluster { margin-left: 8px; }
+.source-cluster-label { flex: 0 1 auto; max-width: 140px; overflow: hidden; font-size: 11px; font-weight: 650; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
 .source-more { margin-top: 5px; }
 .source-more summary { display: inline-flex; align-items: center; gap: 3px; padding: 2px 4px 2px 0; font-size: 11px; font-weight: 500; color: var(--accent); cursor: pointer; list-style: none; border-radius: 4px; }
 .source-more summary::-webkit-details-marker { display: none; }
 .source-more summary .icon { width: 11px; height: 11px; transition: transform 0.15s ease; }
 .source-more[open] summary .icon { transform: rotate(90deg); }
 .source-cards { display: grid; gap: 6px; padding: 0; margin: 8px 0 0; list-style: none; }
+/* "Chi tiết nguồn" nhóm theo domain (P4): đầu nhóm = domain + số ghi chú (đếm note khác nhau). */
+.source-groups { display: grid; gap: 12px; padding: 0; margin: 8px 0 0; list-style: none; }
+.source-group-block { display: grid; gap: 6px; }
+.source-group-block .source-cards { margin: 0; }
+.source-domain-head { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 11px; font-weight: 650; color: var(--muted); }
+.source-domain-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.source-domain-count { flex: 0 0 auto; padding: 1px 7px; font-size: 10.5px; font-weight: 500; color: var(--muted); background: var(--surface); border: 1px solid var(--border-soft); border-radius: 999px; }
 .source-card { display: flex; gap: 9px; padding: 9px 10px; background: var(--bg); border: 1px solid var(--border-soft); border-radius: var(--radius-sm); }
 .source-index { flex: 0 0 auto; font-size: 11px; font-weight: 650; line-height: 1.6; color: var(--accent); }
 .source-body { min-width: 0; }
@@ -444,6 +455,7 @@ textarea { resize: vertical; }
   .composer, .conv-body { padding-inline: 12px; }
   .source-chip { max-width: 40px; padding: 0 6px; }
   .source-chip .chip-title { display: none; }
+  .source-cluster-label { display: none; }
   .answer-foot-stopped { align-items: flex-start; flex-direction: column; }
   .scope-select select { max-width: 180px; }
   .rename-form { flex-wrap: wrap; }
