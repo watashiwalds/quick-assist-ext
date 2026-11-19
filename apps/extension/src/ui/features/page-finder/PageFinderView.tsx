@@ -18,7 +18,7 @@ import { config } from '@/shared/config'
 import { type SerializedError, toSerialized } from '@/shared/errors'
 import { rpc } from '@/shared/messaging/client'
 import type { PageMatchRun } from '@/shared/messaging/protocol'
-import { Banner, Button, ConfidenceBadge, ConfirmDialog, EmptyState, ErrorState, Icon, Modal, PaneHeader, Select, TextArea, useToast } from '../../components'
+import { Banner, Button, ConfidenceBadge, ConfirmDialog, EmptyState, ErrorState, Icon, Modal, PaneHeader, ProgressBar, Select, TextArea, useToast } from '../../components'
 import { useBroadcast } from '../../lib/hooks'
 
 const SEP = '\n\n'
@@ -84,17 +84,17 @@ function ScanScopeDialog({
         <>
           <Button variant="ghost" onClick={onCancel}>Huỷ</Button>
           <Button variant="ghost" onClick={() => onChoose('all')}>Quét toàn bộ</Button>
-          <Button onClick={() => onChoose('capped')}>Quét 50k đầu</Button>
+          <Button onClick={() => onChoose('capped')} data-autofocus>Quét 50k đầu</Button>
         </>
       }
     >
       <div className="stack">
-        <p style={{ margin: 0 }}>
+        <p className="modal-lede">
           Nội dung khoảng <strong>{chars.toLocaleString('vi-VN')}</strong> ký tự, ước tính{' '}
           <strong>~{estimateTokens(chars).toLocaleString('vi-VN')}</strong> token hạn mức AI, chia khoảng{' '}
           <strong>{estimateBatches(chars)}</strong> lô xử lý.
         </p>
-        <p className="muted" style={{ margin: 0 }}>
+        <p className="modal-lede">
           {prompt?.source === 'paste' ? 'Nội dung dán' : 'Trang này'} dài hơn {SCAN_WARN_CHARS.toLocaleString('vi-VN')} ký tự.
           Quét toàn bộ lâu hơn và tốn nhiều hạn mức hơn; bạn có thể huỷ giữa chừng.
         </p>
@@ -339,7 +339,7 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
   return (
     <section className="pagematch" aria-label="Tìm trong trang">
       <aside className="pf-rail pane-rail" aria-label="Truy vấn">
-        <div className="pf-rail-top">
+        <div>
           <h2 className="pf-headline">{pasteMode ? 'Dán nội dung để tìm và gom đoạn' : 'Nêu câu hỏi, nội dung trên trang sẽ trả lời cho bạn'}</h2>
           <p className="pf-lede">
             {pasteMode
@@ -399,10 +399,7 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
           <PaneHeader
             as="header"
             className="pf-head"
-            rowClassName="pf-titlerow"
-            titleClassName="pf-title"
-            subtitleClassName="pf-meta"
-            actionsClassName="pf-headactions"
+            subtitleLive={false}
             title="Kết quả truy vấn"
             subtitle={
               <>
@@ -415,33 +412,41 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
                 </span>
               </>
             }
-            footer={<p className="pf-hint">Khi lưu, các đoạn xếp theo thứ tự trong trang.</p>}
-            actions={
-              <>
-                <div className="pf-sort" role="group" aria-label="Sắp xếp kết quả">
-                  <button
-                    type="button"
-                    className={sort === 'page' ? 'is-active' : ''}
-                    aria-pressed={sort === 'page'}
-                    onClick={() => setSort('page')}
-                  >
-                    Thứ tự trong trang
-                  </button>
-                  <button
-                    type="button"
-                    className={sort === 'confidence' ? 'is-active' : ''}
-                    aria-pressed={sort === 'confidence'}
-                    onClick={() => setSort('confidence')}
-                  >
-                    Tin cậy giảm dần
-                  </button>
-                </div>
+            footer={
+              <div className="pf-footrow">
                 {!fromPaste && (
                   <Button variant="link" size="sm" onClick={() => void highlight(items)}>
                     <Icon name="locate" size={14} />
                     Xem tất cả trên trang
                   </Button>
                 )}
+                {sort === 'confidence' && <p className="pf-hint">Khi lưu, các đoạn xếp theo thứ tự trong trang.</p>}
+              </div>
+            }
+            actions={
+              <>
+                <div className="pf-sort" role="group" aria-label="Sắp xếp kết quả">
+                  <button
+                    type="button"
+                    aria-label="Thứ tự trong trang"
+                    aria-pressed={sort === 'page'}
+                    className={sort === 'page' ? 'is-active' : ''}
+                    onClick={() => setSort('page')}
+                  >
+                    <span className="pf-sort-long" aria-hidden="true">Thứ tự trong trang</span>
+                    <span className="pf-sort-short" aria-hidden="true">Theo trang</span>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Tin cậy giảm dần"
+                    aria-pressed={sort === 'confidence'}
+                    className={sort === 'confidence' ? 'is-active' : ''}
+                    onClick={() => setSort('confidence')}
+                  >
+                    <span className="pf-sort-long" aria-hidden="true">Tin cậy giảm dần</span>
+                    <span className="pf-sort-short" aria-hidden="true">Tin cậy</span>
+                  </button>
+                </div>
                 <Button variant="ghost" size="sm" onClick={() => setSelected(new Set(allSelected ? [] : items.map((i) => i.id)))}>
                   {allSelected ? 'Bỏ chọn' : 'Chọn tất cả'}
                 </Button>
@@ -473,20 +478,9 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
                 </Button>
               </div>
               {progress?.phase === 'batch' && progress.total ? (
-                <div
-                  className="pf-progress-track"
-                  role="progressbar"
-                  aria-label="Tiến độ quét"
-                  aria-valuemin={0}
-                  aria-valuemax={progress.total}
-                  aria-valuenow={progress.index ?? 0}
-                >
-                  <span style={{ width: `${Math.round(((progress.index ?? 0) / progress.total) * 100)}%` }} />
-                </div>
+                <ProgressBar label="Tiến độ quét" value={progress.index ?? 0} max={progress.total} tone="accent" />
               ) : (
-                <div className="pf-progress-track is-indeterminate" aria-hidden>
-                  <span />
-                </div>
+                <ProgressBar label="Tiến độ quét" value={0} max={1} tone="accent" indeterminate />
               )}
             </div>
           )}

@@ -45,4 +45,14 @@ describe('GroupSection', () => {
     renderGroup()
     expect(screen.getByRole('region', { name: 'Nguồn a.vn' })).toBeTruthy()
   })
+
+  it('bodyId tuỳ chọn: body và aria-controls dùng id truyền vào thay vì id tự sinh', () => {
+    render(
+      <GroupSection label="b.vn" count={1} collapsed={false} onToggle={() => undefined} bodyId="search-group-b.vn-body">
+        <p>Nội dung nhóm</p>
+      </GroupSection>,
+    )
+    expect(screen.getByRole('button', { name: /b\.vn/ }).getAttribute('aria-controls')).toBe('search-group-b.vn-body')
+    expect(screen.getByText('Nội dung nhóm').parentElement?.id).toBe('search-group-b.vn-body')
+  })
 })

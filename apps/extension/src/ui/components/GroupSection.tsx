@@ -14,6 +14,7 @@ export function GroupSection({
   onToggle,
   actions,
   children,
+  bodyId,
 }: {
   label: string
   count: number
@@ -24,8 +25,11 @@ export function GroupSection({
   /** Nút thao tác cạnh header (vd. "Chọn cả nhóm"). */
   actions?: ReactNode
   children: ReactNode
+  /** id tuỳ chọn cho body — để nút khác (vd. "Xem thêm") trỏ aria-controls về cùng vùng. */
+  bodyId?: string
 }) {
-  const bodyId = useId()
+  const autoId = useId()
+  const id = bodyId ?? autoId
   return (
     <section className="source-group" aria-label={`Nguồn ${label}`}>
       <div className="source-group-head">
@@ -33,7 +37,7 @@ export function GroupSection({
           type="button"
           className="source-group-toggle"
           aria-expanded={!collapsed}
-          aria-controls={bodyId}
+          aria-controls={id}
           onClick={onToggle}
         >
           <Icon name={collapsed ? 'chevron-right' : 'chevron-down'} size={14} />
@@ -50,7 +54,7 @@ export function GroupSection({
           {summary}
         </p>
       )}
-      <div id={bodyId} hidden={collapsed}>
+      <div id={id} hidden={collapsed}>
         {children}
       </div>
     </section>

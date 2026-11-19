@@ -34,7 +34,7 @@ export function SearchResults({
   }
 
   return (
-    <div className="search-results" aria-label="Kết quả tìm kiếm theo nguồn">
+    <section className="search-results" aria-label="Kết quả tìm kiếm theo nguồn">
       {sources.map((s) => {
         const key = sourceKey(s)
         const open = expanded.has(key)
@@ -44,6 +44,7 @@ export function SearchResults({
         return (
           <GroupSection
             key={key}
+            bodyId={`search-group-${key}-body`}
             label={s.label}
             count={s.note_count}
             collapsed={collapsed.has(key)}
@@ -57,7 +58,13 @@ export function SearchResults({
             {(hiddenLoaded > 0 || beyondLoaded > 0) && (
               <div className="source-group-more">
                 {hiddenLoaded > 0 && (
-                  <Button variant="ghost" size="sm" aria-expanded={open} onClick={() => setExpanded((e) => toggle(e, key))}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-expanded={open}
+                    aria-controls={`search-group-${key}-body`}
+                    onClick={() => setExpanded((e) => toggle(e, key))}
+                  >
                     {open ? 'Thu gọn' : `Xem thêm ${hiddenLoaded} ghi chú`}
                   </Button>
                 )}
@@ -67,7 +74,7 @@ export function SearchResults({
           </GroupSection>
         )
       })}
-    </div>
+    </section>
   )
 }
 

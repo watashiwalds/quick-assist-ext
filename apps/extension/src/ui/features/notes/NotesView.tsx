@@ -191,11 +191,6 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
       <div className="notes-pane" aria-label="Danh sách ghi chú">
         <PaneHeader
           className="pane-head"
-          rowClassName="pane-head-row"
-          headingClassName="pane-heading"
-          titleClassName="pane-title"
-          subtitleClassName="pane-subtitle"
-          actionsClassName="pane-actions"
           title={showResults ? 'Kết quả tìm kiếm AI' : folderId ? (folderName.get(folderId) ?? 'Thư mục') : 'Tất cả ghi chú'}
           subtitle={
             showResults
@@ -263,7 +258,7 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
         </div>
         <div className="pane-scroll">
           {showResults ? (
-            <div aria-label="Kết quả tìm kiếm bằng AI">
+            <section aria-label="Kết quả tìm kiếm bằng AI">
               <div className="results-head">
                 <Button variant="ghost" size="sm" onClick={exitResults}>
                   ← Về danh sách
@@ -288,7 +283,7 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
                 </EmptyState>
               )}
               {!!hits?.length && <SearchResults sources={hits} onOpenNote={(id) => void openNoteById(id)} />}
-            </div>
+            </section>
           ) : (
             <>
               <PendingNotes />
@@ -315,7 +310,7 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
                 <EmptyState title="Chưa có ghi chú">Bôi đen văn bản trên trang → chuột phải → “Ghi chú văn bản này” (hoặc Alt+Shift+N).</EmptyState>
               )}
               {!!notes.data?.length && visible.length === 0 && <EmptyState title="Không có ghi chú khớp bộ lọc" />}
-              <div className="note-groups" aria-live="polite">
+              <div className="note-groups">
                 {groups.map((g) => {
                   const key = g.domain ?? '__unknown__'
                   const ids = g.notes.map((n) => n.id)

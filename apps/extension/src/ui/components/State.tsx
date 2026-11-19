@@ -62,12 +62,33 @@ export function StatusBadge({ status }: { status: string }) {
   )
 }
 
-export function ProgressBar({ value, max, label }: { value: number; max: number; label: string }) {
+export function ProgressBar({
+  value,
+  max,
+  label,
+  tone,
+  indeterminate = false,
+}: {
+  value: number
+  max: number
+  label: string
+  /** 'accent' cho tiến trình trung tính (vd. quét trang); bỏ trống = tự chọn theo % như thanh dung lượng. */
+  tone?: 'accent' | 'ok' | 'warn' | 'danger'
+  /** Chưa biết tiến độ (đang trích/thẩm định): bar chạy qua lại, không báo giá trị. */
+  indeterminate?: boolean
+}) {
   const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0
-  const tone = pct >= 90 ? 'danger' : pct >= 70 ? 'warn' : 'ok'
+  const auto = pct >= 90 ? 'danger' : pct >= 70 ? 'warn' : 'ok'
   return (
-    <div className="progress" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={max} aria-valuenow={value}>
-      <div className={`progress-bar progress-${tone}`} style={{ width: `${pct}%` }} />
+    <div
+      className={`progress${indeterminate ? ' is-indeterminate' : ''}`}
+      role="progressbar"
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={indeterminate ? undefined : max}
+      aria-valuenow={indeterminate ? undefined : value}
+    >
+      <div className={`progress-bar progress-${tone ?? auto}`} style={indeterminate ? undefined : { width: `${pct}%` }} />
     </div>
   )
 }

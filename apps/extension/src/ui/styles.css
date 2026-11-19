@@ -25,6 +25,8 @@
   --accent-soft: #eef4ff;
   --accent-soft-hover: #e3edff;
   --accent-soft-border: #c7d9ff;
+  /* Nền "đang chọn" của card lớn (Tìm trong trang) — sắc nhẹ hơn --accent-soft của hàng note. */
+  --selected-bg: color-mix(in srgb, var(--accent-soft) 40%, var(--bg));
   --danger: #b42318;
   --danger-fg: #ffffff;
   --danger-bg: #fef3f2;
@@ -185,6 +187,13 @@ textarea { resize: vertical; }
 .progress-ok { background: var(--ok); }
 .progress-warn { background: var(--warn); }
 .progress-danger { background: var(--danger); }
+.progress-accent { background: var(--accent); }
+/* Chưa biết tiến độ: bar chạy qua lại (dùng chung cho quét trang — thay .pf-progress-track cũ). */
+.progress.is-indeterminate > .progress-bar { width: 35%; animation: progress-indeterminate 1.2s ease-in-out infinite; }
+@keyframes progress-indeterminate { from { margin-left: -35%; } to { margin-left: 100%; } }
+@media (prefers-reduced-motion: reduce) {
+  .progress.is-indeterminate > .progress-bar { width: 100%; animation: none; opacity: 0.45; }
+}
 
 /* ---------- Modal & toasts ---------- */
 .modal { border: 1px solid var(--border); border-radius: 12px; padding: 0; width: min(92vw, 440px); max-height: 88vh; background: var(--bg); color: var(--fg); }
@@ -397,7 +406,8 @@ textarea { resize: vertical; }
 
 /* --- Modal Quản lý phiên --- */
 .manage-sheet { display: grid; gap: 12px; }
-.manage-lede { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--muted); text-wrap: pretty; }
+.manage-lede, .modal-lede { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--muted); text-wrap: pretty; }
+.modal-lede strong { color: var(--fg); font-weight: 650; }
 .storage-inline { padding: 10px 12px; background: var(--surface); border: 1px solid var(--border-soft); border-radius: var(--radius); }
 .manage-list { display: grid; gap: 0; padding: 0; margin: 0; list-style: none; border-top: 1px solid var(--border-soft); }
 .manage-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border-soft); }
@@ -513,11 +523,14 @@ textarea { resize: vertical; }
 /* --- Cột danh sách --- */
 .notes-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--bg); border-right: 1px solid var(--border-soft); }
 .pane-head { padding: 14px var(--pane-pad) 4px; }
-.pane-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+/* Hàng tiêu đề pane dùng chung Thư viện + Tìm trong trang; `.pf-*` giữ alias 1 nhịp (ảnh chụp e2e cũ). */
+.pane-head-row, .pf-titlerow { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 4px 12px; }
 .pane-heading { min-width: 0; }
-.pane-title { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -0.01em; color: var(--fg-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pane-subtitle { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
-.pane-actions { display: flex; gap: 4px; flex: 0 0 auto; }
+.pane-title, .pf-title { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -0.01em; color: var(--fg-strong); }
+.pane-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pane-subtitle, .pf-meta { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+.pane-subtitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pane-actions, .pf-headactions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; flex: 0 0 auto; }
 .pane-actions .btn-ghost { border-color: transparent; }
 .pane-actions .btn-ghost:hover:not(:disabled) { background: var(--surface); border-color: transparent; }
 .pane-tools { display: grid; gap: 8px; padding: 8px 12px 10px; }
@@ -562,7 +575,12 @@ a.note-item:hover { background: var(--surface); text-decoration: none; }
 .source-group-label { overflow: hidden; font-size: 12px; font-weight: 650; letter-spacing: 0.04em; color: var(--muted); text-transform: uppercase; text-overflow: ellipsis; white-space: nowrap; }
 .source-group-count { flex: 0 0 auto; padding: 1px 7px; font-size: 11px; color: var(--muted); background: var(--surface); border: 1px solid var(--border-soft); border-radius: 999px; }
 .source-group-actions { display: flex; flex: 0 0 auto; gap: 4px; }
-.source-group-summary { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; margin: 0 4px 4px 26px; font-size: 11.5px; line-height: 1.5; color: var(--muted); }
+/* Nút thao tác nhóm phẳng như .pane-actions — không cạnh tranh thị giác với header nhóm. */
+.source-group-actions .btn-ghost { border-color: transparent; }
+.source-group-actions .btn-ghost:hover:not(:disabled) { background: var(--surface); border-color: transparent; }
+/* Tóm tắt nhóm: badge đứng đầu câu, text chảy tiếp xuống dòng bên dưới (không flex-wrap tách badge). */
+.source-group-summary { display: block; margin: 0 4px 4px 28px; font-size: 11.5px; line-height: 1.5; color: var(--muted); text-wrap: pretty; }
+.source-group-summary .note-item-badge { margin-right: 6px; }
 .source-group-more { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 2px 4px 6px 10px; }
 .source-group .note-list { margin-top: 0; }
 .note-item-badge { display: inline-block; margin-right: 6px; padding: 0 6px; font-size: 10px; font-weight: 650; line-height: 1.7; color: var(--accent); vertical-align: baseline; background: var(--accent-soft); border: 1px solid var(--accent-soft-border); border-radius: 999px; }
@@ -683,33 +701,33 @@ a.note-item:hover { background: var(--surface); text-decoration: none; }
 .pf-notice { display: flex; align-items: flex-start; gap: 8px; }
 .pf-notice .icon { flex: 0 0 auto; margin-top: 1px; color: var(--accent); }
 .pf-notice strong { color: var(--accent); font-weight: 650; }
-.pf-titlerow { display: flex; align-items: flex-start; justify-content: space-between; gap: 4px 12px; flex-wrap: wrap; padding: 12px 0 10px; }
-.pf-title { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -0.01em; color: var(--fg-strong); }
-.pf-meta { display: flex; align-items: center; gap: 6px; margin: 2px 0 0; font-size: 12px; color: var(--muted); }
-.pf-meta strong { color: var(--fg); font-weight: 600; }
-.pf-headactions { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.pf-head .pane-head-row { padding: 12px 0 10px; }
+.pf-head .pane-subtitle { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; white-space: normal; }
+.pf-head .pane-subtitle strong, .pf-meta strong { color: var(--fg); font-weight: 600; }
 /* Phase 3 — sort segmented + tiến độ quét theo lô (không đổi thứ tự lưu: luôn theo trang). */
 .pf-sort { display: inline-flex; padding: 2px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); }
-.pf-sort button { font: inherit; font-size: 11.5px; font-weight: 600; color: var(--muted); background: none; border: 0; border-radius: 999px; padding: 3px 9px; cursor: pointer; white-space: nowrap; }
+.pf-sort button { font: inherit; font-size: 11.5px; font-weight: 600; color: var(--muted); background: none; border: 0; border-radius: 999px; min-height: 24px; padding: 4px 10px; cursor: pointer; white-space: nowrap; }
 .pf-sort button:hover { color: var(--fg); }
 .pf-sort button.is-active { background: var(--bg); color: var(--fg-strong); box-shadow: var(--shadow-sm); }
 .pf-sort button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+/* Panel hẹp (≤720px): nhãn sort ngắn, tên truy cập đủ nằm ở aria-label của nút. */
+.pf-sort-short { display: none; }
+@media (max-width: 720px) {
+  .pf-sort-long { display: none; }
+  .pf-sort-short { display: inline; }
+}
 .pf-hint { margin: 0 0 8px; font-size: 11px; line-height: 1.45; color: var(--muted); }
+/* Hàng dưới tiêu đề: link "Xem tất cả trên trang" + hint (chỉ hiện khi sort theo tin cậy). */
+.pf-footrow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.pf-footrow .pf-hint { margin: 0; }
 .pf-progress { display: grid; gap: 6px; margin: 8px 0 12px; padding: 10px 12px; border: 1px solid var(--border-soft); border-radius: var(--radius); background: var(--surface); }
 .pf-progress-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12.5px; font-weight: 600; color: var(--fg); }
 .pf-progress-head .btn { min-height: 0; padding: 0 4px; }
-.pf-progress-track { height: 4px; overflow: hidden; border-radius: 999px; background: var(--border-soft); }
-.pf-progress-track > span { display: block; height: 100%; background: var(--accent); transition: width 0.25s ease; }
-.pf-progress-track.is-indeterminate > span { width: 35%; animation: pf-indeterminate 1.2s ease-in-out infinite; }
-@keyframes pf-indeterminate { from { margin-left: -35%; } to { margin-left: 100%; } }
-@media (prefers-reduced-motion: reduce) {
-  .pf-progress-track.is-indeterminate > span { width: 100%; animation: none; opacity: 0.45; }
-}
 .pf-scroll { flex: 1; min-height: 0; padding: 2px 20px 16px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .pf-scroll > .state { margin: auto; }
 .pf-list { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
 .pf-card:hover { border-color: var(--border-strong); }
-.pf-card.is-selected { background: color-mix(in srgb, var(--accent-soft) 40%, var(--bg)); border-color: var(--accent-soft-border); }
+.pf-card.is-selected { background: var(--selected-bg); border-color: var(--accent-soft-border); }
 .pf-card.is-selected:hover { border-color: var(--accent-soft-border); }
 .pf-cardhead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .pf-select { display: inline-flex; align-items: center; gap: 8px; min-height: 24px; cursor: pointer; }

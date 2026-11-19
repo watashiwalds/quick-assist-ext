@@ -12,7 +12,7 @@ installChrome()
 const rpc = vi.fn()
 vi.mock('../../src/shared/messaging/client', () => ({ rpc: (...a: unknown[]) => rpc(...a), onBroadcast: () => () => undefined }))
 
-const { ConfidenceBadge, ConfirmDialog, Tabs, ToastProvider } = await import('../../src/ui/components')
+const { ConfidenceBadge, ConfirmDialog, ProgressBar, Tabs, ToastProvider } = await import('../../src/ui/components')
 const { NoteEditor } = await import('../../src/ui/features/notes/NoteEditor')
 const { NotesView } = await import('../../src/ui/features/notes/NotesView')
 const { SearchView } = await import('../../src/ui/features/search/SearchView')
@@ -43,6 +43,14 @@ describe('design system (A05)', () => {
     fireEvent.keyDown(tabs[0]!, { key: 'ArrowRight' })
     fireEvent.keyDown(tabs[0]!, { key: 'End' })
     expect(onChange.mock.calls.map((c) => c[0])).toEqual(['c', 'b', 'c'])
+  })
+
+  it('ProgressBar indeterminate: không có aria-valuenow/aria-valuemax, bar dùng tone chỉ định', () => {
+    render(<ProgressBar label="Tiến độ quét" value={0} max={1} tone="accent" indeterminate />)
+    const bar = screen.getByRole('progressbar', { name: 'Tiến độ quét' })
+    expect(bar.getAttribute('aria-valuenow')).toBeNull()
+    expect(bar.getAttribute('aria-valuemax')).toBeNull()
+    expect(bar.querySelector('.progress-accent')).toBeTruthy()
   })
 
   it('ConfirmDialog với confirmText: nút xác nhận khoá cho tới khi gõ đúng', () => {
