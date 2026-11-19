@@ -19,3 +19,8 @@ class SearchResult:
     similarity: float  # cosine 0..1 của chunk này với truy vấn
     note_domain: str | None  # nguồn gốc ghi chú (hostname của URL); None = không rõ nguồn
     note_summary: str | None  # tóm tắt AI đã lưu của note (nếu có)
+    # D2 — note vật lý có thể là một part của tài liệu dài.
+    note_document_id: uuid.UUID | None = None
+    note_part_index: int = 0
+    note_part_count: int = 1
+    note_source_type: str = "selection"

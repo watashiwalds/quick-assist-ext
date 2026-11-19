@@ -71,9 +71,16 @@ class SemanticSearchService:
         # Ghép thông tin nguồn qua hợp đồng của Notes Service; note đã xoá → tự loại.
         briefs = await get_briefs(self.s, user_id, list({h.note_id for h in hits}))
         results = [
-            SearchResult(h.chunk_id, h.note_id, h.text, h.score,
-                         briefs[h.note_id].title, briefs[h.note_id].url, briefs[h.note_id].folder_id,
-                         h.similarity, briefs[h.note_id].domain, briefs[h.note_id].summary_text)
+            SearchResult(
+                chunk_id=h.chunk_id, note_id=h.note_id, text=h.text, score=h.score,
+                note_title=briefs[h.note_id].title, note_url=briefs[h.note_id].url,
+                folder_id=briefs[h.note_id].folder_id, similarity=h.similarity,
+                note_domain=briefs[h.note_id].domain, note_summary=briefs[h.note_id].summary_text,
+                note_document_id=briefs[h.note_id].document_id,
+                note_part_index=briefs[h.note_id].part_index,
+                note_part_count=briefs[h.note_id].part_count,
+                note_source_type=briefs[h.note_id].source_type,
+            )
             for h in hits if h.note_id in briefs
         ][:k]
         log.info("search_done", extra={"hits": len(results), "query_chars": len(query)})

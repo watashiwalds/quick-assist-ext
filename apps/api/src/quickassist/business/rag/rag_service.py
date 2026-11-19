@@ -50,6 +50,10 @@ class ChatSource:
     title: str | None
     url: str | None
     snippet: str
+    # D2 — tên tài liệu + vị trí part để UI hiện "Tài liệu · Phần 3/8".
+    source_label: str | None = None
+    part_index: int = 0
+    part_count: int = 1
 
 
 @dataclass(frozen=True)
@@ -120,18 +124,26 @@ class RAGService:
         ranked = [(src, n) for src in grouped for n in src.notes]
         ranked = clip_context(ranked, cfg.chat_context_max_chars)
         sources = [
-            ChatSource(i, src.source_rank, src.domain, n.note_id, n.chunk_id, n.title, n.url, n.snippet)
+            ChatSource(
+                i, src.source_rank, src.domain, n.note_id, n.chunk_id, n.title, n.url, n.snippet,
+                source_label=src.label, part_index=n.part_index, part_count=n.part_count,
+            )
             for i, (src, n) in enumerate(ranked, start=1)
         ]
         if not sources:
             return PreparedChat(user_id, [], [], None)
 
-        # Prompt gom theo nguồn, giữ thứ hạng: [(domain, [(số [n], tiêu đề, toàn văn chunk)])]
-        domain_by_rank = {src.source_rank: src.domain for src, _ in ranked}
+        # Prompt gom theo nguồn, giữ thứ hạng: [(domain, label tài liệu, notes)].
+        # Legacy/domain giữ <source domain="…">; tài liệu không URL mới dùng <source label="…">.
+        meta_by_rank = {src.source_rank: src for src, _ in ranked}
         by_rank: dict[int, list[tuple[int, str | None, str]]] = {}
         for s, (_, n) in zip(sources, ranked, strict=True):
             by_rank.setdefault(s.source_index, []).append((s.index, s.title, n.chunk_text))
-        source_groups = [(domain_by_rank[rank], by_rank[rank]) for rank in sorted(by_rank)]
+        source_groups = []
+        for rank in sorted(by_rank):
+            src = meta_by_rank[rank]
+            label = src.label if src.document_id is not None and src.domain is None else None
+            source_groups.append((src.domain, label, by_rank[rank]))
         messages = chat_messages(question, clean_history(history), source_groups)
         prompt_tokens = sum(estimate_tokens(m.content) for m in messages)
         async with QuotaService.open() as quota:
@@ -143,7 +155,9 @@ class RAGService:
         yield ChatEvent("sources", [
             {"index": s.index, "source_index": s.source_index, "source_domain": s.source_domain,
              "note_id": str(s.note_id), "chunk_id": str(s.chunk_id),
-             "title": s.title, "url": s.url, "snippet": s.snippet}
+             "title": s.title, "url": s.url, "snippet": s.snippet,
+             "source_label": s.source_label, "part_index": s.part_index,
+             "part_count": s.part_count}
             for s in prepared.sources
         ])
         if prepared.lease is None:

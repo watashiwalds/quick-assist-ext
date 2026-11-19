@@ -17,6 +17,8 @@ const { failedStore, notesCache, outbox, meta } = await import('../src/shared/st
 const note = (id: string) => ({
   id, folder_id: 'inbox', url: null, domain: null, title: null, content: 'x', summary_text: null,
   index_status: 'PROCESSING' as const, version: 1, created_at: '2026-10-08T00:00:00Z', updated_at: '2026-10-08T00:00:00Z', deleted_at: null,
+  document_id: null, part_index: 0, part_count: 1, original_chars: null,
+  source_type: 'selection' as const,
 })
 
 async function signIn() {
@@ -58,11 +60,29 @@ describe('ghi chú nhanh', () => {
     expect(await qn.undoQuickNote(id)).toBe(false) // đã hoàn tác/không còn
   })
 
-  it('cắt vùng chọn > 20 000 ký tự và báo trên toast', async () => {
-    const id = (await qn.startQuickNote(1, { text: 'a'.repeat(25_000) }))!
-    expect((await outbox.get(id))!.body.content.length).toBe(20_000)
+  it('vùng chọn > 20 000 ký tự → tài liệu nhiều part, không mất chữ, báo trên toast', async () => {
+    const text = 'a'.repeat(25_000)
+    const id = (await qn.startQuickNote(1, { text }))!
+    const body = (await outbox.get(id))!.body
+    expect(body.content).toBeUndefined()
+    expect(body.document_id).toBeTruthy()
+    expect(body.parts).toHaveLength(2)
+    expect(body.parts!.every((p) => p.length <= 20_000)).toBe(true)
+    expect(body.parts!.join('')).toBe(text)
     const spec = chrome.scripting.executeScript.mock.calls.at(-1)![0].args[0]
-    expect(spec.note).toMatch(/20.000/)
+    expect(spec.note).toMatch(/tài liệu 2 phần/)
+  })
+
+  it('ngưỡng chia trong Cài đặt áp dụng cho ghi chú nhanh', async () => {
+    const { setPrefs } = await import('../src/background/prefs')
+    await setPrefs({ splitChars: 8_000 })
+    const text = 'a'.repeat(20_000)
+    const id = (await qn.startQuickNote(1, { text }))!
+    const body = (await outbox.get(id))!.body
+    expect(body.parts).toHaveLength(3)
+    expect(body.parts!.every((p) => p.length <= 8_000)).toBe(true)
+    expect(body.parts!.join('')).toBe(text)
+    await setPrefs({ splitChars: 20_000 })
   })
 
   it('URL không phải http (chrome://, file://) không được gửi', async () => {

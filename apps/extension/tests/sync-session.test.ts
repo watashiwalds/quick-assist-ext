@@ -16,6 +16,8 @@ const { meta, notesCache } = await import('../src/shared/storage/db')
 const n = (id: string, updated_at: string, deleted_at: string | null = null) => ({
   id, folder_id: 'f', url: null, domain: null, title: null, content: id, summary_text: null,
   index_status: 'READY' as const, version: 1, created_at: updated_at, updated_at, deleted_at,
+  document_id: null, part_index: 0, part_count: 1, original_chars: null,
+  source_type: 'selection' as const,
 })
 
 describe('đồng bộ tăng dần (C02)', () => {

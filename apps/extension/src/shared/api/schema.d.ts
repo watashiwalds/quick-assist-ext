@@ -664,9 +664,13 @@ export interface components {
         /** NoteCreateIn */
         NoteCreateIn: {
             /** Content */
-            content: string;
+            content?: string | null;
+            /** Document Id */
+            document_id?: string | null;
             /** Folder Id */
             folder_id?: string | null;
+            /** Parts */
+            parts?: string[] | null;
             /** Title */
             title?: string | null;
             /** Url */
@@ -683,6 +687,8 @@ export interface components {
             created_at: string;
             /** Deleted At */
             deleted_at: string | null;
+            /** Document Id */
+            document_id?: string | null;
             /** Domain */
             domain: string | null;
             /**
@@ -700,6 +706,26 @@ export interface components {
              * @enum {string}
              */
             index_status: "PROCESSING" | "READY" | "SKIPPED" | "FAILED";
+            /** Original Chars */
+            original_chars?: number | null;
+            /**
+             * Part Count
+             * @default 1
+             */
+            part_count: number;
+            /** Part Ids */
+            part_ids?: string[] | null;
+            /**
+             * Part Index
+             * @default 0
+             */
+            part_index: number;
+            /**
+             * Source Type
+             * @default selection
+             * @enum {string}
+             */
+            source_type: "selection" | "document";
             /** Summary Text */
             summary_text: string | null;
             /** Title */
@@ -732,6 +758,8 @@ export interface components {
             folder_id?: string | null;
             /** Title */
             title?: string | null;
+            /** Url */
+            url?: string | null;
             /**
              * Version
              * @description Version client đang giữ — lệch sẽ trả 409
@@ -904,6 +932,10 @@ export interface components {
              * Format: uuid
              */
             note_id: string;
+            /** Part Count */
+            part_count: number;
+            /** Part Index */
+            part_index: number;
             /** Score */
             score: number;
             /** Similarity */
@@ -924,6 +956,8 @@ export interface components {
         };
         /** SearchSourceOut */
         SearchSourceOut: {
+            /** Document Id */
+            document_id: string | null;
             /** Domain */
             domain: string | null;
             /** Label */
@@ -934,6 +968,8 @@ export interface components {
             notes: components["schemas"]["SearchNoteOut"][];
             /** Source Rank */
             source_rank: number;
+            /** Source Type */
+            source_type: string;
         };
         /**
          * ServerDefaultOut
@@ -1748,6 +1784,8 @@ export interface operations {
         parameters: {
             query?: {
                 folder_id?: string | null;
+                /** @description Lấy mọi part của một tài liệu, theo part_index */
+                document_id?: string | null;
                 /** @description Sync tăng dần; có kèm tombstone */
                 updated_since?: string | null;
                 cursor?: string | null;

@@ -33,6 +33,7 @@ export function NoteCard({
     <div className="note-item-body">
       <h3 className="note-item-title">{heading}</h3>
       <div className="note-item-excerpt">
+        {note.part_count > 1 && <span className="note-item-badge">Tài liệu {note.part_count} phần</span>}
         {note.summary_text && <span className="note-item-badge">Tóm tắt</span>}
         {note.summary_text ?? note.content}
       </div>

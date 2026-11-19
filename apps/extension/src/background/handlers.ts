@@ -5,6 +5,7 @@
 import { config } from '@/shared/config'
 import { AppError } from '@/shared/errors'
 import type { RpcMap, RpcReq, RpcRes, RpcType, SessionInfo } from '@/shared/messaging/protocol'
+import { resolveSplitChars, splitText } from '@/shared/notes/split'
 import { chatStorageUsage, clearChatSessions, loadChatSessions, saveChatSessions } from '@/shared/storage/chat-sessions'
 import { notesCache } from '@/shared/storage/db'
 import { api } from './api'
@@ -189,23 +190,40 @@ export const handlers: Handlers = {
     return note
   },
   'summary/saveSelection': async ({ text, url, title, summary, folderId }) => {
+    const prefs = await getPrefs()
+    const parts = splitText(text, resolveSplitChars(prefs.splitChars))
     const created = await api.notes.create(
-      { content: text.slice(0, config.maxNoteChars), url: url ?? null, title: title ?? null, ...(folderId ? { folder_id: folderId } : {}) },
+      {
+        ...(parts.length > 1 ? { parts, document_id: crypto.randomUUID() } : { content: text }),
+        url: url ?? null,
+        title: title ?? null,
+        ...(folderId ? { folder_id: folderId } : {}),
+      },
       crypto.randomUUID(),
     )
+    // Tóm tắt gắn vào part 0; các part còn lại vào cache qua sync (best-effort).
     const note = await api.notes.saveSummary(created.id, created.version, summary)
+    if (parts.length > 1) await syncNotes().catch(() => undefined)
     await notesCache.apply([note])
     broadcast({ channel: 'qa-event', type: 'notes/changed' })
     return note
   },
   'selection/takePending': () => takePendingSelection(),
 
-  'notes/create': async ({ content, title, url, folderId }) => {
+  'notes/create': async ({ content, parts, documentId, title, url, folderId }) => {
     const note = await api.notes.create(
-      { content: content.slice(0, config.maxNoteChars), title: title?.slice(0, 500) || null, url: url?.startsWith('http') ? url : null, ...(folderId ? { folder_id: folderId } : {}) },
+      {
+        ...(parts ? { parts, document_id: documentId } : { content: (content ?? '').slice(0, config.maxNoteChars) }),
+        title: title?.slice(0, 500) || null,
+        url: url?.startsWith('http') ? url : null,
+        ...(folderId ? { folder_id: folderId } : {}),
+      },
       crypto.randomUUID(),
     )
-    await notesCache.apply([note])
+    // Tài liệu nhiều part: response chỉ có part 0 → sync để cache đủ mọi part cho Thư viện.
+    // Đồng bộ lỗi (mạng) không được làm RPC báo hỏng khi tài liệu đã tạo thành công.
+    if (parts) await syncNotes().catch(() => undefined)
+    else await notesCache.apply([note])
     broadcast({ channel: 'qa-event', type: 'notes/changed' })
     return note
   },

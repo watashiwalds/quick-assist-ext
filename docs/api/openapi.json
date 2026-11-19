@@ -695,9 +695,28 @@
         "additionalProperties": false,
         "properties": {
           "content": {
-            "minLength": 1,
-            "title": "Content",
-            "type": "string"
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "document_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Id"
           },
           "folder_id": {
             "anyOf": [
@@ -710,6 +729,23 @@
               }
             ],
             "title": "Folder Id"
+          },
+          "parts": {
+            "anyOf": [
+              {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 200,
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parts"
           },
           "title": {
             "anyOf": [
@@ -738,9 +774,6 @@
             "title": "Url"
           }
         },
-        "required": [
-          "content"
-        ],
         "title": "NoteCreateIn",
         "type": "object"
       },
@@ -767,6 +800,18 @@
               }
             ],
             "title": "Deleted At"
+          },
+          "document_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Id"
           },
           "domain": {
             "anyOf": [
@@ -797,6 +842,51 @@
               "FAILED"
             ],
             "title": "Index Status",
+            "type": "string"
+          },
+          "original_chars": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Chars"
+          },
+          "part_count": {
+            "default": 1,
+            "title": "Part Count",
+            "type": "integer"
+          },
+          "part_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Part Ids"
+          },
+          "part_index": {
+            "default": 0,
+            "title": "Part Index",
+            "type": "integer"
+          },
+          "source_type": {
+            "default": "selection",
+            "enum": [
+              "selection",
+              "document"
+            ],
+            "title": "Source Type",
             "type": "string"
           },
           "summary_text": {
@@ -920,6 +1010,20 @@
               }
             ],
             "title": "Title"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "format": "uri",
+                "maxLength": 2083,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
           },
           "version": {
             "description": "Version client đang giữ — lệch sẽ trả 409",
@@ -1303,6 +1407,14 @@
             "title": "Note Id",
             "type": "string"
           },
+          "part_count": {
+            "title": "Part Count",
+            "type": "integer"
+          },
+          "part_index": {
+            "title": "Part Index",
+            "type": "integer"
+          },
           "score": {
             "title": "Score",
             "type": "number"
@@ -1356,7 +1468,9 @@
           "summary",
           "snippet",
           "score",
-          "similarity"
+          "similarity",
+          "part_index",
+          "part_count"
         ],
         "title": "SearchNoteOut",
         "type": "object"
@@ -1381,6 +1495,18 @@
       "SearchSourceOut": {
         "additionalProperties": false,
         "properties": {
+          "document_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Id"
+          },
           "domain": {
             "anyOf": [
               {
@@ -1410,6 +1536,10 @@
           "source_rank": {
             "title": "Source Rank",
             "type": "integer"
+          },
+          "source_type": {
+            "title": "Source Type",
+            "type": "string"
           }
         },
         "required": [
@@ -1417,7 +1547,9 @@
           "label",
           "source_rank",
           "note_count",
-          "notes"
+          "notes",
+          "document_id",
+          "source_type"
         ],
         "title": "SearchSourceOut",
         "type": "object"
@@ -2498,6 +2630,25 @@
                 }
               ],
               "title": "Folder Id"
+            }
+          },
+          {
+            "description": "Lấy mọi part của một tài liệu, theo part_index",
+            "in": "query",
+            "name": "document_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Lấy mọi part của một tài liệu, theo part_index",
+              "title": "Document Id"
             }
           },
           {

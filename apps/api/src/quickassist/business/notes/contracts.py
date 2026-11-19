@@ -30,6 +30,11 @@ class NoteBrief:
     url: str | None
     domain: str | None
     summary_text: str | None = None  # tóm tắt AI đã lưu (nếu có) — hiển thị summary-first
+    # D2 — metadata tài liệu nhiều part để grouping không phải đọc entity Note.
+    document_id: uuid.UUID | None = None
+    part_index: int = 0
+    part_count: int = 1
+    source_type: str = "selection"
 
 
 async def get_note_for_indexing(session: AsyncSession, note_id: uuid.UUID) -> NoteForIndexing | None:
@@ -48,7 +53,14 @@ async def get_note_content(session: AsyncSession, user_id: uuid.UUID, note_id: u
 async def get_briefs(session: AsyncSession, user_id: uuid.UUID,
                      note_ids: list[uuid.UUID]) -> dict[uuid.UUID, NoteBrief]:
     rows = await NoteRepository(session).get_many(user_id, note_ids)
-    return {n.id: NoteBrief(n.id, n.folder_id, n.title, n.url, n.domain, n.summary_text) for n in rows}
+    return {
+        n.id: NoteBrief(
+            id=n.id, folder_id=n.folder_id, title=n.title, url=n.url, domain=n.domain,
+            summary_text=n.summary_text, document_id=n.document_id, part_index=n.part_index,
+            part_count=n.part_count, source_type=n.source_type,
+        )
+        for n in rows
+    }
 
 
 async def set_index_status(session: AsyncSession, note_id: uuid.UUID, *, status: str, index_rev: int,

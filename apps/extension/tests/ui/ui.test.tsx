@@ -23,7 +23,9 @@ const folder = (id: string, name: string, is_default = false) => ({ id, name, is
 const note = (id: string, over: Record<string, unknown> = {}) => ({
   id, folder_id: 'inbox', url: 'https://a.vn/x', domain: 'a.vn', title: `Tiêu đề ${id}`, content: `Nội dung ${id}`,
   summary_text: null, index_status: 'READY' as const, version: 1, created_at: '2026-10-08T00:00:00Z',
-  updated_at: '2026-10-08T00:00:00Z', deleted_at: null, ...over,
+  updated_at: '2026-10-08T00:00:00Z', deleted_at: null,
+  document_id: null, part_index: 0, part_count: 1, original_chars: null,
+  source_type: 'selection' as const, ...over,
 })
 const FOLDERS = [folder('inbox', 'Inbox', true), folder('f1', 'Học')]
 const wrap = (ui: React.ReactElement) => render(<ToastProvider>{ui}</ToastProvider>)
@@ -133,13 +135,141 @@ describe('thư viện (C03)', () => {
     expect(rpc).toHaveBeenCalledWith('notes/update', expect.objectContaining({ version: 3, content: 'bản của tôi' }))
   })
 
-  it('không cho lưu nội dung rỗng hoặc vượt 20 000 ký tự', () => {
+  it('nội dung > ngưỡng → xác nhận rồi lưu MỘT tài liệu và xoá note cũ', async () => {
+    const onSaved = vi.fn()
+    const onClose = vi.fn()
+    const text = 'a'.repeat(20_001)
+    rpc.mockImplementation(async (type: string) => {
+      if (type === 'prefs/get') return { defaultFolderId: null, showSearchTab: false, splitChars: 20_000 }
+      if (type === 'notes/create')
+        return note('d0', {
+          document_id: 'doc1',
+          part_index: 0,
+          part_count: 2,
+          original_chars: text.length,
+          source_type: 'document',
+        })
+      if (type === 'notes/delete') return { deleted: 1 }
+      throw new Error(type)
+    })
+    wrap(<NoteEditor note={note('n1', { title: 'Tài liệu', url: 'https://a.vn/x' })} folders={FOLDERS} onClose={onClose} onSaved={onSaved} />)
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('prefs/get'))
+    fireEvent.change(screen.getByLabelText('Nội dung'), { target: { value: text } })
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu' }))
+    await screen.findByRole('dialog')
+    expect(screen.getByText(/MỘT tài liệu gồm 2 phần/)).toBeTruthy()
+    expect(screen.getByText(/token hạn mức AI/)).toBeTruthy()
+    expect(screen.getByText(/≈ \d+ chunk/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu tài liệu' }))
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('notes/delete', { ids: ['n1'] }))
+    const body = rpc.mock.calls.find((c) => c[0] === 'notes/create')![1]
+    expect(body).toMatchObject({ title: 'Tài liệu', url: 'https://a.vn/x', folderId: FOLDERS[0]!.id })
+    expect(body.documentId).toBeTruthy()
+    expect(body.content).toBeUndefined()
+    expect(body.parts).toHaveLength(2)
+    expect(body.parts.every((p: string) => p.length <= 20_000)).toBe(true)
+    expect(body.parts.join('')).toBe(text)
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ id: 'd0' })))
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('không cho lưu nội dung rỗng; phần của tài liệu không được vượt ngưỡng', async () => {
+    rpc.mockImplementation(async (type: string) => {
+      if (type === 'prefs/get') return { defaultFolderId: null, showSearchTab: false, splitChars: 20_000 }
+      throw new Error(type)
+    })
     wrap(<NoteEditor note={note('n1')} folders={FOLDERS} onClose={() => undefined} onSaved={() => undefined} />)
     const save = screen.getByRole('button', { name: 'Lưu' }) as HTMLButtonElement
-    fireEvent.change(screen.getByLabelText('Nội dung'), { target: { value: 'a'.repeat(20_001) } })
-    expect(save.disabled).toBe(true)
     fireEvent.change(screen.getByLabelText('Nội dung'), { target: { value: '   ' } })
     expect(save.disabled).toBe(true)
+    cleanup()
+    wrap(
+      <NoteEditor
+        note={note('n1', { document_id: 'doc1', part_index: 0, part_count: 2, source_type: 'document' })}
+        folders={FOLDERS}
+        onClose={() => undefined}
+        onSaved={() => undefined}
+      />,
+    )
+    fireEvent.change(screen.getByLabelText('Nội dung'), { target: { value: 'a'.repeat(20_001) } })
+    expect((screen.getByRole('button', { name: 'Lưu' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByText(/không thể chia lại một phần của tài liệu/)).toBeTruthy()
+  })
+
+  it('tài liệu nhiều part: một card, reader gộp, chọn/xoá tất cả part', async () => {
+    const parts = [
+      note('d0', {
+        document_id: 'doc1',
+        part_index: 0,
+        part_count: 2,
+        original_chars: 30,
+        source_type: 'document',
+        title: 'Tài liệu dài',
+        content: 'phần đầu',
+      }),
+      note('d1', {
+        document_id: 'doc1',
+        part_index: 1,
+        part_count: 2,
+        original_chars: 30,
+        source_type: 'document',
+        title: 'Tài liệu dài',
+        content: 'phần cuối',
+      }),
+    ]
+    rpc.mockImplementation(async (type: string) => {
+      if (type === 'folders/list') return FOLDERS
+      if (type === 'notes/list') return parts
+      if (type === 'outbox/list') return []
+      if (type === 'notes/delete') return { deleted: 2 }
+      throw new Error(type)
+    })
+    wrap(<NotesView onGoSettings={() => undefined} />)
+    await screen.findByRole('link', { name: /Tài liệu dài/ })
+    expect(screen.getAllByRole('link', { name: /Tài liệu dài/ })).toHaveLength(1) // MỘT card cho cả tài liệu
+    expect(screen.getByText('Tài liệu 2 phần')).toBeTruthy()
+    expect(screen.getByRole('region', { name: 'Tài liệu Tài liệu dài' })).toBeTruthy()
+
+    // Lọc theo nội dung part cuối vẫn giữ nguyên card tài liệu (không mất part 0).
+    fireEvent.change(screen.getByLabelText('Tìm kiếm hoặc lọc ghi chú'), { target: { value: 'phần cuối' } })
+    expect(screen.getAllByRole('link', { name: /Tài liệu dài/ })).toHaveLength(1)
+
+    fireEvent.click(screen.getByRole('link', { name: /Tài liệu dài/ }))
+    await screen.findByText('Phần 1/2')
+    const reader = screen.getByRole('article', { name: 'Tài liệu dài' })
+    expect(within(reader).getByText('Phần 2/2')).toBeTruthy()
+    expect(within(reader).getByText('phần đầu')).toBeTruthy()
+    expect(within(reader).getByText('phần cuối')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Chọn' }))
+    fireEvent.click(screen.getByLabelText('Chọn “Tài liệu dài”'))
+    expect(screen.getByText('Đã chọn 1')).toBeTruthy() // 2 part nhưng là 1 mục
+    fireEvent.click(screen.getByRole('button', { name: 'Xoá (1)' }))
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Xoá' }))
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('notes/delete', { ids: ['d0', 'd1'] }))
+  })
+
+  it('sửa từng part: chỉ PATCH đúng part, không đổi part khác', async () => {
+    const parts = [
+      note('d0', { document_id: 'doc1', part_index: 0, part_count: 2, source_type: 'document', title: 'Tài liệu dài', content: 'phần đầu' }),
+      note('d1', { document_id: 'doc1', part_index: 1, part_count: 2, source_type: 'document', title: 'Tài liệu dài', content: 'phần cuối' }),
+    ]
+    rpc.mockImplementation(async (type: string, p: { id?: string; content?: string }) => {
+      if (type === 'folders/list') return FOLDERS
+      if (type === 'notes/list') return parts
+      if (type === 'outbox/list') return []
+      if (type === 'notes/update') return { ...parts[1], content: p.content, version: 2 }
+      throw new Error(type)
+    })
+    wrap(<NotesView onGoSettings={() => undefined} />)
+    await screen.findByRole('link', { name: /Tài liệu dài/ })
+    fireEvent.click(screen.getByRole('link', { name: /Tài liệu dài/ }))
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Sửa phần' }))[1]!)
+    fireEvent.change(screen.getByLabelText('Nội dung'), { target: { value: 'phần cuối đã sửa' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu' }))
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith('notes/update', { id: 'd1', version: 1, content: 'phần cuối đã sửa' }),
+    )
   })
 
   it('chọn nhiều → xoá hàng loạt sau khi xác nhận; lọc nhanh theo từ khoá', async () => {

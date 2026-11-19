@@ -16,6 +16,8 @@ describe('outbox & cache', () => {
     const base = {
       folder_id: 'f', url: null, domain: null, title: null, content: 'c', summary_text: null,
       index_status: 'READY' as const, version: 1, created_at: '2026-01-01', updated_at: '2026-01-01',
+      document_id: null, part_index: 0, part_count: 1, original_chars: null,
+      source_type: 'selection' as const,
     }
     await notesCache.apply([{ ...base, id: 'n1', deleted_at: null }])
     expect((await notesCache.list()).length).toBe(1)
