@@ -19,9 +19,14 @@ import { rpc } from '@/shared/messaging/client'
 import { Button, ConfirmDialog, Icon, Modal, ProgressBar, Select, TextArea, useToast } from '../../components'
 import { useAsync } from '../../lib/hooks'
 import { MarkdownAnswer } from './MarkdownAnswer'
-import type { ChatState } from './useChat'
+import { MAX_HISTORY_PAIRS, type ChatState } from './useChat'
 
-const EXAMPLES = ['Tóm tắt những gì mình đã lưu tuần này', 'Ghi chú nào nói về cách nấu phở?', 'So sánh các ý chính trong ghi chú về Kubernetes']
+/** Câu hỏi gợi ý tổng quan (P0 UX): phủ cả thư viện, không phụ thuộc dữ liệu thời gian. */
+const EXAMPLES = [
+  'Tóm tắt những chủ đề chính trong ghi chú của tôi',
+  'Ghi chú của tôi tập trung ở những nguồn nào?',
+  'Những ý chính nào xuất hiện trong nhiều ghi chú?',
+]
 
 /** Mặc định ổn định (không tạo mảng mới mỗi render — `useAsync` sẽ reload liên tục nếu đổi identity). */
 const NO_SESSIONS: ChatSession[] = []
@@ -637,6 +642,7 @@ function ChatConversation({
           />
           <div className="composer-bar">
             <span className="composer-hint">Enter để gửi · Shift+Enter xuống dòng</span>
+            <span className="composer-hint">Ngữ cảnh: {MAX_HISTORY_PAIRS} lượt gần nhất trong phiên này</span>
             <div className="composer-actions">
               {streaming ? (
                 <Button type="button" variant="danger-ghost" size="sm" className="btn-stop" onClick={chat.stop}>

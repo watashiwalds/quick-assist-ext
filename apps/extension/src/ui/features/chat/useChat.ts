@@ -33,7 +33,7 @@ const newId = () => `m${Date.now().toString(36)}${(seq++).toString(36)}`
 
 export function useChat() {
   const [messages, setMessages] = useState<ChatMessageItem[]>([])
-  const [folderId, setFolderId] = useState<string | null>(null)
+  const [folderId, setFolderIdState] = useState<string | null>(null)
   const stopRef = useRef<(() => void) | null>(null)
   const streaming = messages.some((m) => m.status === 'streaming')
 
@@ -41,8 +41,12 @@ export function useChat() {
     setMessages((ms) => ms.map((m) => (m.id === id ? fn(m) : m)))
   }, [])
 
+  // Ref đồng bộ NGAY trong replace/reset (không chờ render): `ask` gọi được ngay sau khi chuyển
+  // phiên — nếu chỉ set state, buildHistory sẽ đọc nhầm history của phiên cũ (rò ngữ cảnh chéo phiên).
   const msgsRef = useRef(messages)
   msgsRef.current = messages
+  const folderRef = useRef(folderId)
+  folderRef.current = folderId
 
   const ask = useCallback(
     (question: string) => {
@@ -55,7 +59,7 @@ export function useChat() {
         { id: newId(), role: 'user', text: q },
         { id: answerId, role: 'assistant', text: '', status: 'streaming' },
       ])
-      const { stop } = askChat({ question: q, folderId, history }, (e) => {
+      const { stop } = askChat({ question: q, folderId: folderRef.current, history }, (e) => {
         if (e.type === 'sources') patch(answerId, (m) => ({ ...m, sources: e.sources }))
         else if (e.type === 'delta') patch(answerId, (m) => ({ ...m, text: m.text + e.text }))
         else {
@@ -67,26 +71,34 @@ export function useChat() {
       })
       stopRef.current = stop
     },
-    [folderId, patch],
+    [patch],
   )
 
   const stop = useCallback(() => stopRef.current?.(), [])
+
+  const setFolderId = useCallback((id: string | null) => {
+    folderRef.current = id
+    setFolderIdState(id)
+  }, [])
 
   const reset = useCallback(() => {
     stopRef.current?.()
     stopRef.current = null
     setMessages([])
+    msgsRef.current = []
   }, [])
 
   /**
    * Nạp một hội thoại đã lưu (đổi phiên). Dừng stream đang chạy trước khi thay để Port cũ không
-   * ghi đè lên hội thoại mới.
+   * ghi đè lên hội thoại mới. Ref được cập nhật ngay để `ask` gọi ngay sau đó cũng đọc đúng phiên.
    */
   const replace = useCallback((next: ChatMessageItem[], nextFolderId: string | null) => {
     stopRef.current?.()
     stopRef.current = null
     setMessages(next)
-    setFolderId(nextFolderId)
+    setFolderIdState(nextFolderId)
+    msgsRef.current = next
+    folderRef.current = nextFolderId
   }, [])
 
   return { messages, streaming, folderId, setFolderId, ask, stop, reset, replace }

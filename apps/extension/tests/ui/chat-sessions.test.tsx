@@ -76,6 +76,31 @@ const session = (
   title = 'phiên',
 ): ChatSession => ({ id, title, messages, folderId, createdAt: 1, updatedAt: 2 })
 
+type SessionsApi = ReturnType<typeof useChatSessions>
+
+/** Harness expose API của hook qua `api.current` — để test gọi thẳng switchSession/ask trong cùng tick. */
+function ExposedHarness({ api }: { api: { current: SessionsApi | null } }) {
+  const chat = useChatSessions()
+  api.current = chat
+  return (
+    <div data-testid="harness" data-ready={chat.ready ? '1' : '0'}>
+      <ChatView
+        chat={chat}
+        ready={chat.ready}
+        sessions={chat.sessions}
+        activeId={chat.activeId}
+        onSwitchSession={chat.switchSession}
+        onNewSession={chat.newSession}
+        onRenameSession={chat.renameSession}
+        onDeleteSession={chat.deleteSession}
+        onClearSessions={chat.clearSessions}
+        onOpenNote={onOpenNote}
+        onGoSettings={() => undefined}
+      />
+    </div>
+  )
+}
+
 beforeEach(() => {
   store = { sessions: [], activeId: null }
   saveCalls.mockClear()
@@ -166,6 +191,88 @@ describe('useChatSessions', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Phiên: câu 2' }))
     await waitFor(() => expect(screen.getByText('đáp 2')).toBeTruthy())
+  })
+
+  it('chuyển phiên rồi hỏi ngay (chưa kịp render lại): history và thư mục gửi server thuộc phiên đích', async () => {
+    const api: { current: SessionsApi | null } = { current: null }
+    store = {
+      sessions: [
+        session('s1', [user('u1', 'hỏi 1'), ai('a1', 'đáp 1')], null, 'phiên 1'),
+        session('s2', [user('u2', 'hỏi 2'), ai('a2', 'đáp 2')], 'f2', 'phiên 2'),
+      ],
+      activeId: 's1',
+    }
+    render(<ExposedHarness api={api} />)
+    await ready()
+
+    // Gửi NGAY sau khi chuyển phiên, trong cùng một tick — msgsRef/folderRef phải đã đổi theo phiên đích.
+    act(() => {
+      api.current!.switchSession('s2')
+      api.current!.ask('hỏi ngay')
+    })
+
+    expect(askChat).toHaveBeenCalledTimes(1)
+    expect(askChat.mock.calls[0]![0]).toMatchObject({
+      question: 'hỏi ngay',
+      folderId: 'f2',
+      history: [
+        { role: 'user', content: 'hỏi 2' },
+        { role: 'assistant', content: 'đáp 2' },
+      ],
+    })
+  })
+
+  it('chỉ xem/đổi phiên, flush pagehide, đổi tên: updatedAt và thứ tự phiên giữ nguyên', async () => {
+    const api: { current: SessionsApi | null } = { current: null }
+    store = {
+      sessions: [
+        { ...session('s1', [user('u1', 'hỏi 1'), ai('a1', 'đáp 1')], null, 'phiên 1'), createdAt: 1, updatedAt: 100 },
+        { ...session('s2', [user('u2', 'hỏi 2'), ai('a2', 'đáp 2')], null, 'phiên 2'), createdAt: 1, updatedAt: 200 },
+      ],
+      activeId: 's1',
+    }
+    render(<ExposedHarness api={api} />)
+    await ready()
+
+    // Load đưa phiên đang mở (s1) lên đầu: [s1, s2]. Chuyển sang s2 (flush s1 tại chỗ) rồi pagehide.
+    act(() => api.current!.switchSession('s2'))
+    await waitFor(() => expect(store.activeId).toBe('s2'))
+    act(() => void window.dispatchEvent(new Event('pagehide')))
+    await waitFor(() => expect(store.sessions.find((s) => s.id === 's2')?.messages.at(-1)?.text).toBe('đáp 2'))
+
+    expect(store.sessions.map((s) => s.id)).toEqual(['s1', 's2'])
+    expect(store.sessions.map((s) => s.updatedAt)).toEqual([100, 200])
+
+    // Đổi tên phiên đang mở: không bump, không đổi thứ tự.
+    fireEvent.click(screen.getByRole('button', { name: 'Đổi tên' }))
+    fireEvent.change(screen.getByLabelText('Tên cuộc trò chuyện'), { target: { value: 'tên mới' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu' }))
+    await waitFor(() => expect(store.sessions.find((s) => s.id === 's2')?.title).toBe('tên mới'))
+    expect(store.sessions.map((s) => s.id)).toEqual(['s1', 's2'])
+    expect(store.sessions.map((s) => s.updatedAt)).toEqual([100, 200])
+  })
+
+  it('gửi câu hỏi: updatedAt tăng và phiên lên đầu; nhận câu trả lời không tăng thêm', async () => {
+    const api: { current: SessionsApi | null } = { current: null }
+    store = {
+      sessions: [
+        { ...session('s1', [user('u1', 'hỏi 1'), ai('a1', 'đáp 1')], null, 'phiên 1'), createdAt: 1, updatedAt: 100 },
+        { ...session('s2', [user('u2', 'hỏi 2'), ai('a2', 'đáp 2')], null, 'phiên 2'), createdAt: 1, updatedAt: 200 },
+      ],
+      activeId: 's1',
+    }
+    render(<ExposedHarness api={api} />)
+    await ready()
+
+    await ask('hỏi mới')
+    await waitFor(() => expect(store.sessions[0]?.id).toBe('s1'))
+    const askedAt = store.sessions[0]!.updatedAt
+    expect(askedAt).toBeGreaterThan(200)
+
+    finish('đáp mới')
+    await waitFor(() => expect(store.sessions[0]?.messages.at(-1)?.status).toBe('done'))
+    expect(store.sessions[0]!.updatedAt).toBe(askedAt)
+    expect(store.sessions.map((s) => s.id)).toEqual(['s1', 's2'])
   })
 
   it('chuyển phiên khi đang stream: dừng stream, giữ phần đã nhận dạng "Đã dừng"', async () => {

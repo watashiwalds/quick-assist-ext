@@ -111,12 +111,23 @@ describe('ChatView', () => {
     }
   })
 
-  it('trạng thái trống gợi ý câu hỏi mẫu và gửi ngay khi bấm', async () => {
+  it('trạng thái trống gợi ý 3 câu hỏi tổng quan và gửi ngay khi bấm', async () => {
     render(<Harness />)
     expect(screen.getByRole('heading', { name: 'Hỏi AI về ghi chú của bạn' })).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Tóm tắt những gì mình đã lưu tuần này' }))
+    const OVERVIEW = [
+      'Tóm tắt những chủ đề chính trong ghi chú của tôi',
+      'Ghi chú của tôi tập trung ở những nguồn nào?',
+      'Những ý chính nào xuất hiện trong nhiều ghi chú?',
+    ]
+    for (const q of OVERVIEW) expect(screen.getByRole('button', { name: q })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: OVERVIEW[0]! }))
     await waitFor(() => expect(askChat).toHaveBeenCalled())
-    expect(askChat.mock.calls[0]![0]).toMatchObject({ question: 'Tóm tắt những gì mình đã lưu tuần này' })
+    expect(askChat.mock.calls[0]![0]).toMatchObject({ question: OVERVIEW[0] })
+  })
+
+  it('composer có hint ngữ cảnh 5 lượt gần nhất trong phiên', async () => {
+    render(<Harness />)
+    expect(screen.getByText('Ngữ cảnh: 5 lượt gần nhất trong phiên này')).toBeTruthy()
   })
 
   it('không gọi lặp RPC dung lượng khi không truyền phiên (deps ổn định)', async () => {

@@ -74,7 +74,8 @@ export function normalizeRestored(messages: ChatMessageItem[]): ChatMessageItem[
     .filter((m) => m.role === 'user' || m.text.trim() !== '' || m.status === 'error')
 }
 
-/** FIFO: giữ `max` phiên đầu mảng (mới nhất); phiên đang mở luôn được đưa lên đầu trước khi gọi. */
+/** FIFO: giữ `max` phiên đầu mảng (mới nhất). Mảng từ `useChatSessions.merge` chỉ dài hơn `max` khi
+ *  vừa tạo phiên mới — khi đó phiên đang mở (phiên mới) đứng đầu, nên phiên đang mở không bị cắt. */
 export function evictSessions(sessions: ChatSession[], max = MAX_SESSIONS): ChatSession[] {
   return sessions.length <= max ? sessions : sessions.slice(0, max)
 }

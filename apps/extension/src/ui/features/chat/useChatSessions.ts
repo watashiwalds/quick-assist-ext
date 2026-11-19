@@ -70,6 +70,11 @@ export function useChatSessions(): ChatSessionsState {
   /**
    * Gộp hội thoại đang mở vào danh sách phiên (không ghi storage — để switch/new ghi đúng 1 lần).
    * Phiên chưa có id (vừa "Cuộc trò chuyện mới") được tạo ở lần ghi đầu tiên — không sinh phiên rỗng.
+   *
+   * Thời gian/thứ tự phiên (P0 UX): chỉ khi có CÂU HỎI MỚI (id tin nhắn người dùng chưa từng lưu —
+   * so id thay vì đếm để vẫn đúng khi capMessages cắt đầu mảng) hoặc phiên mới, `updatedAt` mới được
+   * bump và phiên được đưa lên đầu. Nhận câu trả lời, flush pagehide hay chuyển phiên chỉ cập nhật
+   * tin nhắn tại chỗ — phiên không nhảy thứ tự khi chỉ xem.
    */
   const merge = useCallback((messages: ChatMessageItem[], folderId: string | null, sessionId: string | null) => {
     const msgs = capMessages(messages)
@@ -77,18 +82,22 @@ export function useChatSessions(): ChatSessionsState {
     let nextActive = sessionId
 
     if (msgs.length > 0) {
-      const now = Date.now()
       const existing = nextActive ? next.find((s) => s.id === nextActive) : undefined
       if (!nextActive) nextActive = newSessionId()
+      const now = Date.now()
+      const isNewQuestion =
+        !existing || msgs.some((m) => m.role === 'user' && !existing.messages.some((old) => old.id === m.id))
       const updated: ChatSession = {
         id: nextActive,
         title: existing?.title || sessionTitle(firstQuestion(msgs)),
         messages: msgs,
         folderId,
         createdAt: existing?.createdAt ?? now,
-        updatedAt: now,
+        updatedAt: isNewQuestion ? now : (existing?.updatedAt ?? now),
       }
-      next = [updated, ...next.filter((s) => s.id !== nextActive)]
+      next = isNewQuestion
+        ? [updated, ...next.filter((s) => s.id !== nextActive)]
+        : next.map((s) => (s.id === nextActive ? updated : s))
     }
 
     return { sessions: next, activeId: nextActive }
