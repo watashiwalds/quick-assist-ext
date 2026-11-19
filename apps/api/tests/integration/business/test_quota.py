@@ -152,8 +152,8 @@ async def test_leased_error_after_commit_keeps_charge(client) -> None:
 async def test_quota_endpoint(client) -> None:
     h = await login(client)
     r = (await client.get("/me/quota", headers=h)).json()
-    assert r == {"limit_tokens": 200_000, "used_tokens": 0, "reserved_tokens": 0,
-                 "remaining_tokens": 200_000, "billing_mode": "server"}
+    assert r == {"limit_tokens": 1_000_000, "used_tokens": 0, "reserved_tokens": 0,
+                 "remaining_tokens": 1_000_000, "billing_mode": "server"}
 
 
 async def test_reset_demo_quota_clears_usage_and_open_reservations(client) -> None:
@@ -166,14 +166,14 @@ async def test_reset_demo_quota_clears_usage_and_open_reservations(client) -> No
 
     r = await client.post("/me/quota/reset", headers=h)
     assert r.status_code == 200, r.text
-    assert r.json() == {"limit_tokens": 200_000, "used_tokens": 0, "reserved_tokens": 0,
-                        "remaining_tokens": 200_000, "billing_mode": "server"}
+    assert r.json() == {"limit_tokens": 1_000_000, "used_tokens": 0, "reserved_tokens": 0,
+                        "remaining_tokens": 1_000_000, "billing_mode": "server"}
 
     # Giữ chỗ mở từ trước khi tạo lại không được trừ âm số dư khi chốt sau đó.
     async with QuotaService.open() as q:
         await q.commit(lease, 100)
     st = await _status(uid)
-    assert (st.used_tokens, st.reserved_tokens, st.remaining) == (0, 0, 200_000)
+    assert (st.used_tokens, st.reserved_tokens, st.remaining) == (0, 0, 1_000_000)
 
 
 async def test_reset_quota_is_dev_only(client, monkeypatch) -> None:

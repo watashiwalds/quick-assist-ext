@@ -415,7 +415,7 @@ Mọi lệnh gọi AI (tóm tắt, tìm kiếm, chat, embed, thẩm định tran
 
 | Thông số | Giá trị | Ảnh hưởng |
 |---|---|---|
-| `QUOTA_DEFAULT_TOKENS` | `200 000` | Hạn mức token ban đầu mỗi user (cộng dồn trọn vòng đời, không reset theo tháng) |
+| `QUOTA_DEFAULT_TOKENS` | `1 000 000` | Hạn mức token ban đầu mỗi user (cộng dồn trọn vòng đời, không reset theo tháng) |
 | `estimate_tokens` | `max(1, len//2 + 1)` | Ước lượng giữ chỗ trước gọi AI (luôn dư, hoàn phần thừa khi commit) |
 | Chu kỳ dọn giữ chỗ treo | `300` s / ngưỡng `15` phút | Thời gian tối đa một giữ chỗ "ma" chiếm hạn mức |
 | `reset_demo` | chỉ dev/test | Hoàn mọi giữ chỗ, đưa used về 0, cấp lại mức mặc định — phục vụ demo |
@@ -467,7 +467,7 @@ tắt; vượt → lỗi `429` kèm `retry_after` (giây).
 | Tìm kiếm | query UI ≤ 1 000 ký tự | top-k (5/10/20), điểm RRF | Candidate 30/nhánh; search 30/phút |
 | Chat | câu hỏi ≤ 2 000; history 5 cặp × 2 000 ký tự | ≤ 800 token out; nguồn `[n]`, snippet 240 | Không có nguồn → không gọi LLM; chốt quota theo phần đã sinh |
 | Page match | query ≤ 500; HTML ≤ 2 MB; nội dung ≤ 50k ký tự | ≤ 15 đoạn; mode segments/full_page; verified | cosine ≥ 0.35; LLM thẩm định 500 token/20s; 6/phút |
-| Quota | — | limit 200 000 token/user | Giữ chỗ treo hoàn sau 15 phút |
+| Quota | — | limit 1 000 000 token/user | Giữ chỗ treo hoàn sau 15 phút |
 | Auth | — | access 15', refresh 30 ngày | Reuse refresh token → revoke toàn bộ session |
 
 ## Phụ lục B — Biến môi trường backend
@@ -485,7 +485,7 @@ Toàn bộ khai báo trong `apps/api/src/quickassist/infrastructure/config.py`; 
 | `AI_TIMEOUT_SECONDS`, `AI_MAX_RETRIES`, `AI_EMBED_BATCH_TOKENS` | `90`, `2`, `16 000` | Hành vi gọi provider (xem §4, §5) |
 | `CHUNK_SIZE_CHARS`, `CHUNK_OVERLAP_CHARS`, `CHUNKING_STRATEGY` | `1200`, `150`, `v2` | Thuật toán chia chunk (xem §5) |
 | `SEARCH_TOP_K`, `SEARCH_CANDIDATE_K`, `SEARCH_RERANK_ENABLED` | `5`, `30`, `false` | Hành vi tìm kiếm (xem §6) |
-| `QUOTA_DEFAULT_TOKENS` | `200 000` | Hạn mức user (xem §9) |
+| `QUOTA_DEFAULT_TOKENS` | `1 000 000` | Hạn mức user (xem §9) |
 | `MAX_NOTE_CHARS`, `MAX_SUMMARY_INPUT_CHARS` | `20 000`, `30 000` | Giới hạn nội dung (xem §3, §4) |
 | `PAGE_MATCH_*` | xem §8 | Toàn bộ tham số AutoChunk |
 | `RATE_LIMIT_*_PER_MINUTE` | `30/10/120/6` | Rate limit (xem §10); `0` = tắt |
