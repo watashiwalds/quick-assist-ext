@@ -96,7 +96,7 @@ class Settings(BaseSettings):
     chat_context_max_chars: int = 18_000  # trần ký tự ngữ cảnh ghi chú đưa vào prompt chat
 
     # --- Quota & giới hạn ---
-    quota_default_tokens: int = 200_000
+    quota_default_tokens: int = 1_000_000
     max_note_chars: int = 20_000
     max_summary_input_chars: int = 30_000
 
