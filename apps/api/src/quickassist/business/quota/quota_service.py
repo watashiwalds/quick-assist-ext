@@ -47,6 +47,8 @@ class QuotaStatus:
     limit_tokens: int
     used_tokens: int
     reserved_tokens: int
+    # False = DEV_UNLIMITED: used_tokens vẫn tăng nhưng không chặn AI (UI không báo hết hạn mức).
+    limit_enforced: bool = True
 
     @property
     def remaining(self) -> int:
@@ -66,10 +68,12 @@ class QuotaService:
             yield cls(session)
 
     async def status(self, user_id: uuid.UUID) -> QuotaStatus:
-        await self.repo.ensure_account(user_id, get_settings().quota_default_tokens)
+        settings = get_settings()
+        await self.repo.ensure_account(user_id, settings.quota_default_tokens)
         await self.s.commit()
         acc = await self.repo.get_account(user_id)
-        return QuotaStatus(acc.limit_tokens, acc.used_tokens, acc.reserved_tokens)
+        return QuotaStatus(acc.limit_tokens, acc.used_tokens, acc.reserved_tokens,
+                           limit_enforced=not settings.dev_unlimited)
 
     async def reset_usage(self, user_id: uuid.UUID) -> QuotaStatus:
         """Đặt lại số liệu (ADR-0016 D6): môi trường demo/dev như cũ, hoặc user BYOK —
@@ -82,10 +86,12 @@ class QuotaService:
         await self.repo.release_reserved_ledgers(user_id)
         await self.repo.reset_account(user_id, settings.quota_default_tokens)
         await self.s.commit()
-        return QuotaStatus(settings.quota_default_tokens, 0, 0)
+        return QuotaStatus(settings.quota_default_tokens, 0, 0,
+                           limit_enforced=not settings.dev_unlimited)
 
     async def reserve(self, user_id: uuid.UUID, operation: str, estimate: int, request_id: str) -> QuotaLease:
-        await self.repo.ensure_account(user_id, get_settings().quota_default_tokens)
+        settings = get_settings()
+        await self.repo.ensure_account(user_id, settings.quota_default_tokens)
         existing = await self.repo.find_ledger(request_id)
         if existing is not None:
             owner, reserved = existing.user_id, existing.reserved_tokens
@@ -94,8 +100,14 @@ class QuotaService:
             if owner != user_id:  # request_id phải gắn với user — không "mượn" ledger người khác
                 raise Conflict("request_id không hợp lệ", code="IDEMPOTENCY_KEY_REUSED")
             return QuotaLease(user_id, request_id, reserved, already_settled=settled, is_new=False)
-        if not await self.repo.try_reserve(user_id, estimate):
+        if settings.dev_unlimited:
+            reserved = await self.repo.reserve_unbounded(user_id, estimate)
+        else:
+            reserved = await self.repo.try_reserve(user_id, estimate)
+        if not reserved:
             await self.s.rollback()
+            if settings.dev_unlimited:
+                raise RuntimeError("Không tìm thấy quota account để giữ chỗ")
             raise QuotaExceeded("Bạn đã dùng hết hạn mức AI", code="QUOTA_EXCEEDED")
         self.repo.add_ledger(QuotaLedger(user_id=user_id, request_id=request_id, operation=operation,
                                          reserved_tokens=estimate, status="RESERVED"))

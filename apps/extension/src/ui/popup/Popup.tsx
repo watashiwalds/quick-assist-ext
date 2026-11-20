@@ -13,10 +13,19 @@ async function openSidePanel() {
 function QuotaLine() {
   const q = useAsync(() => rpc('quota/get'), [])
   if (!q.data) return null
+  const unlimited = q.data.limit_enforced === false
   return (
     <div className="stack quota-mini">
-      <ProgressBar value={q.data.used_tokens} max={q.data.limit_tokens} label="Hạn mức AI đã dùng" />
-      <small className="muted">Còn {q.data.remaining_tokens.toLocaleString('vi-VN')} token AI</small>
+      <ProgressBar
+        value={q.data.used_tokens}
+        max={unlimited ? Math.max(q.data.limit_tokens, q.data.used_tokens) : q.data.limit_tokens}
+        label={unlimited ? 'Hạn mức AI đã dùng (dev không giới hạn)' : 'Hạn mức AI đã dùng'}
+      />
+      <small className="muted">
+        {unlimited
+          ? `Dev: không giới hạn · đã dùng ${q.data.used_tokens.toLocaleString('vi-VN')} token AI`
+          : `Còn ${q.data.remaining_tokens.toLocaleString('vi-VN')} token AI`}
+      </small>
     </div>
   )
 }

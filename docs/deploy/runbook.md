@@ -26,7 +26,7 @@ docker compose -f infra/docker-compose.prod.yml --env-file infra/.env.prod ps   
 ```
 Thứ tự khởi động do compose đảm bảo: `db` (healthy) → `migrate` (alembic upgrade head) → `api` (healthy) → `caddy`, `worker`, `backup`.
 
-App **từ chối khởi động** ở `APP_ENV=prod` nếu: JWT_SECRET yếu/mặc định, ENABLE_DEV_LOGIN bật, CORS không phải `chrome-extension://…` (H02).
+App **từ chối khởi động** ở `APP_ENV=prod` nếu: JWT_SECRET yếu/mặc định, ENABLE_DEV_LOGIN bật, DEV_UNLIMITED bật, CORS không phải `chrome-extension://…` (H02, ADR-0019).
 
 ## 2. Kiểm tra sau triển khai (H07, < 1 phút)
 ```bash

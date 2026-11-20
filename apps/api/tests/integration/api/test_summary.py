@@ -43,6 +43,21 @@ async def test_quota_exhausted_is_402_and_no_ai_call(client, monkeypatch) -> Non
     assert r.status_code == 402 and r.json()["error"]["code"] == "QUOTA_EXCEEDED"
 
 
+async def test_dev_unlimited_summary_ignores_quota_limit(client, monkeypatch) -> None:
+    """DEV_UNLIMITED: summary vẫn chạy và vẫn cộng used_tokens dù limit rất nhỏ."""
+    from quickassist.infrastructure.config import get_settings
+
+    s = get_settings()
+    monkeypatch.setattr(s, "quota_default_tokens", 5)
+    monkeypatch.setattr(s, "dev_unlimited", True)
+    h = await login(client)
+    r = await client.post("/ai/summaries", json={"text": "văn bản cần tóm tắt"}, headers=h)
+    assert r.status_code == 200 and r.json()["tokens_used"] > 0
+    q = (await client.get("/me/quota", headers=h)).json()
+    assert q["used_tokens"] == r.json()["tokens_used"]
+    assert q["limit_enforced"] is False
+
+
 async def test_ai_error_releases_quota(app, client) -> None:
     from quickassist.presentation.api.deps import get_user_ai_provider
 

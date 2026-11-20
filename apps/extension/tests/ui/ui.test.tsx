@@ -580,6 +580,25 @@ describe('cài đặt (A08)', () => {
     expect(screen.queryByRole('button', { name: 'Tạo lại hạn mức' })).toBeNull()
   })
 
+  it('dev không giới hạn: vẫn hiện token đã dùng, không banner hết hạn mức', async () => {
+    rpc.mockImplementation(async (type: string) => {
+      if (type === 'quota/get') return {
+        billing_mode: 'server', limit_tokens: 1000, used_tokens: 1200, reserved_tokens: 0,
+        remaining_tokens: 0, limit_enforced: false,
+      }
+      if (type === 'prefs/get') return { defaultFolderId: null }
+      if (type === 'folders/list') return FOLDERS
+      throw new Error(type)
+    })
+    wrap(<SettingsView session={session} />)
+    expect(await screen.findByText(/Dev mode: vẫn đếm token/)).toBeTruthy()
+    expect(screen.getByText(/1\.200/)).toBeTruthy()
+    expect(screen.queryByText(/Đã hết hạn mức/)).toBeNull()
+    const bar = screen.getByRole('progressbar')
+    expect(bar.getAttribute('aria-valuenow')).toBe('1200')
+    expect(bar.getAttribute('aria-valuemax')).toBe('1200')
+  })
+
   it('BYOK còn hạn mức: không banner, vẫn có nút Đặt lại số liệu', async () => {
     rpc.mockImplementation(async (type: string) => {
       if (type === 'quota/get') return { billing_mode: 'byok', limit_tokens: 1000, used_tokens: 950, reserved_tokens: 0, remaining_tokens: 50 }

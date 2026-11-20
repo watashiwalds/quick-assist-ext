@@ -97,6 +97,9 @@ class Settings(BaseSettings):
 
     # --- Quota & giới hạn ---
     quota_default_tokens: int = 1_000_000
+    # CHỈ dev/test: quota vẫn được ghi nhận (ledger + used_tokens) nhưng không chặn AI;
+    # rate limit theo user cũng tắt. APP_ENV=prod từ chối khởi động nếu bật.
+    dev_unlimited: bool = False
     max_note_chars: int = 20_000
     max_summary_input_chars: int = 30_000
 

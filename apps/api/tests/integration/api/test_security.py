@@ -106,6 +106,17 @@ async def test_rate_limit_returns_429_with_retry_after(client, monkeypatch) -> N
     assert (await client.post("/search", json={"query": "x"}, headers=other)).status_code == 200
 
 
+async def test_dev_unlimited_bypasses_rate_limit(client, monkeypatch) -> None:
+    from quickassist.infrastructure.config import get_settings
+
+    s = get_settings()
+    monkeypatch.setattr(s, "rate_limit_search_per_minute", 1)
+    monkeypatch.setattr(s, "dev_unlimited", True)
+    h = await login(client)
+    codes = [(await client.post("/search", json={"query": "x"}, headers=h)).status_code for _ in range(3)]
+    assert codes == [200, 200, 200]
+
+
 async def test_cors_only_allows_configured_extension(monkeypatch) -> None:
     import httpx
 
@@ -138,3 +149,17 @@ def test_prod_config_guard(monkeypatch) -> None:
         _check_config()
     monkeypatch.setattr(s, "cors_origins", ["chrome-extension://abc"])
     _check_config()
+
+
+def test_prod_config_rejects_dev_unlimited(monkeypatch) -> None:
+    from quickassist.infrastructure.config import get_settings
+    from quickassist.main import _check_config
+
+    s = get_settings()
+    monkeypatch.setattr(s, "app_env", "prod")
+    monkeypatch.setattr(s, "jwt_secret", type(s.jwt_secret)("x" * 40))
+    monkeypatch.setattr(s, "enable_dev_login", False)
+    monkeypatch.setattr(s, "cors_origins", ["chrome-extension://abc"])
+    monkeypatch.setattr(s, "dev_unlimited", True)
+    with pytest.raises(RuntimeError, match="DEV_UNLIMITED"):
+        _check_config()

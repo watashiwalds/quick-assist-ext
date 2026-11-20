@@ -27,6 +27,11 @@ log = get_logger(__name__)
 
 def _check_config() -> None:
     s = get_settings()
+    if s.dev_unlimited and s.app_env != "prod":
+        log.warning(
+            "DEV_UNLIMITED=true: quota vẫn được ghi nhận nhưng không chặn AI; "
+            "rate limit theo user đã tắt.",
+        )
     if s.embedding_dim != EMBEDDING_DIM:
         raise RuntimeError(f"EMBEDDING_DIM={s.embedding_dim} lệch cột vector({EMBEDDING_DIM})")
     if s.ai_provider == "openai" and not s.openai_api_key.get_secret_value():
@@ -50,6 +55,8 @@ def _check_config() -> None:
             problems.append("JWT_SECRET yếu/mặc định")
         if s.enable_dev_login:
             problems.append("ENABLE_DEV_LOGIN phải tắt")
+        if s.dev_unlimited:
+            problems.append("DEV_UNLIMITED phải tắt")
         if any(o == "*" or not o.startswith("chrome-extension://") for o in s.cors_origins):
             problems.append("CORS_ORIGINS chỉ được chứa chrome-extension://<ID>")
         if problems:

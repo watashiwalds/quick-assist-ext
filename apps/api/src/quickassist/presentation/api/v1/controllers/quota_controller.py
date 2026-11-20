@@ -13,7 +13,8 @@ router = APIRouter(prefix="/me/quota", tags=["quota"])
 def _out(st: QuotaStatus, *, byok: bool) -> QuotaOut:
     return QuotaOut(limit_tokens=st.limit_tokens, used_tokens=st.used_tokens,
                     reserved_tokens=st.reserved_tokens, remaining_tokens=st.remaining,
-                    billing_mode="byok" if byok else "server")
+                    billing_mode="byok" if byok else "server",
+                    limit_enforced=st.limit_enforced)
 
 
 @router.get("", response_model=QuotaOut)
