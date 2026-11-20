@@ -74,6 +74,8 @@ class SteadyConfig:
     max_retries_429: int = 5
     # --- phản chiếu giới hạn backend (cắt trước ở máy) ---
     max_note_chars: int = 20_000     # MAX_NOTE_CHARS
+    split_chars: int = 20_000        # ngưỡng chia part (≤ max_note_chars; target 90%)
+    truncate_long: bool = False      # True = hành vi cũ (cắt 20k) để chạy baseline A/B
     max_html_bytes: int = 2_000_000  # PAGE_MATCH_MAX_HTML_BYTES
     max_query_chars: int = 500       # MAX_QUERY_CHARS (page-match, chặt nhất)
     # --- metadata tái lập (không tự phát hiện được từ HTTP health) ---
@@ -350,10 +352,22 @@ class BackendClient:
         self.json("DELETE", f"/folders/{folder_id}")
 
     # ---------- ghi chú ----------
-    def create_note(self, content: str, title: str | None = None,
+    def create_note(self, content: str | None = None, title: str | None = None,
                     idempotency_key: str | None = None,
-                    folder_id: str | None = None) -> tuple[int, dict, float]:
-        payload: dict = {"content": content, "title": title}
+                    folder_id: str | None = None,
+                    parts: list[str] | None = None,
+                    document_id: str | None = None) -> tuple[int, dict, float]:
+        """POST /notes — đường cũ (content) hoặc tài liệu nhiều part (D2).
+
+        ``parts`` yêu cầu ``document_id`` do client sinh (backend trả 422 nếu thiếu).
+        Response tạo mới kèm ``part_ids`` theo part_index.
+        """
+        payload: dict = {"title": title}
+        if parts is not None:
+            payload["parts"] = parts
+            payload["document_id"] = document_id
+        else:
+            payload["content"] = content
         if folder_id:
             payload["folder_id"] = folder_id
         status, body, elapsed = self.json("POST", "/notes", payload=payload,
@@ -364,17 +378,37 @@ class BackendClient:
         _, body, elapsed = self.json("GET", f"/notes/{note_id}")
         return body or {}, elapsed
 
-    def count_notes(self, folder_id: str | None = None) -> int:
-        """Đếm ghi chú trong một thư mục (phân trang) — tính sàn ngẫu nhiên cho search."""
-        total, cursor = 0, None
+    def list_document_parts(self, document_id: str) -> tuple[list[dict], float]:
+        """GET /notes?document_id=… — mọi part của tài liệu, theo part_index."""
+        parts: list[dict] = []
+        cursor = None
+        elapsed = 0.0
+        while True:
+            path = f"/notes?document_id={document_id}&limit=200" + (
+                f"&cursor={cursor}" if cursor else "")
+            _, body, ms = self.json("GET", path)
+            elapsed += ms
+            parts.extend((body or {}).get("items", []))
+            cursor = (body or {}).get("next_cursor")
+            if not cursor:
+                return parts, elapsed
+
+    def list_notes(self, folder_id: str | None = None) -> list[dict]:
+        """Liệt kê mọi note trong thư mục (phân trang) — đếm note/tài liệu cho sàn."""
+        notes: list[dict] = []
+        cursor = None
         while True:
             path = "/notes?limit=200" + (f"&folder_id={folder_id}" if folder_id else "") \
                 + (f"&cursor={cursor}" if cursor else "")
             _, body, _ = self.json("GET", path)
-            total += len((body or {}).get("items", []))
+            notes.extend((body or {}).get("items", []))
             cursor = (body or {}).get("next_cursor")
             if not cursor:
-                return total
+                return notes
+
+    def count_notes(self, folder_id: str | None = None) -> int:
+        """Đếm ghi chú trong một thư mục — tính sàn ngẫu nhiên cho search."""
+        return len(self.list_notes(folder_id))
 
     def bulk_delete_notes(self, note_ids: list[str]) -> int:
         _, body, _ = self.json("POST", "/notes/bulk-delete", payload={"ids": note_ids})

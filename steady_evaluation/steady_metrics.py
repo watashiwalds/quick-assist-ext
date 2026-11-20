@@ -181,41 +181,68 @@ def token_f1(pred: str, ref: str) -> float:
 
 @dataclass
 class IngestCase:
-    """Một file nguồn được nạp thành ghi chú và chờ đánh chỉ mục."""
+    """Một file nguồn được nạp thành ghi chú (hoặc tài liệu nhiều part) và chờ index.
+
+    ``document_id`` rỗng = note đơn kiểu cũ (đường ``content``). Với tài liệu dài,
+    ``parts`` giữ trạng thái từng part để kiểm chứng "tất cả part READY" và
+    ``indexed_chars == content_chars`` (không mất nội dung).
+    """
 
     file: str
     note_id: str
     index_status: str  # READY | FAILED | SKIPPED | TIMEOUT | ERROR
-    content_chars: int
+    content_chars: int  # tổng ký tự đã lưu (backend original_chars; sau strip)
     truncated: bool
     create_ms: float
     wait_index_ms: float
     created: bool = False       # True = POST /notes tạo mới; False = idempotent replay
     folder_id: str | None = None
     error: str | None = None
+    # --- D2: tài liệu nhiều part + kiểm chứng toàn vẹn nội dung ---
+    document_id: str = ""
+    part_count: int = 1
+    part_ids: list[str] = field(default_factory=list)
+    parts: list[dict] = field(default_factory=list)  # [{index,note_id,chars,index_status}]
+    source_chars: int = 0       # độ dài văn bản nguồn trước khi chia (plain)
+    indexed_chars: int = 0      # tổng ký tự các part READY
+    ready_parts: int = 0
+    max_part_chars: int = 0
 
 
 @dataclass
 class SearchCase:
-    """Một truy vấn POST /search — gold là ghi chú tạo từ file nguồn của câu hỏi.
+    """Một truy vấn POST /search — gold là tài liệu tạo từ file nguồn của câu hỏi.
 
     ``ranked_note_ids`` là note đã phẳng theo thứ hạng nguồn rồi note trong
     nguồn (contract nhóm theo nguồn); ``items`` giữ nguyên các note đã phẳng
     kèm ``source_rank``/``source_domain`` để làm bằng chứng thô.
+
+    D2/Lát 3: ``gold_document_id`` gom mọi part của tài liệu làm một đơn vị;
+    ``gold_part_index`` là part chứa gold (mapping qid → document + part).
+    ``answer_hit`` = gold nằm trong top-k note (hành vi cũ);
+    ``answer_hit_document`` = gold nằm ở BẤT KỲ part nào của tài liệu đã lọt top-k.
     """
 
     qid: str
     query: str
     gold_note_id: str
     ranked_note_ids: list[str]  # đã khử trùng lặp, theo thứ hạng tốt nhất
-    answer_hit: bool            # gold text nguyên văn nằm trong top-k note
-    latency_ms: float
+    ranked_document_ids: list[str] = field(default_factory=list)  # cùng thứ hạng, gom theo tài liệu
+    answer_hit: bool = False    # gold text nằm trong nội dung top-k note
+    latency_ms: float = 0.0
     items: list[dict] = field(default_factory=list)  # note đã phẳng: note_id/snippet/score/…
     folder_id: str | None = None
     error: str | None = None
     n_sources: int = 0
     max_sources: int = 0
     sources: list[dict] = field(default_factory=list)  # response nhóm thô của /search
+    # --- D2/Lát 3: tài liệu nhiều part ---
+    gold_document_id: str = ""
+    gold_note_ids: list[str] = field(default_factory=list)
+    gold_part_index: int = -1
+    gold_part_id: str = ""
+    answer_hit_document: bool = False
+    gold_spans_parts: bool = False
 
 
 @dataclass
@@ -309,6 +336,11 @@ def aggregate_ingest(cases: list[IngestCase]) -> dict:
     by_status: dict[str, int] = {}
     for c in cases:
         by_status[c.index_status] = by_status.get(c.index_status, 0) + 1
+    documents = [c for c in cases if c.document_id]
+    total_chars = sum(c.content_chars for c in cases)
+    indexed_chars = sum(c.indexed_chars for c in cases)
+    parts_total = sum(c.part_count for c in cases)
+    parts_ready = sum(c.ready_parts for c in cases)
     return {
         "files": len(cases),
         "by_status": by_status,
@@ -320,32 +352,77 @@ def aggregate_ingest(cases: list[IngestCase]) -> dict:
         "wait_index_ms_p50": _pct([c.wait_index_ms for c in cases], 0.5),
         "wait_index_ms_p95": _pct([c.wait_index_ms for c in cases], 0.95),
         "truncated_files": sum(1 for c in cases if c.truncated),
+        # --- D2: tài liệu dài nhiều part ---
+        "documents": len(documents),
+        "document_files": len(documents),
+        "parts": parts_total,
+        "parts_ready": parts_ready,
+        "parts_ready_rate": _rate(parts_ready, parts_total),
+        "documents_all_parts_ready": sum(
+            1 for c in documents if c.part_count == c.ready_parts),
+        "documents_all_parts_ready_rate": _rate(
+            sum(1 for c in documents if c.part_count == c.ready_parts), len(documents)),
+        "total_chars": total_chars,
+        "indexed_chars": indexed_chars,
+        "indexed_chars_ratio": _rate(indexed_chars, total_chars),
+        "max_part_chars": max((c.max_part_chars for c in cases), default=0),
+        "oversized_parts": sum(1 for c in cases if c.max_part_chars > 20_000),
+        "source_chars": sum(c.source_chars for c in cases),
     }
 
 
-def aggregate_search(cases: list[SearchCase], top_k: int, corpus_notes: int) -> dict:
-    """Chấm top-``top_k`` NOTE sau khi phẳng danh sách nguồn đã nhóm.
+def _ranked_documents(case: SearchCase) -> list[str]:
+    """Thứ hạng tài liệu cho case (raw cũ không có field → suy từ ``items``/note)."""
+    if case.ranked_document_ids:
+        return case.ranked_document_ids
+    documents: list[str] = []
+    for note in case.items:
+        document_id = note.get("document_id")
+        key = str(document_id) if document_id else str(note.get("note_id", ""))
+        if key and key not in documents:
+            documents.append(key)
+    # Raw bản cũ chỉ có ranked_note_ids, không có items/document_id.
+    return documents or list(case.ranked_note_ids)
+
+
+def aggregate_search(cases: list[SearchCase], top_k: int, corpus_notes: int,
+                     corpus_documents: int | None = None) -> dict:
+    """Chấm top-``top_k`` theo ĐƠN VỊ TÀI LIỆU (D2/Lát 3).
 
     API chỉ trả tối đa ``max_sources`` nguồn (mỗi nguồn tối đa 10 note), nên
-    phải cắt theo top_k trước khi tính hạng: nếu không, note ở vị trí 6..50
-    sẽ bị tính là "Recall@5" dù nằm ngoài top-5.
+    phải cắt theo top_k trước khi tính hạng. Recall/MRR tính trên tài liệu
+    (một document_id = một mục, note cũ = một mục); ``recall_part_at_k`` giữ
+    góc nhìn part chứa gold để chẩn đoán ranh giới chia phần.
     """
     completed = [c for c in cases if not c.error]
     k = max(0, int(top_k))
-    ranks = []
+    doc_ranks = []
+    part_ranks = []
     for c in completed:
-        ranked = c.ranked_note_ids[:k]
-        ranks.append(next((i for i, nid in enumerate(ranked, 1)
-                           if nid == c.gold_note_id), None))
+        gold_key = c.gold_document_id or c.gold_note_id
+        ranked_docs = _ranked_documents(c)[:k]
+        doc_ranks.append(next((i for i, key in enumerate(ranked_docs, 1)
+                               if key == gold_key), None))
+        part_ranks.append(
+            next((i for i, nid in enumerate(c.ranked_note_ids[:k], 1)
+                  if c.gold_part_index >= 0 and nid and nid == c.gold_part_id), None))
     n = len(completed)
+    corpus_documents = corpus_documents if corpus_documents is not None else corpus_notes
     return {
         "queries": len(cases),
         "completed": n,
         "errors": len(cases) - n,
         "error_rate": _rate(len(cases) - n, len(cases)),
-        "recall_at_k": _rate(sum(1 for r in ranks if r), n),
-        "mrr": round(sum(1 / r for r in ranks if r) / n, 4) if n else None,
-        "answer_hit_rate": _rate(sum(1 for c in completed if c.answer_hit), n),
+        "recall_at_k": _rate(sum(1 for r in doc_ranks if r), n),
+        "recall_part_at_k": _rate(sum(1 for r in part_ranks if r), n),
+        "mrr": round(sum(1 / r for r in doc_ranks if r) / n, 4) if n else None,
+        # answer_hit_document là metric mới; raw cũ chỉ có answer_hit → dùng ``or``
+        # để recompute raw bản cũ vẫn ra đúng số (với run mới, document ⊇ note).
+        "answer_hit_rate": _rate(
+            sum(1 for c in completed if c.answer_hit_document or c.answer_hit), n),
+        "answer_hit_note_rate": _rate(sum(1 for c in completed if c.answer_hit), n),
+        "gold_part_missing": sum(1 for c in completed if c.gold_part_index == -1),
+        "gold_spans_parts": sum(1 for c in completed if c.gold_spans_parts),
         "sources_avg": round(_mean([float(c.n_sources) for c in completed]), 2),
         "notes_returned_avg": round(
             _mean([float(len(c.items)) for c in completed]), 2),
@@ -353,10 +430,16 @@ def aggregate_search(cases: list[SearchCase], top_k: int, corpus_notes: int) -> 
         "latency_ms_p50": _pct([c.latency_ms for c in completed], 0.5),
         "latency_ms_p95": _pct([c.latency_ms for c in completed], 0.95),
         # Sàn cấu trúc: kho càng nhỏ, top-k càng dễ trúng — đi kèm để đọc đúng ý nghĩa.
-        "random_floor": round(min(1.0, k / max(1, corpus_notes)), 4),
+        "random_floor": round(min(1.0, k / max(1, corpus_documents)), 4),
         "corpus_notes": corpus_notes,
+        "corpus_documents": corpus_documents,
         "top_k": k,
         "max_sources": max((c.max_sources for c in cases), default=0),
+        "max_sources_observed": max((c.n_sources for c in completed), default=0),
+        "max_sources_ok": all(c.n_sources <= c.max_sources
+                              for c in completed if c.max_sources),
+        "sources_at_cap_rate": _rate(
+            sum(1 for c in completed if c.max_sources and c.n_sources == c.max_sources), n),
     }
 
 

@@ -35,12 +35,24 @@ class FakeBackend:
     def find_or_create_folder(self, name):
         return {"id": "folder-1", "name": name}
 
-    def create_note(self, content, title=None, idempotency_key=None, folder_id=None):
-        self.content = content
-        return 201, {"id": "note-1", "index_status": "READY", "created_at": "now"}, 5.0
+    def create_note(self, content=None, title=None, idempotency_key=None,
+                    folder_id=None, parts=None, document_id=None):
+        self.content = content or (parts[0] if parts else "")
+        self.document_id = document_id
+        return 201, {"id": "note-1", "document_id": document_id,
+                     "part_ids": ["note-1"], "part_count": 1,
+                     "index_status": "READY", "created_at": "now",
+                     "content": self.content}, 5.0
 
     def get_note(self, note_id):
         return {"id": note_id, "index_status": "READY", "content": self.content}, 1.0
+
+    def list_document_parts(self, document_id):
+        return [{"id": "note-1", "part_index": 0, "index_status": "READY",
+                 "content": self.content}], 1.0
+
+    def list_notes(self, folder_id=None):
+        return [{"id": "note-1", "document_id": None, "content": self.content}]
 
     def count_notes(self, folder_id=None):
         return 1
@@ -48,8 +60,9 @@ class FakeBackend:
     def search(self, query, max_sources=5, folder_id=None):
         return [{
             "domain": None, "label": "Không rõ nguồn", "source_rank": 1,
-            "note_count": 1,
-            "notes": [{"note_id": "note-1", "title": "t", "url": None, "summary": None,
+            "note_count": 1, "document_id": self.document_id, "source_type": "document",
+            "notes": [{"note_id": "note-1", "document_id": self.document_id,
+                       "title": "t", "url": None, "summary": None,
                        "snippet": self.content, "score": 0.9, "similarity": 0.8}],
         }], 10.0
 
@@ -136,7 +149,7 @@ class TestPipeline(unittest.TestCase):
             runs = root / "runs"
 
             class Broken(FakeBackend):
-                def count_notes(self, folder_id=None):
+                def list_notes(self, folder_id=None):
                     raise RuntimeError("boom")
 
             cfg = SteadyConfig(dataset_dir=dataset, modules=["search"],

@@ -16,8 +16,8 @@ Kiểm chứng fail-fast trước khi chạy (mọi lỗi gom vào bundle.issues
   - question/gold_text không được rỗng
   - gold_text phải tìm thấy nguyên văn (sau chuẩn hoá) trong file nguồn
   - question ≤ 500 ký tự (giới hạn chặt nhất — page-match), answerable hợp lệ
-  - HTML ≤ 2 MB (PAGE_MATCH_MAX_HTML_BYTES); nội dung nạp note > 20.000 ký tự
-    sẽ bị cắt ở §3 và ghi dấu truncated (đúng hành vi extension)
+  - HTML ≤ 2 MB (PAGE_MATCH_MAX_HTML_BYTES); file dài hơn ngưỡng chia được chia
+    thành nhiều part ≤ trần backend (Lát 3), không cắt nội dung
 
 Runner chỉ chạy khi ``issues`` rỗng, trừ khi người dùng chủ động ``--allow-partial``.
 """
