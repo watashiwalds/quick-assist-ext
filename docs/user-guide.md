@@ -26,6 +26,7 @@ Ghi chú lưu kèm tiêu đề trang, đường dẫn và thời gian. Mất m�
 ## 4. Thư viện ghi chú
 Bấm biểu tượng → **Mở thư viện ghi chú** (mở bảng bên phải).
 - **Lọc** theo thư mục hoặc gõ từ khoá vào ô "Lọc nhanh".
+- **Gom theo nguồn:** mặc định ghi chú được gom theo **Trang** (bài cụ thể — hai bài khác nhau trên cùng một website là hai nhóm riêng), có toggle **Trang / Trang web** để gom lại theo domain. Lựa chọn được ghi nhớ giữa các lần mở. Nhóm có biểu tượng ↗ để **mở lại trang gốc**; nhóm "Không rõ nguồn" luôn nằm cuối.
 - Nhãn trạng thái: *Đang xử lý* (AI đang lập chỉ mục, vài giây) → *Sẵn sàng tìm kiếm*. *Bỏ qua (hết quota)* / *Lỗi xử lý AI*: ghi chú vẫn được lưu, bấm **Thử lại AI** khi có hạn mức.
 - **Sửa**: đổi tiêu đề, nội dung, thư mục. Nếu ghi chú vừa được sửa ở máy khác, bạn chọn *Xem bản mới nhất* hoặc *Ghi đè bằng bản của tôi*.
 - **Xoá**: nút Xoá trên từng ghi chú, hoặc **Chọn** → tích nhiều ghi chú → **Xoá (n)**.
@@ -33,7 +34,7 @@ Bấm biểu tượng → **Mở thư viện ghi chú** (mở bảng bên phải
 - Dải đỏ "*n ghi chú chưa gửi được*": bấm **Xem** → **Gửi lại** hoặc **Bỏ ghi chú này**.
 
 ## 5. Tìm kiếm theo ý nghĩa
-Tìm kiếm đã gộp vào **thanh tìm kiếm của tab Thư viện**: gõ từ khoá để lọc nhanh danh sách; nhấn **Enter** để **tìm sâu bằng AI** — câu hỏi tự nhiên, **có thể gõ không dấu** ("cong thuc nau pho"). Kết quả là các đoạn liên quan nhất kèm tên ghi chú (mặc định tối đa 5, chọn được 10/20 ở ô cạnh thanh); bấm **Mở ghi chú** (mở ngay trong khung đọc) hoặc **Mở trang nguồn ↗**. Có thể giới hạn trong một thư mục.
+Tìm kiếm đã gộp vào **thanh tìm kiếm của tab Thư viện**: gõ từ khoá để lọc nhanh danh sách; nhấn **Enter** để **tìm sâu bằng AI** — câu hỏi tự nhiên, **có thể gõ không dấu** ("cong thuc nau pho"). Kết quả gom theo **nguồn** (tối đa 5, chọn được 10/20 ở ô cạnh thanh); trong mỗi nguồn, ghi chú cùng một bài/trang được gom thành nhóm con theo trang. Bấm **Mở ghi chú** (mở ngay trong khung đọc) hoặc **Mở trang nguồn ↗**. Có thể giới hạn trong một thư mục.
 
 > Vẫn muốn tab riêng? Bật **Cài đặt → "Hiện tab Tìm kiếm trên thanh tab"**.
 
@@ -45,7 +46,7 @@ Bản tóm tắt chỉ được lưu khi bạn bấm Lưu.
 ## 7. Hỏi AI về ghi chú
 Tab **Hỏi AI** trả lời câu hỏi dựa trên chính những ghi chú bạn đã lưu:
 1. Chọn thư mục muốn hỏi (hoặc **Tất cả thư mục**), gõ câu hỏi rồi **Gửi**.
-2. Câu trả lời hiện dần và ghi rõ nguồn `[1]`, `[2]`… — bấm số để mở ghi chú nguồn; **Chi tiết nguồn** hiện đoạn trích và liên kết trang gốc. Câu trả lời hiển thị dạng Markdown: tiêu đề, chữ đậm/nghiêng, danh sách, bảng, đoạn code có định dạng riêng. Bấm **Dừng** nếu muốn dừng giữa chừng (phần đã trả lời được giữ lại, gắn nhãn *Đã dừng*).
+2. Câu trả lời hiện dần và ghi rõ nguồn `[1]`, `[2]`… — bấm số để mở ghi chú nguồn; **Chi tiết nguồn** hiện đoạn trích và liên kết trang gốc, gom thêm nhóm con theo **trang** khi một website có nhiều bài được trích. Câu trả lời hiển thị dạng Markdown: tiêu đề, chữ đậm/nghiêng, danh sách, bảng, đoạn code có định dạng riêng. Bấm **Dừng** nếu muốn dừng giữa chừng (phần đã trả lời được giữ lại, gắn nhãn *Đã dừng*).
 3. **Lịch sử theo phiên:** câu hỏi và câu trả lời được lưu **trên máy này**, nên đóng side panel rồi mở lại vẫn còn. Cột **Hội thoại** bên trái liệt kê các phiên gần đây (tên là câu hỏi đầu tiên, có ô tìm và số lượt); bấm một phiên để mở lại, **Mới** để bắt đầu phiên khác. Ở panel hẹp, cột này thu thành drawer — mở bằng nút ở góc trái tiêu đề hội thoại. Đổi tên hoặc xoá phiên ngay trên tiêu đề; **Quản lý** ở cuối cột hiện dung lượng đã dùng và cho xoá từng phiên hoặc tất cả (gõ "XOÁ"). Tối đa 20 phiên gần nhất — phiên cũ nhất tự bị xoá.
 4. Lịch sử chat **không gửi lên máy chủ** và bị xoá khi bạn **Đăng xuất** hoặc **Xoá tài khoản**. Đóng panel giữa lúc AI đang trả lời thì câu trả lời dừng lại, phần đã hiện vẫn được giữ (đánh dấu *Đã dừng*).
 
@@ -57,7 +58,9 @@ Tab **Tìm trong trang** giúp gom các đoạn liên quan thay vì bôi đen t�
 2. AI tìm trên trang đang mở, trả danh sách đoạn khớp để bạn tích chọn. Bấm **Xem trên trang** để cuộn tới và tô sáng đoạn đó.
 3. Chọn thư mục rồi bấm **Lưu N đoạn thành ghi chú** — ghi chú có tiêu đề là truy vấn của bạn.
 
-**Không có trang web?** Bấm **Dán nội dung…**, dán văn bản từ PDF, Word, chat, email… rồi bấm **Quét nội dung**. Có thể dán dài; khoảng 50 000 ký tự đầu được quét và bạn sẽ thấy thông báo nếu nội dung bị cắt. Nội dung dán không có trang gốc nên nút **Xem trên trang** bị khoá, và ghi chú được lưu **không kèm đường dẫn**.
+**Không có trang web?** Bấm **Dán nội dung…**, dán văn bản từ PDF, Word, chat, email… rồi bấm **Quét nội dung**. Có thể dán dài; khoảng 50 000 ký tự đầu được quét và bạn sẽ thấy thông báo nếu nội dung bị cắt. Nội dung dán không có trang gốc nên nút **Xem trên trang** bị khoá.
+
+**Nguồn tham chiếu khi dán:** khi vào chế độ dán, QuickAssist tự lấy tab đang mở làm *nguồn tham chiếu* (URL + tiêu đề) — cho phép ghi chú được gom nhóm đúng bài gốc ở Thư viện. Chip nguồn cho phép **Lấy lại tab**, **Bỏ** (ghi chú sẽ không kèm URL) hoặc **Nhập URL tay** nếu tab không đọc được. Nếu bạn copy nội dung từ chỗ khác (Word, PDF…) thì nhớ kiểm tra hoặc bỏ chip này trước khi lưu.
 
 ## 9. Cài đặt, hạn mức AI, xoá tài khoản
 Tab **Cài đặt** có 3 mục (rail dọc ở cửa sổ rộng, hàng tab ngang ở side panel):
