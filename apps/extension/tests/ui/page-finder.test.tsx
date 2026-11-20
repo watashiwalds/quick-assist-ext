@@ -50,10 +50,10 @@ const mockPageError = (err: unknown) =>
     throw new Error(type)
   }).mockRejectedValueOnce(err)
 
-const view = () =>
+const view = (splitChars?: number) =>
   render(
     <ToastProvider>
-      <PageFinderView folders={FOLDERS} onGoSettings={() => undefined} />
+      <PageFinderView folders={FOLDERS} onGoSettings={() => undefined} splitChars={splitChars} />
     </ToastProvider>,
   )
 const scan = async (q = 'nghị quyết đất đai') => {
@@ -79,7 +79,7 @@ describe('buildNoteParts', () => {
   it('gộp theo thứ tự bằng dòng trống; vượt giới hạn → nhiều phần theo biên đoạn, không mất chữ', () => {
     expect(buildNoteParts(['a', 'b', 'c'], 100)).toEqual(['a\n\nb\n\nc'])
     const parts = buildNoteParts(['x'.repeat(40), 'y'.repeat(40), 'z'.repeat(40)], 100)
-    expect(parts).toEqual(['x'.repeat(40) + '\n\n' + 'y'.repeat(40), 'z'.repeat(40)])
+    expect(parts).toEqual(['x'.repeat(40) + '\n\n' + 'y'.repeat(40) + '\n\n', 'z'.repeat(40)])
     const huge = buildNoteParts(['w'.repeat(250)], 100)
     expect(huge.map((p) => p.length)).toEqual([100, 100, 50])
   })
@@ -219,14 +219,40 @@ describe('PageFinderView', () => {
     await screen.findByText(/Hầu như cả trang khớp truy vấn/)
     expect(screen.getByText('92%')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Lưu toàn bộ' }))
-    await screen.findByText(/sẽ được lưu thành 2 ghi chú/)
+    await screen.findByText(/MỘT tài liệu gồm 2 phần/)
     expect(screen.getByText(/token hạn mức AI/)).toBeTruthy()
+    expect(screen.getByText(/≈ \d+ chunk/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Lưu' }))
-    await screen.findByText('Đã lưu cả trang thành 2 ghi chú')
+    await screen.findByText('Đã lưu cả trang thành tài liệu 2 phần')
     const calls = rpc.mock.calls.filter((c) => c[0] === 'notes/create')
-    expect(calls.map((c) => c[1].title)).toEqual(['nghị quyết đất đai (1/2)', 'nghị quyết đất đai (2/2)'])
-    expect(calls.every((c) => c[1].content.length <= 20_000)).toBe(true)
-    expect(calls.map((c) => c[1].content).join('\n\n')).toBe(full)
+    expect(calls).toHaveLength(1) // một document, không phải nhiều note rời
+    const body = calls[0]![1]
+    expect(body.title).toBe('nghị quyết đất đai')
+    expect(body.documentId).toBeTruthy()
+    expect(body.content).toBeUndefined()
+    expect(body.parts).toHaveLength(2)
+    expect(body.parts.every((p: string) => p.length <= 20_000)).toBe(true)
+    expect(body.parts.join('')).toBe(full)
+  })
+
+  it('ngưỡng chia trong Cài đặt (preset 8k) áp dụng khi lưu toàn bộ', async () => {
+    const full = Array.from({ length: 30 }, (_, i) => `Đoạn ${i} ` + 'đất đai '.repeat(120)).join('\n\n')
+    rpc.mockImplementation(async (type: string) => {
+      if (type === 'pageMatch/inspect') return inspect()
+      if (type === 'pageMatch/run') return run({ mode: 'full_page', match_ratio: 0.92, full_text: full, total_chars: full.length })
+      return note
+    })
+    view(8_000)
+    await scan()
+    await screen.findByText(/Hầu như cả trang khớp truy vấn/)
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu toàn bộ' }))
+    await screen.findByText(/MỘT tài liệu gồm \d+ phần/)
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu' }))
+    await screen.findByText(/thành tài liệu \d+ phần/)
+    const body = rpc.mock.calls.find((c) => c[0] === 'notes/create')![1]
+    expect(body.parts.length).toBeGreaterThanOrEqual(4)
+    expect(body.parts.every((p: string) => p.length <= 8_000)).toBe(true)
+    expect(body.parts.join('')).toBe(full)
   })
 
   it('banner full_page KHÔNG hiện ở mode segments', async () => {

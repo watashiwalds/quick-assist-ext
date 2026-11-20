@@ -73,8 +73,9 @@ steady_evaluation/
 - `reference_answer` (tùy chọn): câu trả lời chuẩn ngắn; khi có, report báo thêm
   `answer_token_f1_reference_avg` bên cạnh F1 với đoạn gold (metric phụ).
 - Text tiếng Việt có dấu phẩy → phải bọc trong ngoặc kép (CSV chuẩn, loader dùng `csv` module).
-- Giới hạn được kiểm chứng trước khi chạy: question ≤ 500 ký tự, HTML ≤ 2 MB, nội dung note > 20.000
-  ký tự sẽ bị cắt + ghi dấu `truncated`.
+- Giới hạn được kiểm chứng trước khi chạy: question ≤ 500 ký tự, HTML ≤ 2 MB. File dài hơn
+  `--split-chars` được **chia thành part ≤ trần backend** (không cắt nội dung; `truncated` chỉ
+  còn khi chủ động chạy `--truncate-long` để làm baseline A/B).
 
 ## Cách chạy
 
@@ -99,8 +100,10 @@ Cờ hữu ích:
 | `--cleanup-notes` | Xoá note + thư mục của run sau khi chấm |
 | `--allow-partial` | Vẫn chạy dù dataset còn dòng bị loại (mặc định fail-fast) |
 | `--allow-degraded` | Vẫn chấm dù có note chưa `READY` (mặc định dừng) |
-| `--top-k` | Số **note** đầu (sau khi phẳng nguồn → note) dùng cho Recall/MRR/AnswerHit (mặc định 5) |
+| `--top-k` | Số **tài liệu/note** đầu (sau khi gom theo `document_id`, phẳng nguồn → note) dùng cho Recall/MRR/AnswerHit (mặc định 5) |
 | `--max-sources` | `SearchIn.max_sources` (1..20) — số **nguồn/domain** gửi lên `/search` (mặc định 5; env `STEADY_MAX_SOURCES`) |
+| `--split-chars` | Ngưỡng chia part cho file dài (≤ `MAX_NOTE_CHARS`, mặc định 20k; env `STEADY_SPLIT_CHARS`) |
+| `--truncate-long` | Baseline cũ: cắt file > trần thay vì chia part (dùng cho A/B before/after) |
 | `--pagematch-top-k` | Chỉ chấm top-k block PageMatch (mặc định 5) |
 | `--evidence-type auto|smoke|quality|failure` | Nhãn loại bằng chứng ghi vào report/manifest |
 | `--provider`, `--model`, `--embedding-model`, `--temperature`, `--evaluator` | Metadata tái lập (không tự đọc được từ HTTP health) |
@@ -126,8 +129,8 @@ Nếu lỗi giữa chừng, `raw_results.jsonl` + `metrics.json` + `report.md` v
 
 | Module | Chất lượng | Hiệu năng | Lưu ý đọc kết quả |
 |---|---|---|---|
-| Ingest | trạng thái index (READY/FAILED/SKIPPED/TIMEOUT/ERROR), created/reused | create p50, **chờ index p50/p95** | phản ánh worker thật; replay idempotent có wait ≈ 0 |
-| Search | Recall@k, MRR, AnswerHit@k trên **note** (mẫu số = ca hoàn thành) | p50/p95 HTTP | API nhóm theo nguồn (`sources[].notes[]`); phẳng theo hạng nguồn rồi note, cắt top-k note; báo thêm nguồn TB/note TB/rỗng; kèm **sàn ngẫu nhiên** k/N; floor = 1 thì metric chạm trần |
+| Ingest | trạng thái index (READY/FAILED/SKIPPED/TIMEOUT/ERROR) theo **mọi part** của tài liệu, created/reused, `indexed_chars / source_chars`, part lớn nhất, `truncated` | create p50, **chờ index p50/p95** | phản ánh worker thật; replay idempotent có wait ≈ 0; file > `--split-chars` được chia part (Lát 3), READY chỉ khi tất cả part READY |
+| Search | Recall@k/MRR/AnswerHit@k trên **tài liệu** (`document_id ?? note`); kèm Recall@k **part chứa gold** và AnswerHit **note** để chẩn đoán | p50/p95 HTTP | API nhóm theo nguồn (`sources[].notes[]`) và trả `document_id` ở cấp nguồn; phẳng theo hạng nguồn rồi note, cắt top-k; AnswerHit tài liệu kiểm tra **toàn bộ part** của tài liệu đã lọt top-k; báo nguồn TB/max/rỗng; sàn ngẫu nhiên = k/số tài liệu |
 | RAG | Token-F1 (phụ), F1 reference (nếu có), trích dẫn hợp lệ, không trích dẫn, số ngoài ngữ cảnh, từ chối đúng | first-event p50, total p50/p95, tokens | lỗi AI tách khỏi chất lượng; citation kiểm tra chỉ số + có ít nhất 1 trích dẫn |
 | PageMatch | **quality — segments** (không warning): Hit, Exact, Precision@k, Recall@k, F1@k, Span Precision/Coverage/F1; **quality — full-page** báo riêng; **fallback** báo riêng; FPR ca âm | p50/p95 | top-k mặc định 5; span precision phạt block quá lớn; coverage = tỷ lệ chuỗi con chung dài nhất của gold trong block |
 
@@ -156,6 +159,20 @@ Nếu lỗi giữa chừng, `raw_results.jsonl` + `metrics.json` + `report.md` v
 - Độ bền: bắt lỗi từng case, ghi JSONL ngay, retry 429 cho cả SSE, timeout riêng PageMatch,
   gate note `READY`, artifact một phần khi fatal.
 - Tái lập: `eval_code_sha256`, `metrics_version`, `command`, `--recompute` diff với `metrics.json`.
+
+### Lát 3 — tài liệu dài nhiều part (harness)
+
+- Bỏ truncation mặc định: file > `--split-chars` được chia theo đoạn → câu → từ (target 90% trần)
+  và gửi **một** `POST /notes` với `parts` + `document_id`; nội dung nạp đủ (`indexed_chars`).
+  `--truncate-long` giữ hành vi cũ để A/B với baseline.
+- qid → **document + part chứa gold**: harness map `source_file` → tài liệu đã nạp, tìm part chứa
+  gold nguyên văn, báo `gold_part_index`, `gold_spans_parts`, `gold_part_missing`.
+- Recall@k/MRR tính trên **tài liệu**; AnswerHit tài liệu kiểm tra mọi part (kể cả part ngoài top-k
+  note); vẫn báo Recall part + AnswerHit note để chẩn đoán ranh giới chia.
+- Ingest báo `documents/parts/parts_ready/indexed_chars/max_part_chars`; một part FAILED → cả
+  tài liệu không READY (gate trước khi chấm search/RAG).
+- Tương thích raw cũ: thiếu `document_id`/`answer_hit_document` thì suy từ `ranked_note_ids`/`items`
+  và `answer_hit`, nên `--recompute` run cũ vẫn ra số cũ.
 
 ## Ranh giới đã biết (trung thực về phạm vi)
 

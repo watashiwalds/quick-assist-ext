@@ -16,8 +16,9 @@ from quickassist.infrastructure.openai.base import ChatMessage
 
 CHAT_SYSTEM = (
     "Bạn là trợ lý hỏi đáp của QuickAssist. Người dùng hỏi về CÁC GHI CHÚ HỌ ĐÃ LƯU; "
-    "các đoạn ghi chú liên quan nằm trong <sources>, gom theo website nguồn: mỗi nguồn là "
-    "<source domain=\"…\">, mỗi đoạn ghi chú là <note id=\"n\">.\n"
+    "các đoạn ghi chú liên quan nằm trong <sources>, gom theo nguồn: mỗi nguồn là "
+    "<source domain=\"…\"> hoặc <source label=\"…\"> khi là tài liệu không có URL; "
+    "mỗi đoạn ghi chú là <note id=\"n\">.\n"
     "Quy tắc bắt buộc:\n"
     "1. Chỉ trả lời dựa trên nội dung trong <sources> (và các lượt hội thoại trước). "
     "Không dùng kiến thức bên ngoài để bổ sung dữ kiện, không bịa số liệu, tên, đường link.\n"
@@ -54,24 +55,32 @@ def _attr(text: str) -> str:
 
 def chat_messages(
     question: str, history: Sequence[tuple[str, str]],
-    source_groups: Sequence[tuple[str | None, Sequence[tuple[int, str | None, str]]]],
+    source_groups: Sequence[
+        tuple[str | None, str | None, Sequence[tuple[int, str | None, str]]]
+    ],
 ) -> list[ChatMessage]:
     """system + lịch sử (đã lọc) + lượt hỏi hiện tại kèm khối <sources>.
 
-    `source_groups`: (domain nguồn hoặc None, các ghi chú của nguồn) — ghi chú là
-    (số trích dẫn [n], tiêu đề, nội dung đoạn). Ghi chú không domain → nguồn "Không rõ nguồn".
+    `source_groups`: (domain nguồn hoặc None, label tài liệu hoặc None, các ghi chú của nguồn)
+    — ghi chú là (số trích dẫn [n], tiêu đề, nội dung đoạn). Ghi chú không domain →
+    nguồn "Không rõ nguồn"; tài liệu không URL dùng label thay cho domain.
     Câu hỏi đặt TRƯỚC khối dữ liệu để model đọc yêu cầu trước khi gặp dữ liệu không tin cậy.
     """
     msgs = [ChatMessage("system", CHAT_SYSTEM)]
     for role, content in history:
         msgs.append(ChatMessage("user" if role == "user" else "assistant", content))
     blocks = []
-    for domain, notes in source_groups:
+    for domain, label, notes in source_groups:
         body = "\n".join(
             f'<note id="{i}" title="{_attr(title or "Ghi chú")}">\n{neutralize(text)}\n</note>'
             for i, title, text in notes
         )
-        head = f'<source domain="{_attr(domain)}">' if domain else "<source>"
+        if domain:
+            head = f'<source domain="{_attr(domain)}">'
+        elif label:
+            head = f'<source label="{_attr(label)}">'
+        else:
+            head = "<source>"
         blocks.append(f"{head}\n{body}\n</source>")
     body = "\n".join(blocks)
     msgs.append(ChatMessage("user", f"Câu hỏi: {question}\n\n<sources>\n{body}\n</sources>"))

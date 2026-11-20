@@ -9,6 +9,7 @@ import { useState } from 'react'
 import { config } from '@/shared/config'
 import { rpc } from '@/shared/messaging/client'
 import type { Preferences, SessionInfo } from '@/shared/messaging/protocol'
+import { resolveSplitChars, SPLIT_PRESETS } from '@/shared/notes/split'
 import {
   Banner,
   Button,
@@ -199,6 +200,43 @@ export function SettingsView({
                 Gõ trong Thư viện để lọc nhanh; nhấn <kbd>Enter</kbd> để tìm sâu bằng AI. Bật lại nếu bạn vẫn
                 muốn tab riêng.
               </p>
+            </section>
+
+            <section className="card settings-card">
+              <div className="settings-card-head">
+                <h3>Tài liệu dài</h3>
+                <p>
+                  Nội dung dài hơn ngưỡng được chia thành nhiều phần ≤ {config.maxNoteChars.toLocaleString('vi-VN')}{' '}
+                  ký tự và lưu thành một tài liệu duy nhất.
+                </p>
+              </div>
+              <Field
+                label="Ngưỡng chia mỗi phần"
+                hint="Ngưỡng thấp hơn giúp mỗi phần dễ đọc hơn nhưng tạo nhiều phần hơn. Không thể vượt giới hạn của máy chủ."
+              >
+                {(id) => (
+                  <Select
+                    id={id}
+                    value={String(resolveSplitChars(prefs.data?.splitChars))}
+                    disabled={!prefs.data}
+                    onChange={(e) =>
+                      void rpc('prefs/set', { splitChars: Number(e.target.value) })
+                        .then((p) => {
+                          prefs.setData(p)
+                          onPrefsChanged?.(p)
+                          toast('Đã lưu ngưỡng chia tài liệu')
+                        })
+                        .catch(() => toast('Không lưu được tuỳ chọn', 'error'))
+                    }
+                  >
+                    {SPLIT_PRESETS.map((n) => (
+                      <option key={n} value={n}>
+                        {n.toLocaleString('vi-VN')} ký tự
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </Field>
             </section>
 
             <section className="card settings-card">

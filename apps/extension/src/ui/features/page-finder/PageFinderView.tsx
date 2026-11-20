@@ -18,36 +18,17 @@ import { config } from '@/shared/config'
 import { type SerializedError, toSerialized } from '@/shared/errors'
 import { rpc } from '@/shared/messaging/client'
 import type { PageMatchRun } from '@/shared/messaging/protocol'
+import { buildNoteParts, estimateChunks, resolveSplitChars } from '@/shared/notes/split'
 import { Banner, Button, ConfidenceBadge, ConfirmDialog, EmptyState, ErrorState, Icon, Modal, PaneHeader, ProgressBar, Select, TextArea, useToast } from '../../components'
 import { useBroadcast } from '../../lib/hooks'
+
+export { buildNoteParts } from '@/shared/notes/split'
 
 const SEP = '\n\n'
 /** Ngưỡng hỏi lại trước khi lưu (ký tự) — nội dung lớn tốn hạn mức AI khi tạo chỉ mục tìm kiếm. */
 const CONFIRM_CHARS = 8_000
 /** = PAGE_MATCH_MAX_CHARS: vượt ngưỡng → hỏi "50k đầu" hay "toàn bộ" trước khi quét. */
 const SCAN_WARN_CHARS = config.pageMatchMaxChars
-
-/**
- * Gộp các đoạn (theo thứ tự trang) thành nội dung ghi chú, tách thành nhiều phần nếu vượt giới hạn
- * một ghi chú — cắt theo biên đoạn, đoạn quá dài thì cắt cứng (hiếm: đoạn ≤ 1 200 ký tự từ backend).
- */
-export function buildNoteParts(texts: string[], maxChars: number = config.maxNoteChars): string[] {
-  const parts: string[] = []
-  let cur = ''
-  for (const raw of texts) {
-    for (let t = raw; t.length > 0; t = t.slice(maxChars)) {
-      const piece = t.slice(0, maxChars)
-      if (!cur) cur = piece
-      else if (cur.length + SEP.length + piece.length <= maxChars) cur += SEP + piece
-      else {
-        parts.push(cur)
-        cur = piece
-      }
-    }
-  }
-  if (cur) parts.push(cur)
-  return parts
-}
 
 /** Ước lượng token hạn mức AI để tạo chỉ mục (≈ 2 ký tự/token như backend estimate_tokens). */
 const estimateTokens = (chars: number) => Math.ceil(chars / 2)
@@ -123,7 +104,7 @@ const PAGE_STATUS = {
 } as const
 type PageStatusKey = keyof typeof PAGE_STATUS
 
-export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; onGoSettings: () => void }) {
+export function PageFinderView({ folders, onGoSettings, splitChars }: { folders: Folder[]; onGoSettings: () => void; splitChars?: number }) {
   const [query, setQuery] = useState('')
   const [phase, setPhase] = useState<Phase>('idle')
   const [result, setResult] = useState<PageMatchRun>()
@@ -143,6 +124,7 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
   const cancelledRef = useRef(false)
   const folderSelectId = useId()
   const toast = useToast()
+  const maxPartChars = resolveSplitChars(splitChars)
 
   useBroadcast((e) => {
     if (e.type === 'pageMatch/progress') {
@@ -284,7 +266,7 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
   }
 
   const requestSave = (texts: string[], label: string) => {
-    const parts = buildNoteParts(texts)
+    const parts = buildNoteParts(texts, maxPartChars)
     const chars = parts.reduce((n, p) => n + p.length, 0)
     if (parts.length > 1 || chars > CONFIRM_CHARS) setConfirm({ parts, label })
     else void save(parts, label)
@@ -295,21 +277,21 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
     setConfirm(undefined)
     setSaving(true)
     const title = query.trim().slice(0, 480) || result.title
-    let saved = 0
     try {
-      for (const [i, content] of parts.entries()) {
-        await rpc('notes/create', {
-          content,
-          title: parts.length > 1 ? `${title} (${i + 1}/${parts.length})` : title,
-          url: result.url ?? null,
-          folderId: folderId || null,
-        })
-        saved += 1
-      }
-      toast(parts.length > 1 ? `Đã lưu ${label} thành ${parts.length} ghi chú` : `Đã lưu ${label} thành ghi chú`)
+      // Một tài liệu = nhiều part cùng document_id, tạo atomic ở server (D2).
+      await rpc('notes/create', {
+        ...(parts.length > 1 ? { parts, documentId: crypto.randomUUID() } : { content: parts[0] ?? '' }),
+        title,
+        url: result.url ?? null,
+        folderId: folderId || null,
+      })
+      toast(
+        parts.length > 1
+          ? `Đã lưu ${label} thành tài liệu ${parts.length} phần`
+          : `Đã lưu ${label} thành ghi chú`,
+      )
     } catch (err) {
-      const e = toSerialized(err)
-      setError(saved > 0 ? { ...e, message: `Đã lưu ${saved}/${parts.length} phần. ${e.message}` } : e)
+      setError(toSerialized(err))
     } finally {
       setSaving(false)
     }
@@ -612,7 +594,7 @@ export function PageFinderView({ folders, onGoSettings }: { folders: Folder[]; o
         title="Lưu nội dung lớn?"
         message={
           confirm
-            ? `Nội dung dài ${confirmChars.toLocaleString('vi-VN')} ký tự${confirm.parts.length > 1 ? `, vượt giới hạn một ghi chú nên sẽ được lưu thành ${confirm.parts.length} ghi chú` : ''}. Tạo chỉ mục tìm kiếm sẽ dùng khoảng ${estimateTokens(confirmChars).toLocaleString('vi-VN')} token hạn mức AI.`
+            ? `Nội dung dài ${confirmChars.toLocaleString('vi-VN')} ký tự${confirm.parts.length > 1 ? `, sẽ được lưu thành MỘT tài liệu gồm ${confirm.parts.length} phần` : ''}. Tạo chỉ mục tìm kiếm sẽ dùng khoảng ${estimateTokens(confirmChars).toLocaleString('vi-VN')} token hạn mức AI (≈ ${estimateChunks(confirmChars)} chunk).`
             : ''
         }
         confirmLabel="Lưu"

@@ -7,6 +7,8 @@ const source = (note_count: number, loaded: number) => ({
   label: 'a.vn',
   source_rank: 1,
   note_count,
+  document_id: null,
+  source_type: 'selection',
   notes: Array.from({ length: loaded }, (_, i) => ({
     note_id: `n${i}`,
     title: null,
@@ -15,6 +17,8 @@ const source = (note_count: number, loaded: number) => ({
     snippet: 'x',
     score: 0.03,
     similarity: 0.6,
+    part_index: 0,
+    part_count: 1,
   })),
 })
 

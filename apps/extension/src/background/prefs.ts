@@ -1,8 +1,9 @@
 /** Tuỳ chọn người dùng lưu cục bộ (chrome.storage.local) — xoá khi đăng xuất/xoá tài khoản. */
+import { config } from '@/shared/config'
 import type { Preferences } from '@/shared/messaging/protocol'
 
 const KEY = 'qa.prefs'
-const DEFAULTS: Preferences = { defaultFolderId: null, showSearchTab: false }
+const DEFAULTS: Preferences = { defaultFolderId: null, showSearchTab: false, splitChars: config.maxNoteChars }
 
 export async function getPrefs(): Promise<Preferences> {
   const v = (await chrome.storage.local.get(KEY))[KEY] as Partial<Preferences> | undefined

@@ -73,6 +73,8 @@ class TestRecompute(unittest.TestCase):
             out = recompute_metrics(run_dir)
             self.assertEqual(out["metrics_version"], METRICS_VERSION)
             self.assertEqual(out["search"]["recall_at_k"], 1.0)
+            self.assertEqual(out["search"]["answer_hit_rate"], 1.0)
+            self.assertEqual(out["search"]["answer_hit_note_rate"], 1.0)
 
 
 if __name__ == "__main__":

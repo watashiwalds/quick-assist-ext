@@ -21,6 +21,30 @@ const note = (id: string, over: Partial<Note> = {}) =>
   }) as Note
 
 describe('groupNotesBySource', () => {
+  it('gom các part cùng document_id thành MỘT mục, nhãn là title part 0, part theo part_index', () => {
+    const groups = groupNotesBySource([
+      note('d1', { document_id: 'doc1', part_index: 1, part_count: 2, source_type: 'document', title: 'Bài báo dài' }),
+      note('d0', { document_id: 'doc1', part_index: 0, part_count: 2, source_type: 'document', title: 'Bài báo dài' }),
+      note('a1', { domain: 'a.vn' }),
+    ])
+    const doc = groups.find((g) => g.kind === 'document')!
+    expect(doc.label).toBe('Bài báo dài')
+    expect(doc.entries).toHaveLength(1)
+    expect(doc.notes.map((n) => n.id)).toEqual(['d0', 'd1']) // sắp theo part_index
+    expect(groups.find((g) => g.notes.some((n) => n.id === 'd0'))).toBe(doc)
+  })
+
+  it('tài liệu không URL vẫn có nhóm riêng, không trộn vào "Không rõ nguồn"', () => {
+    const groups = groupNotesBySource([
+      note('d0', { document_id: 'doc1', part_index: 0, part_count: 1, source_type: 'document', domain: null, url: null, title: 'Tài liệu không URL' }),
+      note('u1', { domain: null, url: null }),
+    ])
+    expect(groups.map((g) => [g.kind, g.label])).toEqual([
+      ['document', 'Tài liệu không URL'],
+      ['source', UNKNOWN_SOURCE_LABEL],
+    ])
+  })
+
   it('gom theo domain, nhóm nhiều note trước, trong nhóm mới nhất trước', () => {
     const groups = groupNotesBySource([
       note('a1', { domain: 'a.vn', updated_at: '2026-10-01T00:00:00Z' }),

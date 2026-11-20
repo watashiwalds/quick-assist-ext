@@ -27,14 +27,20 @@ class SearchNoteOut(ApiModel):
     snippet: str  # chunk tốt nhất của note, đã chuẩn hoá khoảng trắng
     score: float  # RRF tốt nhất của note (khớp cả vector lẫn từ khoá)
     similarity: float  # cosine 0..1 tốt nhất của note (khớp ngữ nghĩa)
+    # D2 — vị trí part trong tài liệu dài (note cũ: 0/1).
+    part_index: int
+    part_count: int
 
 
 class SearchSourceOut(ApiModel):
     domain: str | None  # None = nhóm "Không rõ nguồn" (note không có URL), luôn xếp cuối
-    label: str  # domain hoặc "Không rõ nguồn"
+    label: str  # domain, title tài liệu, hoặc "Không rõ nguồn"
     source_rank: int  # 1..N theo thứ hạng nguồn
-    note_count: int  # tổng số note đạt ngưỡng trong nguồn (trước khi cắt theo notes_per_source)
+    note_count: int  # tổng số note/part đạt ngưỡng trong nguồn (trước khi cắt notes_per_source)
     notes: list[SearchNoteOut]
+    # D2 — nguồn là tài liệu (gom theo document_id) hay note web cũ (gom theo domain).
+    document_id: uuid.UUID | None
+    source_type: str  # selection | document
 
 
 class SearchOut(ApiModel):

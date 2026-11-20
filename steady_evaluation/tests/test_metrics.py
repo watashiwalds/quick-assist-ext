@@ -120,7 +120,7 @@ class TestAggregateSearch(unittest.TestCase):
     def test_errors_excluded(self):
         cases = [
             SearchCase(qid="1", query="q", gold_note_id="a", ranked_note_ids=["a"],
-                       answer_hit=True, latency_ms=10, n_sources=1,
+                       answer_hit=True, answer_hit_document=True, latency_ms=10, n_sources=1,
                        items=[{"note_id": "a"}]),
             SearchCase(qid="2", query="q", gold_note_id="a", ranked_note_ids=[],
                        answer_hit=False, latency_ms=0, error="timeout"),
@@ -129,6 +129,7 @@ class TestAggregateSearch(unittest.TestCase):
         self.assertEqual(out["completed"], 1)
         self.assertEqual(out["errors"], 1)
         self.assertEqual(out["recall_at_k"], 1.0)
+        self.assertEqual(out["answer_hit_rate"], 1.0)
         self.assertEqual(out["corpus_notes"], 2)
         self.assertEqual(out["sources_avg"], 1.0)
         self.assertEqual(out["notes_returned_avg"], 1.0)
@@ -149,11 +150,58 @@ class TestAggregateSearch(unittest.TestCase):
     def test_gold_is_hit_within_top_k(self):
         cases = [SearchCase(qid="1", query="q", gold_note_id="e",
                             ranked_note_ids=["a", "b", "c", "d", "e", "f"],
-                            answer_hit=True, latency_ms=10, n_sources=2,
-                            items=[{"note_id": x} for x in "abcdef"])]
+                            answer_hit=True, answer_hit_document=True, latency_ms=10,
+                            n_sources=2, items=[{"note_id": x} for x in "abcdef"])]
         out = aggregate_search(cases, 5, 10)
         self.assertEqual(out["recall_at_k"], 1.0)
         self.assertAlmostEqual(out["mrr"], 0.2)
+
+    def test_document_is_one_unit_for_recall_and_mrr(self):
+        # 6 part cùng document_id: tài liệu lọt top-k ngay từ part đầu.
+        cases = [SearchCase(
+            qid="1", query="q", gold_note_id="p3", gold_part_id="p3",
+            gold_part_index=3, gold_document_id="doc-1",
+            ranked_note_ids=["p0", "p1", "p2", "p3"],
+            ranked_document_ids=["doc-1"], answer_hit=False,
+            answer_hit_document=True, latency_ms=10, n_sources=1,
+            items=[{"note_id": f"p{i}", "document_id": "doc-1"} for i in range(4)])]
+        out = aggregate_search(cases, 5, 4, corpus_documents=1)
+        self.assertEqual(out["recall_at_k"], 1.0)
+        self.assertEqual(out["mrr"], 1.0)
+        self.assertEqual(out["answer_hit_rate"], 1.0)
+        self.assertEqual(out["answer_hit_note_rate"], 0.0)
+        self.assertEqual(out["corpus_documents"], 1)
+        self.assertEqual(out["random_floor"], 1.0)  # k ≥ số tài liệu → chặn trần
+
+    def test_document_rank_comes_from_first_part(self):
+        cases = [SearchCase(
+            qid="1", query="q", gold_note_id="p0", gold_part_id="p0",
+            gold_document_id="doc-1", ranked_note_ids=["x0", "p0"],
+            ranked_document_ids=["doc-x", "doc-1"], answer_hit_document=True,
+            latency_ms=10, items=[{"note_id": "x0"}, {"note_id": "p0"}])]
+        self.assertAlmostEqual(aggregate_search(cases, 5, 2, 2)["mrr"], 0.5)
+
+    def test_gold_part_missing_and_spans_parts_are_reported(self):
+        cases = [SearchCase(
+            qid="1", query="q", gold_note_id="p0", gold_part_id="p0",
+            gold_part_index=-1, gold_document_id="doc-1", gold_note_ids=["p0", "p1"],
+            gold_spans_parts=True, ranked_note_ids=["p0"], ranked_document_ids=["doc-1"],
+            answer_hit_document=False, latency_ms=1)]
+        out = aggregate_search(cases, 5, 2, 1)
+        self.assertEqual(out["gold_part_missing"], 1)
+        self.assertEqual(out["gold_spans_parts"], 1)
+        self.assertEqual(out["recall_part_at_k"], 0.0)
+        self.assertEqual(out["recall_at_k"], 1.0)
+
+    def test_max_sources_is_respected_and_reported(self):
+        cases = [SearchCase(qid="1", query="q", gold_note_id="a",
+                            ranked_note_ids=["a"], ranked_document_ids=["a"],
+                            n_sources=5, max_sources=5, latency_ms=1,
+                            items=[{"note_id": "a"}])]
+        out = aggregate_search(cases, 5, 1, 1)
+        self.assertTrue(out["max_sources_ok"])
+        self.assertEqual(out["max_sources_observed"], 5)
+        self.assertEqual(out["sources_at_cap_rate"], 1.0)
 
 
 class TestAggregatePageMatch(unittest.TestCase):

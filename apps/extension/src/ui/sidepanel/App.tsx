@@ -1,6 +1,7 @@
 /** Side panel — khung ứng dụng chính: Thư viện (tìm nhanh + tìm sâu AI) · Tìm kiếm* · Tìm trong trang · Hỏi AI · Tóm tắt (khi có vùng chọn) · Cài đặt. Tab "Tìm kiếm" ẩn mặc định, bật lại trong Cài đặt. */
 import { useEffect, useState } from 'react'
 import { rpc } from '@/shared/messaging/client'
+import { config } from '@/shared/config'
 import type { PendingSelection } from '@/shared/messaging/protocol'
 import { type TabItem, Icon, Tabs, ToastProvider } from '../components'
 import { SettingsView, type SettingsSection } from '../features/account/SettingsView'
@@ -109,7 +110,13 @@ function Shell({ session }: { session: Parameters<typeof SettingsView>[0]['sessi
             }}
           />
         )}
-        {tab === 'page' && <PageFinderView folders={folders.data ?? []} onGoSettings={goSettings} />}
+        {tab === 'page' && (
+          <PageFinderView
+            folders={folders.data ?? []}
+            onGoSettings={goSettings}
+            splitChars={prefs.data?.splitChars ?? config.maxNoteChars}
+          />
+        )}
         {tab === 'chat' && (
           <ChatView
             chat={chat}

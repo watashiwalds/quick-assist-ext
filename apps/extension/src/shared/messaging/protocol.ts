@@ -60,6 +60,8 @@ export interface Preferences {
   defaultFolderId: string | null
   /** Tab "Tìm kiếm" đã gộp vào thanh tìm của Thư viện — ẩn mặc định, bật lại trong Cài đặt. */
   showSearchTab: boolean
+  /** Ngưỡng chia tài liệu dài (ký tự/part) — preset trong Cài đặt, không vượt MAX_NOTE_CHARS. */
+  splitChars: number
 }
 
 /** Kết quả quét (AutoChunk) + tab đã quét (để highlight đúng tab dù người dùng chuyển tab).
@@ -115,8 +117,9 @@ export interface RpcMap {
   'summary/saveSelection': { req: { text: string; url: string | null; title: string | null; summary: string; folderId?: string | null }; res: Note }
   'selection/takePending': { req: void; res: PendingSelection | null }
 
-  /** Tạo ghi chú mới từ UI (AutoChunk lưu các đoạn đã chọn) — background sinh Idempotency-Key. */
-  'notes/create': { req: { content: string; title: string | null; url: string | null; folderId?: string | null }; res: Note }
+  /** Tạo ghi chú mới từ UI (AutoChunk lưu các đoạn đã chọn) — background sinh Idempotency-Key.
+   *  Tài liệu dài (D2): `documentId` + `parts` tạo atomic một lần, không gửi `content`. */
+  'notes/create': { req: { content?: string; parts?: string[]; documentId?: string; title: string | null; url: string | null; folderId?: string | null }; res: Note }
   /** AutoChunk: ước lượng độ dài văn bản trang trước khi quét (không tải HTML lên server). */
   'pageMatch/inspect': { req: void; res: { textChars: number; url: string; title: string } }
   /** AutoChunk: quét tab đang xem hoặc nội dung dán (`text`) theo truy vấn (POST /ai/page-match/stream).
