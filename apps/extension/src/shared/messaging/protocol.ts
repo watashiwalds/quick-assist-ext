@@ -62,6 +62,8 @@ export interface Preferences {
   showSearchTab: boolean
   /** Ngưỡng chia tài liệu dài (ký tự/part) — preset trong Cài đặt, không vượt MAX_NOTE_CHARS. */
   splitChars: number
+  /** Cách gom nhóm Thư viện (ADR-0018): 'page' = theo trang (mặc định), 'site' = theo domain. */
+  groupNotesBy: 'page' | 'site'
 }
 
 /** Kết quả quét (AutoChunk) + tab đã quét (để highlight đúng tab dù người dùng chuyển tab).

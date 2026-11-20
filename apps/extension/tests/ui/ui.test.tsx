@@ -225,16 +225,18 @@ describe('thư viện (C03)', () => {
       throw new Error(type)
     })
     wrap(<NotesView onGoSettings={() => undefined} />)
-    await screen.findByRole('link', { name: /Tài liệu dài/ })
-    expect(screen.getAllByRole('link', { name: /Tài liệu dài/ })).toHaveLength(1) // MỘT card cho cả tài liệu
+    // Card tài liệu: link nằm trong <li aria-label="Tài liệu dài"> (link "Mở trang nguồn" của nhóm nằm ngoài).
+    const cardLink = () => within(screen.getByRole('listitem', { name: 'Tài liệu dài' })).getByRole('link')
+    await screen.findByRole('listitem', { name: 'Tài liệu dài' })
+    expect(screen.getAllByRole('link', { name: /Tài liệu dài/ })).toHaveLength(2) // card + link "Mở trang nguồn" của nhóm
     expect(screen.getByText('Tài liệu 2 phần')).toBeTruthy()
     expect(screen.getByRole('region', { name: 'Tài liệu Tài liệu dài' })).toBeTruthy()
 
     // Lọc theo nội dung part cuối vẫn giữ nguyên card tài liệu (không mất part 0).
     fireEvent.change(screen.getByLabelText('Tìm kiếm hoặc lọc ghi chú'), { target: { value: 'phần cuối' } })
-    expect(screen.getAllByRole('link', { name: /Tài liệu dài/ })).toHaveLength(1)
+    expect(cardLink()).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('link', { name: /Tài liệu dài/ }))
+    fireEvent.click(cardLink())
     await screen.findByText('Phần 1/2')
     const reader = screen.getByRole('article', { name: 'Tài liệu dài' })
     expect(within(reader).getByText('Phần 2/2')).toBeTruthy()
@@ -262,8 +264,8 @@ describe('thư viện (C03)', () => {
       throw new Error(type)
     })
     wrap(<NotesView onGoSettings={() => undefined} />)
-    await screen.findByRole('link', { name: /Tài liệu dài/ })
-    fireEvent.click(screen.getByRole('link', { name: /Tài liệu dài/ }))
+    await screen.findByRole('listitem', { name: 'Tài liệu dài' })
+    fireEvent.click(within(screen.getByRole('listitem', { name: 'Tài liệu dài' })).getByRole('link'))
     fireEvent.click((await screen.findAllByRole('button', { name: 'Sửa phần' }))[1]!)
     fireEvent.change(screen.getByLabelText('Nội dung'), { target: { value: 'phần cuối đã sửa' } })
     fireEvent.click(screen.getByRole('button', { name: 'Lưu' }))
@@ -295,22 +297,23 @@ describe('thư viện (C03)', () => {
     expect(screen.getByText('Tiêu đề n2')).toBeTruthy()
   })
 
-  it('nhóm theo nguồn + summary-first: nhóm có aria-expanded, tóm tắt hiện trước nội dung', async () => {
+  it('nhóm theo nguồn + summary-first: nhóm có aria-expanded, tóm tắt hiện trước nội dung; toggle Trang/Trang web', async () => {
     rpc.mockImplementation(async (type: string) => {
       if (type === 'folders/list') return FOLDERS
       if (type === 'notes/list')
         return [
           note('n1', { domain: 'a.vn', summary_text: 'Tóm tắt n1' }),
           note('n2', { domain: 'a.vn', content: 'Nội dung gốc n2' }),
-          note('n3', { domain: 'b.vn' }),
+          note('n3', { domain: 'b.vn', url: 'https://b.vn/y' }),
           note('n4', { domain: null, url: null, title: 'Không nguồn' }),
         ]
       if (type === 'outbox/list') return []
       throw new Error(type)
     })
     wrap(<NotesView onGoSettings={() => undefined} />)
-    const groupA = await screen.findByRole('region', { name: 'Nguồn a.vn' })
-    const toggle = screen.getByRole('button', { name: /a\.vn.*2 ghi chú/ })
+    // Mặc định gom theo TRANG (ADR-0018): n1/n2 cùng URL → một nhóm trang.
+    const groupA = await screen.findByRole('region', { name: 'Trang a.vn/x' })
+    const toggle = screen.getByRole('button', { name: /a\.vn\/x.*2 ghi chú/ })
     expect(toggle.tagName).toBe('BUTTON')
     toggle.focus()
     expect(document.activeElement).toBe(toggle)
@@ -318,12 +321,20 @@ describe('thư viện (C03)', () => {
     expect(groupA.textContent).toContain('Tóm tắt n1')
     expect(groupA.textContent).toContain('Tóm tắt từ ghi chú')
     // "Không rõ nguồn" luôn cuối danh sách nhóm
-    const regions = screen.getAllByRole('region', { name: /^Nguồn / })
-    expect(regions.at(-1)!.getAttribute('aria-label')).toBe('Nguồn Không rõ nguồn')
+    const regions = () => screen.getAllByRole('region', { name: /^(Nguồn|Trang) / })
+    expect(regions().at(-1)!.getAttribute('aria-label')).toBe('Nguồn Không rõ nguồn')
     // đóng nhóm → ẩn danh sách note, aria-expanded=false
     fireEvent.click(toggle)
     expect(toggle.getAttribute('aria-expanded')).toBe('false')
     expect(screen.queryByRole('heading', { name: 'Tiêu đề n1' })).toBeNull()
+
+    // Đổi sang "Trang web" → gom lại theo domain như trước (n1/n2/n3 theo domain).
+    fireEvent.click(screen.getByRole('button', { name: 'Trang web' }))
+    await screen.findByRole('region', { name: 'Nguồn a.vn' })
+    expect(screen.getByRole('region', { name: 'Nguồn b.vn' })).toBeTruthy()
+    expect(regions().at(-1)!.getAttribute('aria-label')).toBe('Nguồn Không rõ nguồn')
+    // Nhãn nhóm domain giữ uppercase qua class, nhãn trang không (is-page).
+    expect(screen.getByRole('region', { name: 'Nguồn a.vn' }).querySelector('.source-group-label')!.className).not.toContain('is-page')
   })
 
   it('bulk move: chỉ chuyển note đã chọn, dialog chọn thư mục đích rồi reload', async () => {
@@ -354,17 +365,18 @@ describe('thư viện (C03)', () => {
     expect(screen.getByText('Đã chuyển 2 ghi chú')).toBeTruthy()
   })
 
-  it('"Chọn cả nhóm" chọn đúng các note trong nhóm, không tự chuyển', async () => {
+  it('"Chọn cả nhóm" chọn đúng các note trong nhóm (gom theo trang), không tự chuyển', async () => {
     rpc.mockImplementation(async (type: string) => {
       if (type === 'folders/list') return FOLDERS
-      if (type === 'notes/list') return [note('n1'), note('n2'), note('n3', { domain: 'b.vn' })]
+      if (type === 'notes/list') return [note('n1'), note('n2'), note('n3', { domain: 'b.vn', url: 'https://b.vn/y' })]
       if (type === 'outbox/list') return []
       throw new Error(type)
     })
     wrap(<NotesView onGoSettings={() => undefined} />)
     await screen.findByText('Tiêu đề n1')
     fireEvent.click(screen.getByRole('button', { name: 'Chọn' }))
-    fireEvent.click(within(screen.getByRole('region', { name: 'Nguồn a.vn' })).getByRole('button', { name: 'Chọn cả nhóm' }))
+    // Mặc định gom theo TRANG: n1/n2 cùng URL a.vn/x là một nhóm, n3 ở trang khác.
+    fireEvent.click(within(screen.getByRole('region', { name: 'Trang a.vn/x' })).getByRole('button', { name: 'Chọn cả nhóm' }))
     expect((screen.getByLabelText('Chọn “Tiêu đề n1”') as HTMLInputElement).checked).toBe(true)
     expect((screen.getByLabelText('Chọn “Tiêu đề n2”') as HTMLInputElement).checked).toBe(true)
     expect((screen.getByLabelText('Chọn “Tiêu đề n3”') as HTMLInputElement).checked).toBe(false)

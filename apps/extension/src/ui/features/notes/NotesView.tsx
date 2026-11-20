@@ -13,13 +13,26 @@ import { useAction, useAsync, useBroadcast } from '../../lib/hooks'
 import { SearchResults } from '../search/SearchResults'
 import { countSearchNotes } from '../search/searchSummary'
 import { FolderManager } from './FolderManager'
-import { groupNotesBySource, type NoteEntry } from './groupNotes'
+import { groupNotesBySource, type NoteEntry, type SourceGrouping } from './groupNotes'
 import { MoveNotesDialog } from './MoveNotesDialog'
 import { NoteCard } from './NoteCard'
 import { NoteReader } from './NoteReader'
 import { PendingNotes } from './PendingNotes'
 
-export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?: string | null; onOpened?: () => void; onGoSettings: () => void }) {
+export function NotesView({
+  openNoteId,
+  onOpened,
+  onGoSettings,
+  groupNotesBy,
+  onGroupNotesByChange,
+}: {
+  openNoteId?: string | null
+  onOpened?: () => void
+  onGoSettings: () => void
+  /** Cách gom nhóm ghi chú (ADR-0018) — không truyền thì dùng state cục bộ (mặc định 'page'). */
+  groupNotesBy?: SourceGrouping
+  onGroupNotesByChange?: (value: SourceGrouping) => void
+}) {
   const [folderId, setFolderId] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
   const [maxSources, setMaxSources] = useState(5)
@@ -33,6 +46,13 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
   const [confirmUnits, setConfirmUnits] = useState(1)
   const [managing, setManaging] = useState(false)
   const [highlight, setHighlight] = useState<string | null>(null)
+  const [groupingLocal, setGroupingLocal] = useState<SourceGrouping>('page')
+  // Ưu tiên prefs từ App; không có (test/standalone) thì dùng state cục bộ.
+  const grouping = groupNotesBy ?? groupingLocal
+  const changeGrouping = (v: SourceGrouping) => {
+    setGroupingLocal(v)
+    onGroupNotesByChange?.(v)
+  }
   const folders = useAsync(() => rpc('folders/list'), [])
   const notes = useAsync(() => rpc('notes/list', { folderId }), [folderId])
   const [moveOpen, setMoveOpen] = useState(false)
@@ -92,12 +112,12 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
   const groups = useMemo(() => {
     const list = notes.data ?? []
     const q = filter.trim().toLocaleLowerCase('vi')
-    if (!q) return groupNotesBySource(list)
+    if (!q) return groupNotesBySource(list, grouping)
     // Lọc theo mục: part nào khớp cũng giữ toàn bộ tài liệu (nhãn/part 0 không bị mất).
-    const hit = (n: Note) => `${n.title ?? ''} ${n.content} ${n.domain ?? ''}`.toLocaleLowerCase('vi').includes(q)
+    const hit = (n: Note) => `${n.title ?? ''} ${n.content} ${n.domain ?? ''} ${n.url ?? ''}`.toLocaleLowerCase('vi').includes(q)
     const docHits = new Set(list.filter((n) => n.document_id && hit(n)).map((n) => n.document_id!))
-    return groupNotesBySource(list.filter((n) => hit(n) || (n.document_id && docHits.has(n.document_id))))
-  }, [notes.data, filter])
+    return groupNotesBySource(list.filter((n) => hit(n) || (n.document_id && docHits.has(n.document_id))), grouping)
+  }, [notes.data, filter, grouping])
   const entries = useMemo(() => groups.flatMap((g) => g.entries), [groups])
   /** Số MỤC đã chọn trọn vẹn (tài liệu = 1 mục dù nhiều part). */
   const selectedUnits = useMemo(
@@ -278,6 +298,15 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
               </option>
             ))}
           </Select>
+          <div className="groupby-toggle" role="group" aria-label="Gom ghi chú theo nguồn">
+            <span className="groupby-label">Gom theo</span>
+            <button type="button" aria-pressed={grouping === 'page'} onClick={() => changeGrouping('page')}>
+              Trang
+            </button>
+            <button type="button" aria-pressed={grouping === 'site'} onClick={() => changeGrouping('site')}>
+              Trang web
+            </button>
+          </div>
         </div>
         <div className="pane-scroll">
           {showResults ? (
@@ -353,7 +382,9 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
                       label={g.label}
                       count={isDoc ? g.notes.length : g.entries.length}
                       countLabel={isDoc ? `${g.notes.length} phần` : undefined}
-                      ariaLabel={isDoc ? `Tài liệu ${g.label}` : undefined}
+                      ariaLabel={isDoc ? `Tài liệu ${g.label}` : g.kind === 'page' ? `Trang ${g.label}` : undefined}
+                      sourceUrl={g.url}
+                      labelKind={g.kind}
                       summary={g.summary}
                       collapsed={collapsedGroups.has(key)}
                       onToggle={() =>

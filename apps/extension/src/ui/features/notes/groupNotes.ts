@@ -1,18 +1,28 @@
 /**
- * Gom ghi chú theo NGUỒN cho danh sách Thư viện (Phase 2 — UX plan §5.2, D2 — tài liệu nhiều part).
+ * Gom ghi chú theo NGUỒN cho danh sách Thư viện (Phase 2 — UX plan §5.2, D2 — tài liệu nhiều part,
+ * ADR-0018 — nguồn chi tiết theo trang).
  *
- * Khoá gom = `document_id ?? domain`:
- *  - Tài liệu nhiều part (`document_id`) → MỘT mục, nhãn lấy title part 0; các part xếp theo
- *    `part_index`; chọn/xoá/chuyển tác động lên toàn bộ part.
- *  - Ghi chú cũ/đơn lẻ → gom theo `domain` như trước; không có domain vào "Không rõ nguồn" (cuối).
+ * Tài liệu nhiều part (`document_id`) → MỘT mục, nhãn lấy title part 0; các part xếp theo
+ * `part_index`; chọn/xoá/chuyển tác động lên toàn bộ part.
+ *
+ * Ghi chú thường — hai chế độ:
+ *  - 'page' (mặc định): gom theo TRANG = raw URL bỏ `?query` + `#hash` (`shared/source.sourceKey`)
+ *    → hai bài cùng domain là hai nhóm khác nhau.
+ *  - 'site': gom theo `domain` như trước.
+ * Fallback: note không có URL hợp lệ nhưng có `domain` → nhóm site của domain đó; không có cả hai
+ * vào "Không rõ nguồn" (luôn cuối).
  *
  * Nhóm xếp theo số MỤC rồi lần cập nhật gần nhất; trong nhóm xếp mới nhất trước.
  * Hàm thuần, không I/O → unit test độc lập.
  */
 import type { Note } from '@/shared/api/types'
+import { sourceDomain, sourceKey, sourceLabel } from '@/shared/source'
 
 export const UNKNOWN_SOURCE_LABEL = 'Không rõ nguồn'
 const GROUP_SUMMARY_CHARS = 160
+
+/** Cách gom nhóm ghi chú thường: theo trang cụ thể hoặc theo domain. */
+export type SourceGrouping = 'page' | 'site'
 
 /** Một mục trong danh sách: ghi chú đơn hoặc cả tài liệu nhiều part. */
 export interface NoteEntry {
@@ -26,11 +36,14 @@ export interface NoteEntry {
 }
 
 export interface NoteSourceGroup {
-  /** Khoá nhóm: `document_id` hoặc domain (null = không rõ nguồn). */
+  /** Khoá nhóm: `document_id`, sourceKey của trang, `site:<domain>`, hoặc `__unknown__`. */
   key: string
   domain: string | null
+  /** URL nguồn đại diện nhóm (khi nhóm theo trang) — để link "Mở trang nguồn". */
+  url: string | null
   label: string
-  kind: 'source' | 'document'
+  /** 'document' = tài liệu nhiều part; 'page' = nhóm theo trang; 'site' = nhóm theo domain. */
+  kind: 'document' | 'page' | 'site'
   /** Tất cả note/part trong nhóm — dùng cho "Chọn cả nhóm". */
   notes: Note[]
   entries: NoteEntry[]
@@ -48,9 +61,9 @@ function toDocumentEntry(parts: Note[]): NoteEntry {
   return { key: note.document_id!, note, notes, isDocument: true }
 }
 
-export function groupNotesBySource(notes: Note[]): NoteSourceGroup[] {
+export function groupNotesBySource(notes: Note[], grouping: SourceGrouping = 'page'): NoteSourceGroup[] {
   const documents = new Map<string, Note[]>()
-  const byDomain = new Map<string | null, Note[]>()
+  const singles: Note[] = []
 
   for (const n of notes) {
     if (n.document_id) {
@@ -58,10 +71,7 @@ export function groupNotesBySource(notes: Note[]): NoteSourceGroup[] {
       if (list) list.push(n)
       else documents.set(n.document_id, [n])
     } else {
-      const domain = n.domain?.trim() || null
-      const list = byDomain.get(domain)
-      if (list) list.push(n)
-      else byDomain.set(domain, [n])
+      singles.push(n)
     }
   }
 
@@ -73,7 +83,8 @@ export function groupNotesBySource(notes: Note[]): NoteSourceGroup[] {
     groups.push({
       key: entry.key,
       domain: entry.note.domain?.trim() || null,
-      label: title || entry.note.domain?.trim() || UNKNOWN_SOURCE_LABEL,
+      url: sourceKey(entry.note.url),
+      label: title || sourceLabel(entry.note.url) || entry.note.domain?.trim() || UNKNOWN_SOURCE_LABEL,
       kind: 'document',
       notes: entry.notes,
       entries: [entry],
@@ -81,13 +92,33 @@ export function groupNotesBySource(notes: Note[]): NoteSourceGroup[] {
     })
   }
 
-  for (const [domain, list] of byDomain) {
+  // Ghi chú đơn: gom theo trang hoặc theo domain tuỳ chế độ.
+  const byKey = new Map<string, Note[]>()
+  for (const n of singles) {
+    const domain = n.domain?.trim() || sourceDomain(n.url)
+    const pageKey = sourceKey(n.url)
+    const key =
+      grouping === 'page' && pageKey
+        ? pageKey
+        : domain
+          ? `site:${domain}`
+          : '__unknown__'
+    const list = byKey.get(key)
+    if (list) list.push(n)
+    else byKey.set(key, [n])
+  }
+
+  for (const [key, list] of byKey) {
     const sorted = [...list].sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+    const domain = sorted[0]!.domain?.trim() || sourceDomain(sorted[0]!.url) || null
+    const url = sourceKey(sorted[0]!.url)
+    const kind: 'page' | 'site' = key.startsWith('site:') || key === '__unknown__' ? 'site' : 'page'
     groups.push({
-      key: domain ?? '__unknown__',
+      key,
       domain,
-      label: domain ?? UNKNOWN_SOURCE_LABEL,
-      kind: 'source',
+      url: kind === 'page' ? (sorted[0]!.url ?? null) : null,
+      label: kind === 'page' ? (sourceLabel(sorted[0]!.url) ?? domain ?? UNKNOWN_SOURCE_LABEL) : (domain ?? UNKNOWN_SOURCE_LABEL),
+      kind,
       notes: sorted,
       entries: sorted.map((note) => ({ key: note.id, note, notes: [note], isDocument: false })),
       summary: groupSummary(sorted),

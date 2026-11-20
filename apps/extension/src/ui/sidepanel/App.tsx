@@ -100,7 +100,17 @@ function Shell({ session }: { session: Parameters<typeof SettingsView>[0]['sessi
         }}
       />
       <main className="content" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
-        {tab === 'notes' && <NotesView openNoteId={openNoteId} onOpened={() => setOpenNoteId(null)} onGoSettings={goSettings} />}
+        {tab === 'notes' && (
+          <NotesView
+            openNoteId={openNoteId}
+            onOpened={() => setOpenNoteId(null)}
+            onGoSettings={goSettings}
+            groupNotesBy={prefs.data?.groupNotesBy ?? 'page'}
+            onGroupNotesByChange={(value) => {
+              void rpc('prefs/set', { groupNotesBy: value }).then((p) => prefs.setData(p))
+            }}
+          />
+        )}
         {tab === 'search' && (
           <SearchView
             onGoSettings={goSettings}
