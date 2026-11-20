@@ -588,6 +588,13 @@ a.note-item:hover { background: var(--surface); text-decoration: none; }
 .source-group-summary .note-item-badge { margin-right: 6px; }
 .source-group-more { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 2px 4px 6px 10px; }
 .source-group .note-list { margin-top: 0; }
+/* Nhóm con theo TRANG trong một nhóm domain (ADR-0018) — Tìm kiếm + Hỏi AI dùng chung. */
+.source-page { padding: 2px 0 4px 10px; border-left: 2px solid var(--border-soft); }
+.source-page + .source-page { margin-top: 6px; }
+.source-page-head { display: flex; align-items: baseline; gap: 8px; margin: 0 0 2px; min-width: 0; }
+.source-page-label { overflow: hidden; font-size: 11.5px; font-weight: 600; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+a.source-page-label:hover { color: var(--accent); }
+.source-page-count { flex: 0 0 auto; font-size: 11px; color: var(--muted); }
 .note-item-badge { display: inline-block; margin-right: 6px; padding: 0 6px; font-size: 10px; font-weight: 650; line-height: 1.7; color: var(--accent); vertical-align: baseline; background: var(--accent-soft); border: 1px solid var(--accent-soft-border); border-radius: 999px; }
 
 /* --- Cột reader/editor --- */

@@ -664,3 +664,102 @@ describe('tóm tắt vùng chọn (SUM-03)', () => {
     expect(rpc).toHaveBeenCalledWith('summary/saveSelection', expect.objectContaining({ summary: '- ý chính', folderId: 'f1', text: 'Đoạn văn dài' }))
   })
 })
+
+describe('SearchResults — nhóm con theo trang (ADR-0018)', () => {
+  const snote = (id: string, url: string | null, over: Record<string, unknown> = {}) => ({
+    note_id: id,
+    title: `Phở ${id}`,
+    url,
+    summary: null,
+    snippet: 'hầm xương 8 tiếng',
+    score: 0.03,
+    similarity: 0.62,
+    part_count: 1,
+    part_index: 0,
+    ...over,
+  })
+  const source = (notes: ReturnType<typeof snote>[], over: Record<string, unknown> = {}) => ({
+    domain: 'pho.vn',
+    label: 'pho.vn',
+    source_rank: 1,
+    note_count: notes.length,
+    document_id: null,
+    source_type: 'selection',
+    notes,
+    ...over,
+  })
+
+  it('4 note cùng domain, 2 URL → 2 nhóm con theo trang, không rõ trang cuối', async () => {
+    const { SearchResults } = await import('../../src/ui/features/search/SearchResults')
+    wrap(
+      <SearchResults
+        sources={[source([snote('n1', 'https://pho.vn/a'), snote('n2', 'https://pho.vn/b'), snote('n3', 'https://pho.vn/a?utm=x'), snote('n4', null)])]}
+        onOpenNote={() => undefined}
+      />,
+    )
+    // Ban đầu chỉ 3 note đầu được tải — n4 (Không rõ trang) nằm sau "Xem thêm".
+    expect(await screen.findByRole('region', { name: 'Trang pho.vn/a' })).toBeTruthy()
+    expect(screen.getByRole('region', { name: 'Trang pho.vn/b' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Xem thêm 1 ghi chú' }))
+    expect(await screen.findByRole('region', { name: 'Trang Không rõ trang' })).toBeTruthy()
+    // n3 cùng trang với n1 (chỉ khác query); n4 không URL vào "Không rõ trang"
+    const pageA = screen.getByRole('region', { name: 'Trang pho.vn/a' })
+    expect(within(pageA).getByText('Phở n1')).toBeTruthy()
+    expect(within(pageA).getByText('Phở n3')).toBeTruthy()
+    const unknown = screen.getByRole('region', { name: 'Trang Không rõ trang' })
+    expect(within(unknown).getByText('Phở n4')).toBeTruthy()
+  })
+
+  it('mọi note cùng URL → không hiện header trang (giữ nguyên danh sách)', async () => {
+    const { SearchResults } = await import('../../src/ui/features/search/SearchResults')
+    wrap(
+      <SearchResults
+        sources={[source([snote('n1', 'https://pho.vn/a'), snote('n2', 'https://pho.vn/a')])]}
+        onOpenNote={() => undefined}
+      />,
+    )
+    await screen.findByText('Phở n1')
+    expect(screen.queryByRole('region', { name: /^Trang / })).toBeNull()
+  })
+
+  it('hai document khác nhau cùng domain → không trùng React key, đủ 2 nhóm nguồn', async () => {
+    const { SearchResults } = await import('../../src/ui/features/search/SearchResults')
+    wrap(
+      <SearchResults
+        sources={[
+          source([snote('n1', 'https://pho.vn/a')], { document_id: 'doc1' }),
+          source([snote('n2', 'https://pho.vn/b')], { document_id: 'doc2' }),
+        ]}
+        onOpenNote={() => undefined}
+      />,
+    )
+    await screen.findByText('Phở n1')
+    expect(screen.getByText('Phở n2')).toBeTruthy() // nhóm không bị nuốt vì trùng key
+  })
+
+  it('"Xem thêm" ở cấp domain vẫn hoạt động; mở rộng tính lại nhóm trang', async () => {
+    const { SearchResults } = await import('../../src/ui/features/search/SearchResults')
+    wrap(
+      <SearchResults
+        sources={[
+          source(
+            [
+              snote('n1', 'https://pho.vn/a'),
+              snote('n2', 'https://pho.vn/a'),
+              snote('n3', 'https://pho.vn/a'),
+              snote('n4', 'https://pho.vn/b'), // note thứ 4 ban đầu ẩn, URL khác → nhóm mới sau khi mở
+            ],
+            { note_count: 12 },
+          ),
+        ]}
+        onOpenNote={() => undefined}
+      />,
+    )
+    await screen.findByText('Phở n1')
+    expect(screen.queryByRole('region', { name: 'Trang pho.vn/b' })).toBeNull() // chưa tải n4
+    fireEvent.click(screen.getByRole('button', { name: 'Xem thêm 1 ghi chú' }))
+    expect(await screen.findByText('Phở n4')).toBeTruthy()
+    expect(screen.getByRole('region', { name: 'Trang pho.vn/b' })).toBeTruthy()
+    expect(screen.getByText(/và 8 ghi chú khác trong nguồn này/)).toBeTruthy()
+  })
+})

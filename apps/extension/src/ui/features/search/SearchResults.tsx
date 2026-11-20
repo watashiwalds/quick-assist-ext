@@ -2,14 +2,18 @@
  * Kết quả tìm kiếm nhóm theo nguồn (Phase 2 — UX plan §5.2): tối đa 5 nhóm nguồn,
  * mỗi nhóm 3 ghi chú + "Xem thêm" (API trả tối đa 10 note/nguồn). Dùng chung cho
  * Thư viện (tab tìm gộp) và tab Tìm kiếm để không có hai cách hiển thị lệch nhau.
+ * ADR-0018: trong mỗi nhóm domain, các note có URL khác nhau gom thành NHÓM CON theo
+ * TRANG (raw URL bỏ query/hash); chỉ hiện header trang khi nhóm có > 1 trang.
  */
 import { useEffect, useState } from 'react'
 import type { SearchNote, SearchSource } from '@/shared/api/types'
+import { groupByPage } from '@/shared/source'
 import { Button, ConfidenceBadge, GroupSection } from '../../components'
 
 const INITIAL_NOTES = 3
 
-const sourceKey = (s: SearchSource) => s.domain ?? '__unknown__'
+/** Khoá nhóm nguồn: document_id tránh trùng key khi hai tài liệu khác nhau cùng domain. */
+const sourceKey = (s: SearchSource) => s.document_id ?? s.domain ?? '__unknown__'
 
 export function SearchResults({
   sources,
@@ -41,6 +45,7 @@ export function SearchResults({
         const visible = open ? s.notes : s.notes.slice(0, INITIAL_NOTES)
         const hiddenLoaded = s.notes.length - visible.length
         const beyondLoaded = Math.max(0, s.note_count - s.notes.length)
+        const pages = groupByPage(visible)
         return (
           <GroupSection
             key={key}
@@ -50,11 +55,33 @@ export function SearchResults({
             collapsed={collapsed.has(key)}
             onToggle={() => setCollapsed((c) => toggle(c, key))}
           >
-            <ol className="list hit-list">
-              {visible.map((n) => (
-                <SearchNoteCard key={n.note_id} note={n} onOpenNote={onOpenNote} />
-              ))}
-            </ol>
+            {pages.length <= 1 ? (
+              <ol className="list hit-list">
+                {visible.map((n) => (
+                  <SearchNoteCard key={n.note_id} note={n} onOpenNote={onOpenNote} />
+                ))}
+              </ol>
+            ) : (
+              pages.map((p) => (
+                <section key={p.key} className="source-page" aria-label={`Trang ${p.label}`}>
+                  <p className="source-page-head">
+                    {p.url ? (
+                      <a className="source-page-label" href={p.url} target="_blank" rel="noreferrer noopener" title={p.url}>
+                        {p.label}
+                      </a>
+                    ) : (
+                      <span className="source-page-label">{p.label}</span>
+                    )}
+                    <span className="source-page-count">{p.items.length} ghi chú</span>
+                  </p>
+                  <ol className="list hit-list">
+                    {p.items.map((n) => (
+                      <SearchNoteCard key={n.note_id} note={n} onOpenNote={onOpenNote} />
+                    ))}
+                  </ol>
+                </section>
+              ))
+            )}
             {(hiddenLoaded > 0 || beyondLoaded > 0) && (
               <div className="source-group-more">
                 {hiddenLoaded > 0 && (
