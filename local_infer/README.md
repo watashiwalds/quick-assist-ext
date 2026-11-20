@@ -29,6 +29,10 @@ curl -s http://127.0.0.1:8080/models | python3 -m json.tool   # thấy "chat" v�
 curl -s http://127.0.0.1:8080/v1/chat/completions -H 'Content-Type: application/json' \
   -d '{"model":"chat","messages":[{"role":"user","content":"xin chào"}],"max_tokens":20}'
 
+# Chat cho evaluation (không giữ cache giữa các request — xem mục 4.1):
+curl -s http://127.0.0.1:8080/v1/chat/completions -H 'Content-Type: application/json' \
+  -d '{"model":"chat-eval","messages":[{"role":"user","content":"xin chào"}],"max_tokens":20,"temperature":0}'
+
 # Embedding:
 curl -s http://127.0.0.1:8080/v1/embeddings -H 'Content-Type: application/json' \
   -d '{"model":"embed","input":["kiểm tra"]}' | head -c 300
@@ -92,6 +96,56 @@ Key trong INI = tên dài của flag llama-server bỏ `--` (`ctx-size = 32768` 
 
 Mẹo tiết kiệm RAM: nếu muốn embedding chỉ ở trạng thái sẵn sàng (load khi request đầu tiên),
 đặt `load-on-startup = false` ở section `[embed]`.
+
+Ghi chú: section global phải viết là `[*]` (không phải `[DEFAULT]` — chữ hoa bị coi là
+một model tên `DEFAULT`).
+
+### 4.1. Preset `chat-eval` cho evaluation
+
+`[chat-eval]` là cùng model chat nhưng **không lưu cache giữa các request**:
+
+- `cache-ram = 0` — bỏ prompt cache trong RAM host (mặc định tới 8192 MiB).
+- `ctx-checkpoints = 0` — bỏ checkpoint mỗi slot (mặc định 32 × ~50 MiB).
+  Model dùng MTP/speculative decoding nên tắt checkpoint sẽ chậm hơn đôi chút,
+  nhưng **không đổi output**; cần tốc độ thì đổi thành `2`.
+- `cache-prompt = false`, `cache-idle-slots = false` — mỗi sample eval lại prompt
+  từ đầu, tránh kết quả phụ thuộc thứ tự chạy.
+
+Cách dùng: gửi `"model": "chat-eval"` (thay cho `"chat"`). Section này đặt
+`load-on-startup = false` nên chỉ load khi có request đầu tiên; router sẽ tự unload
+bớt model khác vì `--models-max 2`.
+
+### 4.2. ⚠ Chuyển đổi giữa `chat` và `chat-eval` trên GPU nhỏ
+
+`chat` và `chat-eval` dùng cùng 1 file GGUF nhưng là **2 process riêng**, mỗi cái
+chiếm ~2.5 GB VRAM. Trên GPU 4 GB **không thể có cả hai cùng lúc**. Router chỉ
+đếm số model theo `--models-max 2` (không biết VRAM), nên khi cần load model thứ 3
+nó unload model **ít dùng nhất** — có thể là `embed` (chạy CPU, không giải phóng
+VRAM) → model mới load fail với lỗi 500 `CUDA ... out of memory`.
+
+Vì vậy, khi đổi chế độ, **unload model GPU còn lại trước**:
+
+```bash
+# Trước khi chạy eval (chat đang loaded):
+curl -s -X POST -H 'Authorization: Bearer local' http://127.0.0.1:8080/models/unload \
+  -d '{"model":"chat"}'
+
+# Sau khi eval xong, quay lại dùng thường:
+curl -s -X POST -H 'Authorization: Bearer local' http://127.0.0.1:8080/models/unload \
+  -d '{"model":"chat-eval"}'
+
+# Xem trạng thái: curl -s -H 'Authorization: Bearer local' :8080/models | python3 -m json.tool
+```
+
+Nếu vẫn gặp 500 `failed to load`: unload model GPU đang loaded rồi gọi lại request.
+
+Lưu ý khi chấm điểm:
+
+- **Không hạ `ctx-size` để tiết kiệm RAM** — prompt bị cắt sẽ làm điểm eval sai lệch.
+  Đo độ dài token lớn nhất của bộ eval trước, rồi đặt `ctx-size` ≥ mức đó.
+- Đặt `temperature = 0` và seed cố định ở phía client để tái lập kết quả.
+- RAM cao do `mmap` GGUF (page cache) là bình thường và có thể thu hồi; kiểm tra
+  `RssAnon`/`VmSwap` trong `/proc/<pid>/status` nếu nghi ngờ thiếu RAM thật.
 
 ## 5. Quay lại cách chạy cũ
 
