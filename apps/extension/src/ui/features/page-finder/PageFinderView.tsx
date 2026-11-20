@@ -19,8 +19,10 @@ import { type SerializedError, toSerialized } from '@/shared/errors'
 import { rpc } from '@/shared/messaging/client'
 import type { PageMatchRun } from '@/shared/messaging/protocol'
 import { buildNoteParts, estimateChunks, resolveSplitChars } from '@/shared/notes/split'
+import { sourceLabel, type SourceRef } from '@/shared/source'
 import { Banner, Button, ConfidenceBadge, ConfirmDialog, EmptyState, ErrorState, Icon, Modal, PaneHeader, ProgressBar, Select, TextArea, useToast } from '../../components'
 import { useBroadcast } from '../../lib/hooks'
+import { SourceChip } from './SourceChip'
 
 export { buildNoteParts } from '@/shared/notes/split'
 
@@ -111,6 +113,7 @@ export function PageFinderView({ folders, onGoSettings, splitChars }: { folders:
   const [error, setError] = useState<SerializedError>()
   const [pasteMode, setPasteMode] = useState(false)
   const [pasted, setPasted] = useState('')
+  const [source, setSource] = useState<SourceRef | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [folderId, setFolderId] = useState('')
   const [saving, setSaving] = useState(false)
@@ -158,6 +161,37 @@ export function PageFinderView({ folders, onGoSettings, splitChars }: { folders:
     }
   }, [pasteMode])
 
+  /** Lấy tab đang mở làm nguồn tham chiếu (ADR-0018). Không ghi đè nguồn đã có trừ khi `force`
+   *  (nút "Lấy lại tab"). Lỗi đọc tab (trang hệ thống, thiếu quyền…) → chip giữ trạng thái hiện tại. */
+  const captureTabSource = (force = false) => {
+    void (async () => {
+      try {
+        const s = await rpc('pageMatch/source')
+        if (!s || typeof s.url !== 'string' || !/^https?:/.test(s.url)) return
+        setSource((cur) => (force || cur === null ? { url: s.url, title: s.title ?? '', kind: 'tab' } : cur))
+      } catch {
+        /* im lặng — người dùng vẫn có thể nhập URL tay */
+      }
+    })()
+  }
+
+  // Vào chế độ dán → thử lấy tab hiện tại một lần.
+  useEffect(() => {
+    if (pasteMode) captureTabSource()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pasteMode])
+
+  const setManualSource = (raw: string): boolean => {
+    try {
+      const u = new URL(raw.trim())
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return false
+      setSource({ url: u.href, title: '', kind: 'manual' })
+      return true
+    } catch {
+      return false
+    }
+  }
+
   const scan = async (scanAll: boolean) => {
     const q = query.trim()
     if (!q || phase !== 'idle' || checking || (pasteMode && !pasted.trim())) return
@@ -170,7 +204,7 @@ export function PageFinderView({ folders, onGoSettings, splitChars }: { folders:
     setResult(undefined)
     try {
       const r = await rpc('pageMatch/run', pasteMode
-        ? { query: q, text: pasted, scanAll, requestId }
+        ? { query: q, text: pasted, url: source?.url, title: source?.title || undefined, scanAll, requestId }
         : { query: q, scanAll, requestId })
       setResult(r)
       // Đoạn đã được AI thẩm định được tích sẵn; kết quả fallback để người dùng tự chọn.
@@ -277,12 +311,14 @@ export function PageFinderView({ folders, onGoSettings, splitChars }: { folders:
     setConfirm(undefined)
     setSaving(true)
     const title = query.trim().slice(0, 480) || result.title
+    // Nguồn dán dùng nguồn tham chiếu người dùng chọn; nguồn trang dùng URL tab đã quét (ADR-0018).
+    const noteUrl = result.tabId == null ? (source?.url ?? null) : (result.url ?? null)
     try {
       // Một tài liệu = nhiều part cùng document_id, tạo atomic ở server (D2).
       await rpc('notes/create', {
         ...(parts.length > 1 ? { parts, documentId: crypto.randomUUID() } : { content: parts[0] ?? '' }),
         title,
-        url: result.url ?? null,
+        url: noteUrl,
         folderId: folderId || null,
       })
       toast(
@@ -339,12 +375,14 @@ export function PageFinderView({ folders, onGoSettings, splitChars }: { folders:
           )}
           {pasteMode && (
             <div className="stack">
+              <SourceChip source={source} onCapture={() => captureTabSource(true)} onClear={() => setSource(null)} onManual={setManualSource} />
               <TextArea
                 aria-label="Nội dung để quét"
                 rows={4}
                 value={pasted}
                 placeholder="Dán nội dung vào đây (Ctrl+V)…"
                 onChange={(e) => setPasted(e.target.value)}
+                onPaste={() => captureTabSource()}
               />
               <small className="muted">{pasted.length.toLocaleString('vi-VN')} ký tự · nội dung dài sẽ hỏi phạm vi quét trước</small>
             </div>
@@ -401,6 +439,14 @@ export function PageFinderView({ folders, onGoSettings, splitChars }: { folders:
                     <Icon name="locate" size={14} />
                     Xem tất cả trên trang
                   </Button>
+                )}
+                {fromPaste && source && (
+                  <p className="pf-source-ref">
+                    Nguồn tham chiếu:{' '}
+                    <a href={source.url} target="_blank" rel="noreferrer noopener" title={`Mở trang nguồn: ${source.url}`}>
+                      {sourceLabel(source.url) ?? source.url}
+                    </a>
+                  </p>
                 )}
                 {sort === 'confidence' && <p className="pf-hint">Khi lưu, các đoạn xếp theo thứ tự trong trang.</p>}
               </div>
@@ -517,7 +563,7 @@ export function PageFinderView({ folders, onGoSettings, splitChars }: { folders:
                           variant="link"
                           size="sm"
                           disabled={fromPaste}
-                          title={fromPaste ? 'Nội dung dán không có trang gốc để xem' : undefined}
+                          title={fromPaste ? 'Nội dung dán không có trang gốc để xem; nguồn tham chiếu chỉ để mở lại bài' : undefined}
                           onClick={() => void highlight([it])}
                         >
                           Xem trên trang

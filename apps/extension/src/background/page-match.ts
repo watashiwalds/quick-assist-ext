@@ -64,6 +64,9 @@ export function cancelPageMatch(requestId: string): void {
 interface RunArgs {
   query: string
   text?: string
+  /** Nguồn tham chiếu cho nội dung dán (ADR-0018) — chỉ metadata, không dùng để highlight. */
+  url?: string
+  title?: string
   scanAll?: boolean
   requestId?: string
 }
@@ -118,12 +121,21 @@ async function streamMatch(body: PageMatchRequest, requestId?: string): Promise<
   return out.result
 }
 
-export async function runPageMatch({ query, text, scanAll = false, requestId }: RunArgs): Promise<PageMatchRun> {
+/** Nguồn tham chiếu cho nội dung dán (ADR-0018): tab đang mở nếu đọc được URL http(s), ngược lại null.
+ *  Chỉ đọc metadata tab (activeTab + optional host) — không tiêm script, không thêm quyền. */
+export async function getActiveTabSource(): Promise<{ url: string; title: string } | null> {
+  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true })
+  const url = tab?.url
+  if (!url || !/^https?:/.test(url)) return null
+  return { url, title: (tab.title ?? '').slice(0, 500) }
+}
+
+export async function runPageMatch({ query, text, url, title, scanAll = false, requestId }: RunArgs): Promise<PageMatchRun> {
   if (text !== undefined) {
     // Nguồn dán: không cần tab/quyền đọc trang; tiến độ nhảy thẳng sang bước trích/embed.
     if (!text.trim()) throw new AppError('PAGE_NO_CONTENT', 'Nội dung dán đang trống', 422)
-    const result = await streamMatch({ query, text, url: null, scan_all: scanAll }, requestId)
-    return { ...result, url: null, title: null }
+    const result = await streamMatch({ query, text, url: url ?? null, title: title ?? null, scan_all: scanAll }, requestId)
+    return { ...result, tabId: undefined, url: url ?? null, title: title ?? null }
   }
 
   const tab = await activeTab()

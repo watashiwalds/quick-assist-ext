@@ -65,7 +65,9 @@ export interface Preferences {
 }
 
 /** Kết quả quét (AutoChunk) + tab đã quét (để highlight đúng tab dù người dùng chuyển tab).
- *  `tabId` chỉ có khi nguồn là trang đang mở; nội dung dán không có trang gốc nên `url` = null. */
+ *  `tabId` chỉ có khi nguồn là trang đang mở. Nguồn dán không có trang gốc: `url`/`title` là
+ *  NGUỒN THAM CHIẾU người dùng chọn (tab đang mở hoặc nhập tay — ADR-0018), có thể null và
+ *  KHÔNG dùng để highlight. */
 export type PageMatchRun = PageMatchResult & { tabId?: number; url: string | null; title: string | null }
 
 export interface RpcMap {
@@ -123,8 +125,11 @@ export interface RpcMap {
   /** AutoChunk: ước lượng độ dài văn bản trang trước khi quét (không tải HTML lên server). */
   'pageMatch/inspect': { req: void; res: { textChars: number; url: string; title: string } }
   /** AutoChunk: quét tab đang xem hoặc nội dung dán (`text`) theo truy vấn (POST /ai/page-match/stream).
-   *  `scanAll` = bỏ trần 50k, chia lô; `requestId` để UI huỷ giữa chừng qua `pageMatch/cancel`. */
-  'pageMatch/run': { req: { query: string; text?: string; scanAll?: boolean; requestId?: string }; res: PageMatchRun }
+   *  `scanAll` = bỏ trần 50k, chia lô; `requestId` để UI huỷ giữa chừng qua `pageMatch/cancel`.
+   *  Nguồn dán có thể kèm `url`/`title` = nguồn tham chiếu (ADR-0018), chỉ metadata. */
+  'pageMatch/run': { req: { query: string; text?: string; url?: string; title?: string; scanAll?: boolean; requestId?: string }; res: PageMatchRun }
+  /** Nguồn tham chiếu cho nội dung dán (ADR-0018): tab đang mở nếu đọc được URL http(s), ngược lại null. */
+  'pageMatch/source': { req: void; res: { url: string; title: string } | null }
   /** AutoChunk: huỷ lần quét đang chạy (đóng fetch, server release quota giữ chỗ). */
   'pageMatch/cancel': { req: { requestId: string }; res: void }
   /** AutoChunk: cuộn tới + làm nổi bật các đoạn trên trang đã quét. */

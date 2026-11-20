@@ -693,6 +693,25 @@ a.note-item:hover { background: var(--surface); text-decoration: none; }
 .pf-headline { margin: 0; max-width: 24ch; font-size: 18px; font-weight: 650; line-height: 1.45; letter-spacing: -0.015em; color: var(--fg-strong); }
 .pf-lede { margin: 8px 0 0; max-width: 36ch; font-size: 13px; line-height: 1.6; color: var(--muted); }
 .pf-composer { display: grid; gap: 8px; margin-top: auto; }
+
+/* Nguồn tham chiếu khi dán nội dung (ADR-0018): chip sửa/bỏ/nhập tay. */
+.paste-source { display: grid; gap: 4px; padding: 7px 8px; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--surface); font-size: 12px; }
+.paste-source-info { display: flex; align-items: flex-start; gap: 6px; min-width: 0; }
+.paste-source-info > .icon { flex: none; width: 13px; height: 13px; margin-top: 2px; color: var(--muted); }
+.paste-source-text { display: grid; gap: 1px; min-width: 0; flex: 1; }
+.paste-source-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg); }
+.paste-source-url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.paste-source-url:hover { color: var(--accent); }
+.paste-source-actions { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.paste-source-empty { color: var(--muted); }
+.paste-source-manual { display: grid; gap: 4px; }
+.paste-source-manual-row { display: flex; gap: 6px; align-items: center; }
+.paste-source-manual-row input { flex: 1; min-width: 0; font-size: 12px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); }
+.paste-source-manual-row input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.paste-source-error { margin: 0; font-size: 11px; color: var(--danger); }
+.pf-source-ref { margin: 0; font-size: 12px; color: var(--muted); }
+.pf-source-ref a { color: var(--accent); }
+
 .pf-status { display: flex; align-items: center; gap: 7px; margin: 0; font-size: 12px; color: var(--muted); }
 .pf-status .status-dot { width: 7px; height: 7px; background: var(--muted); }
 .pf-status.is-ready .status-dot { background: var(--ok); box-shadow: 0 0 0 3px var(--ok-bg); }

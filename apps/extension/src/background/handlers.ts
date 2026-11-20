@@ -15,7 +15,7 @@ import { broadcast } from './broadcast'
 import { rememberFolders } from './menus'
 import { discardPending, flushOutbox, listPending, retryPending, undoQuickNote } from './notes/quick-note'
 import { syncNotes } from './notes/sync'
-import { cancelPageMatch, highlightInTab, inspectPage, runPageMatch } from './page-match'
+import { cancelPageMatch, getActiveTabSource, highlightInTab, inspectPage, runPageMatch } from './page-match'
 import { clearPrefs, getPrefs, setPrefs } from './prefs'
 import { takePendingSelection } from './selection'
 
@@ -228,7 +228,8 @@ export const handlers: Handlers = {
     return note
   },
   'pageMatch/inspect': () => inspectPage(),
-  'pageMatch/run': ({ query, text, scanAll, requestId }) => runPageMatch({ query, text, scanAll, requestId }),
+  'pageMatch/source': () => getActiveTabSource(),
+  'pageMatch/run': ({ query, text, url, title, scanAll, requestId }) => runPageMatch({ query, text, url, title, scanAll, requestId }),
   'pageMatch/cancel': ({ requestId }) => {
     cancelPageMatch(requestId)
     return Promise.resolve()
