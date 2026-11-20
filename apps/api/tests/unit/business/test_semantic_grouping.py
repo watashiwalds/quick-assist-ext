@@ -13,10 +13,14 @@ FOLDER = uuid.uuid4()
 
 def hit(note_id: uuid.UUID, *, domain: str | None = "a.example", similarity: float = 0.0,
         score: float = 0.0, text: str = "nội dung chunk", title: str | None = "Tiêu đề",
-        chunk_id: uuid.UUID | None = None) -> SearchResult:
+        chunk_id: uuid.UUID | None = None, document_id: uuid.UUID | None = None,
+        part_index: int = 0, part_count: int = 1,
+        source_type: str = "selection") -> SearchResult:
     return SearchResult(chunk_id or uuid.uuid4(), note_id, text, score, title,
                         f"https://{domain}/x" if domain else None, FOLDER,
-                        similarity, domain, None)
+                        similarity, domain, None,
+                        note_document_id=document_id, note_part_index=part_index,
+                        note_part_count=part_count, note_source_type=source_type)
 
 
 def by_label(sources, label: str):
@@ -101,6 +105,74 @@ def test_note_count_is_total_before_trim() -> None:
                               min_similarity=0.5, min_score=0.03)
     s = sources[0]
     assert s.note_count == 8 and len(s.notes) == 3  # trả 3 note, tổng 8
+
+
+def test_document_parts_group_by_document_id_not_domain() -> None:
+    doc, legacy = uuid.uuid4(), uuid.uuid4()
+    parts = [uuid.uuid4() for _ in range(3)]
+    results = [
+        hit(parts[0], document_id=doc, part_index=0, part_count=3, source_type="document",
+            title="Bài báo dài", similarity=0.6, score=0.04),
+        hit(parts[1], document_id=doc, part_index=1, part_count=3, source_type="document",
+            title="Bài báo dài", similarity=0.8, score=0.05),
+        hit(parts[2], document_id=doc, part_index=2, part_count=3, source_type="document",
+            title="Bài báo dài", similarity=0.55, score=0.04),
+        # Note cũ cùng domain vẫn là nguồn riêng, không bị gộp vào tài liệu.
+        hit(legacy, similarity=0.7, score=0.04, title="Note cũ"),
+    ]
+    sources = group_by_source(results, max_sources=5, notes_per_source=10,
+                              min_similarity=0.5, min_score=0.03)
+    assert len(sources) == 2
+    by_doc = next(s for s in sources if s.document_id == doc)
+    assert by_doc.label == "Bài báo dài" and by_doc.source_type == "document"
+    assert by_doc.note_count == 3
+    assert [n.part_index for n in by_doc.notes] == [1, 0, 2]  # relevance trước, part_index tie-break
+    assert by_doc.notes[0].part_count == 3
+    legacy_src = next(s for s in sources if s.document_id is None)
+    assert legacy_src.domain == "a.example" and legacy_src.notes[0].note_id == legacy
+
+
+def test_two_documents_same_domain_are_separate_sources() -> None:
+    d1, d2 = uuid.uuid4(), uuid.uuid4()
+    results = [
+        hit(uuid.uuid4(), document_id=d1, source_type="document", title="Bài một",
+            similarity=0.7, score=0.05),
+        hit(uuid.uuid4(), document_id=d2, source_type="document", title="Bài hai",
+            similarity=0.6, score=0.04),
+    ]
+    sources = group_by_source(results, max_sources=5, notes_per_source=10,
+                              min_similarity=0.5, min_score=0.03)
+    assert [s.label for s in sources] == ["Bài một", "Bài hai"]
+    assert {s.document_id for s in sources} == {d1, d2}
+    assert all(s.domain == "a.example" for s in sources)
+
+
+def test_document_without_url_is_not_forced_to_unknown_group() -> None:
+    doc = uuid.uuid4()
+    results = [
+        hit(uuid.uuid4(), document_id=doc, source_type="document", domain=None,
+            title="Tài liệu không URL", similarity=0.9, score=0.05),
+        hit(uuid.uuid4(), domain="b.example", similarity=0.6, score=0.04),
+        hit(uuid.uuid4(), domain=None, similarity=0.5, score=0.03),  # note cũ không rõ nguồn
+    ]
+    sources = group_by_source(results, max_sources=5, notes_per_source=10,
+                              min_similarity=0.5, min_score=0.03)
+    assert [s.label for s in sources] == ["Tài liệu không URL", "b.example", UNKNOWN_LABEL]
+    assert sources[-1].document_id is None
+
+
+def test_document_parts_capped_but_note_count_is_total() -> None:
+    doc = uuid.uuid4()
+    results = [
+        hit(uuid.uuid4(), document_id=doc, part_index=i, part_count=6, source_type="document",
+            title="Tài liệu", similarity=0.5 + i * 0.01, score=0.04)
+        for i in range(6)
+    ]
+    sources = group_by_source(results, max_sources=5, notes_per_source=2,
+                              min_similarity=0.5, min_score=0.03)
+    assert len(sources) == 1
+    assert sources[0].note_count == 6 and len(sources[0].notes) == 2
+    assert [n.part_index for n in sources[0].notes] == [5, 4]
 
 
 def test_empty_input_returns_empty_list() -> None:

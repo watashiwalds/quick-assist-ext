@@ -604,6 +604,13 @@ a.note-item:hover { background: var(--surface); text-decoration: none; }
 .reader-meta a:hover { text-decoration: underline; }
 .reader-body { font-size: 14px; line-height: 1.65; color: var(--fg); overflow-wrap: anywhere; }
 
+/* Tài liệu nhiều part (D2): danh sách phần trong reader gộp read-only */
+.doc-parts { display: grid; gap: 14px; margin: 16px 0 0; padding: 0; list-style: none; }
+.doc-part { padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.doc-part-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.doc-part-head strong { font-size: 12px; font-weight: 650; color: var(--fg-strong); }
+.doc-part-chars { font-size: 11px; color: var(--muted); }
+
 /* Card tóm tắt AI đã lưu */
 .summary-card { margin-top: 18px; padding: 11px 14px; background: var(--accent-soft); border: 1px solid var(--accent-soft-border); border-radius: var(--radius); }
 .summary-card summary { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 650; color: var(--accent); cursor: pointer; list-style: none; }

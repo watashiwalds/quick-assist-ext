@@ -19,7 +19,9 @@ async def search(body: SearchIn, user_id: CurrentUserId, session: DbSession, ai:
     return SearchOut(sources=[
         SearchSourceOut(
             domain=s.domain, label=s.label, source_rank=s.source_rank, note_count=s.note_count,
+            document_id=s.document_id, source_type=s.source_type,
             notes=[SearchNoteOut(note_id=n.note_id, title=n.title, url=n.url, summary=n.summary,
-                                 snippet=n.snippet, score=n.score, similarity=n.similarity)
+                                 snippet=n.snippet, score=n.score, similarity=n.similarity,
+                                 part_index=n.part_index, part_count=n.part_count)
                    for n in s.notes],
         ) for s in sources])

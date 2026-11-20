@@ -9,6 +9,8 @@ import { Icon } from './Icon'
 export function GroupSection({
   label,
   count,
+  countLabel,
+  ariaLabel,
   summary,
   collapsed,
   onToggle,
@@ -18,6 +20,10 @@ export function GroupSection({
 }: {
   label: string
   count: number
+  /** Nhãn số lượng (mặc định "N ghi chú") — tài liệu dùng "N phần". */
+  countLabel?: string
+  /** Nhãn vùng (mặc định "Nguồn <label>") — tài liệu dùng "Tài liệu <label>". */
+  ariaLabel?: string
   /** Tóm tắt từ ghi chú trong nhóm (đã cắt ngắn) — chỉ Thư viện dùng. */
   summary?: string | null
   collapsed: boolean
@@ -31,7 +37,7 @@ export function GroupSection({
   const autoId = useId()
   const id = bodyId ?? autoId
   return (
-    <section className="source-group" aria-label={`Nguồn ${label}`}>
+    <section className="source-group" aria-label={ariaLabel ?? `Nguồn ${label}`}>
       <div className="source-group-head">
         <button
           type="button"
@@ -44,7 +50,7 @@ export function GroupSection({
           <span className="source-group-label" title={label}>
             {label}
           </span>
-          <span className="source-group-count">{count} ghi chú</span>
+          <span className="source-group-count">{countLabel ?? `${count} ghi chú`}</span>
         </button>
         {actions && <div className="source-group-actions">{actions}</div>}
       </div>

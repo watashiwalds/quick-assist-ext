@@ -258,6 +258,8 @@ NoteOut += {
 
 **Ưu điểm:** tận dụng hạ tầng note/chunk hiện có; **nhược điểm:** cần quy ước chia, xử lý overlap, và UI phải gộp note theo document.
 
+Kế hoạch triển khai chi tiết (D2, chia 3 lát): [`docs/ideas/tai-lieu-dai-nhieu-phan.md`](../docs/ideas/tai-lieu-dai-nhieu-phan.md).
+
 ### 4.3 Ưu tiên 2 — Nâng trần có kiểm soát
 
 - Tăng `max_note_chars` lên 100.000–200.000 cho **user/workspace được phép**, giữ 20k mặc định.

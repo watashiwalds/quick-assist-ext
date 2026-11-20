@@ -24,6 +24,19 @@ class NoteRepository:
             stmt = stmt.with_for_update()
         return (await self.s.execute(stmt)).scalar_one_or_none()
 
+    async def list_document_parts(
+        self, user_id: uuid.UUID, document_id: uuid.UUID, *, for_update: bool = False,
+        include_deleted: bool = False,
+    ) -> list[Note]:
+        """Các part của một tài liệu, theo ``part_index`` tăng dần (D2)."""
+        stmt = select(Note).where(Note.user_id == user_id, Note.document_id == document_id)
+        if not include_deleted:
+            stmt = stmt.where(Note.deleted_at.is_(None))
+        if for_update:
+            stmt = stmt.with_for_update()
+        stmt = stmt.order_by(Note.part_index, Note.id)
+        return list((await self.s.execute(stmt)).scalars())
+
     async def get_any(self, note_id: uuid.UUID) -> Note | None:
         """Không lọc user — CHỈ dùng trong job nền (đã có note_id từ hệ thống)."""
         return await self.s.get(Note, note_id)
@@ -51,6 +64,12 @@ class NoteRepository:
         await self.s.flush()
         await self.s.refresh(note)
         return note
+
+    async def add_many(self, notes: list[Note]) -> list[Note]:
+        """Thêm nhiều note trong CÙNG transaction; caller tự refresh bản cần trả về."""
+        self.s.add_all(notes)
+        await self.s.flush()
+        return notes
 
     async def soft_delete_many(self, user_id: uuid.UUID, ids: list[uuid.UUID]) -> list[uuid.UUID]:
         stmt = (

@@ -13,7 +13,7 @@ import { useAction, useAsync, useBroadcast } from '../../lib/hooks'
 import { SearchResults } from '../search/SearchResults'
 import { countSearchNotes } from '../search/searchSummary'
 import { FolderManager } from './FolderManager'
-import { groupNotesBySource } from './groupNotes'
+import { groupNotesBySource, type NoteEntry } from './groupNotes'
 import { MoveNotesDialog } from './MoveNotesDialog'
 import { NoteCard } from './NoteCard'
 import { NoteReader } from './NoteReader'
@@ -30,6 +30,7 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [active, setActive] = useState<Note | null>(null)
   const [confirmIds, setConfirmIds] = useState<string[] | null>(null)
+  const [confirmUnits, setConfirmUnits] = useState(1)
   const [managing, setManaging] = useState(false)
   const [highlight, setHighlight] = useState<string | null>(null)
   const folders = useAsync(() => rpc('folders/list'), [])
@@ -88,19 +89,41 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
 
   const folderName = useMemo(() => new Map((folders.data ?? []).map((f) => [f.id, f.name])), [folders.data])
   const resultNotes = useMemo(() => (hits ? countSearchNotes(hits) : 0), [hits])
-  const visible = useMemo(() => {
-    const q = filter.trim().toLocaleLowerCase('vi')
+  const groups = useMemo(() => {
     const list = notes.data ?? []
-    if (!q) return list
-    return list.filter((n) => `${n.title ?? ''} ${n.content} ${n.domain ?? ''}`.toLocaleLowerCase('vi').includes(q))
+    const q = filter.trim().toLocaleLowerCase('vi')
+    if (!q) return groupNotesBySource(list)
+    // Lọc theo mục: part nào khớp cũng giữ toàn bộ tài liệu (nhãn/part 0 không bị mất).
+    const hit = (n: Note) => `${n.title ?? ''} ${n.content} ${n.domain ?? ''}`.toLocaleLowerCase('vi').includes(q)
+    const docHits = new Set(list.filter((n) => n.document_id && hit(n)).map((n) => n.document_id!))
+    return groupNotesBySource(list.filter((n) => hit(n) || (n.document_id && docHits.has(n.document_id))))
   }, [notes.data, filter])
-  const groups = useMemo(() => groupNotesBySource(visible), [visible])
+  const entries = useMemo(() => groups.flatMap((g) => g.entries), [groups])
+  /** Số MỤC đã chọn trọn vẹn (tài liệu = 1 mục dù nhiều part). */
+  const selectedUnits = useMemo(
+    () => entries.filter((e) => e.notes.every((n) => selected.has(n.id))).length,
+    [entries, selected],
+  )
+  const activeEntry = useMemo(
+    () => entries.find((e) => e.notes.some((n) => n.id === active?.id)),
+    [entries, active?.id],
+  )
 
   const replace = (n: Note) => {
     notes.setData((notes.data ?? []).map((x) => (x.id === n.id ? n : x)).filter((x) => !folderId || x.folder_id === folderId))
     setActive((cur) => (cur?.id === n.id ? n : cur))
   }
-  const toggle = (id: string) => setSelected((s) => (s.has(id) ? (s.delete(id), new Set(s)) : new Set(s.add(id))))
+  // Chọn/bỏ chọn một MỤC: tài liệu chọn tất cả part để xoá/chuyển đồng bộ.
+  const toggleEntry = (entry: NoteEntry) =>
+    setSelected((s) => {
+      const all = entry.notes.every((n) => s.has(n.id))
+      const next = new Set(s)
+      for (const n of entry.notes) {
+        if (all) next.delete(n.id)
+        else next.add(n.id)
+      }
+      return next
+    })
   // "Chọn cả nhóm": chọn/bỏ chọn đúng các note đang hiện trong nhóm — không tự move.
   const toggleGroup = (ids: string[]) =>
     setSelected((s) => {
@@ -200,7 +223,7 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
                   ? `${hits.length} nguồn · ${resultNotes} ghi chú cho “${asked}”`
                   : ''
               : !notes.loading && !notes.error
-                ? `${visible.length} ghi chú`
+                ? `${entries.length} mục`
                 : undefined
           }
           actions={
@@ -289,16 +312,24 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
               <PendingNotes />
               {selectMode && (
                 <div className="row spread selection-bar">
-                  <span>Đã chọn {selected.size}</span>
+                  <span>Đã chọn {selectedUnits}</span>
                   <div className="row">
-                    <Button size="sm" variant="ghost" onClick={() => setSelected(new Set(visible.map((n) => n.id)))}>
+                    <Button size="sm" variant="ghost" onClick={() => setSelected(new Set(entries.flatMap((e) => e.notes.map((n) => n.id))))}>
                       Chọn tất cả
                     </Button>
                     <Button size="sm" variant="ghost" disabled={selected.size === 0} onClick={() => setMoveOpen(true)}>
                       Chuyển thư mục
                     </Button>
-                    <Button size="sm" variant="danger" disabled={selected.size === 0} onClick={() => setConfirmIds([...selected])}>
-                      Xoá ({selected.size})
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      disabled={selected.size === 0}
+                      onClick={() => {
+                        setConfirmUnits(selectedUnits)
+                        setConfirmIds([...selected])
+                      }}
+                    >
+                      Xoá ({selectedUnits})
                     </Button>
                   </div>
                 </div>
@@ -309,17 +340,20 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
               {notes.data?.length === 0 && (
                 <EmptyState title="Chưa có ghi chú">Bôi đen văn bản trên trang → chuột phải → “Ghi chú văn bản này” (hoặc Alt+Shift+N).</EmptyState>
               )}
-              {!!notes.data?.length && visible.length === 0 && <EmptyState title="Không có ghi chú khớp bộ lọc" />}
+              {!!notes.data?.length && entries.length === 0 && <EmptyState title="Không có ghi chú khớp bộ lọc" />}
               <div className="note-groups">
                 {groups.map((g) => {
-                  const key = g.domain ?? '__unknown__'
+                  const key = g.key
                   const ids = g.notes.map((n) => n.id)
                   const allSelected = ids.length > 0 && ids.every((id) => selected.has(id))
+                  const isDoc = g.kind === 'document'
                   return (
                     <GroupSection
                       key={key}
                       label={g.label}
-                      count={g.notes.length}
+                      count={isDoc ? g.notes.length : g.entries.length}
+                      countLabel={isDoc ? `${g.notes.length} phần` : undefined}
+                      ariaLabel={isDoc ? `Tài liệu ${g.label}` : undefined}
                       summary={g.summary}
                       collapsed={collapsedGroups.has(key)}
                       onToggle={() =>
@@ -334,19 +368,23 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
                       }
                     >
                       <ul className="note-list">
-                        {g.notes.map((n) => (
-                          <NoteCard
-                            key={n.id}
-                            note={n}
-                            folderName={folderId ? undefined : folderName.get(n.folder_id)}
-                            selectMode={selectMode}
-                            selected={selected.has(n.id)}
-                            active={active?.id === n.id}
-                            highlight={highlight === n.id}
-                            onToggle={() => toggle(n.id)}
-                            onOpen={() => setActive(n)}
-                          />
-                        ))}
+                        {g.entries.map((entry) => {
+                          const n = entry.note
+                          const entryIds = entry.notes.map((x) => x.id)
+                          return (
+                            <NoteCard
+                              key={entry.key}
+                              note={n}
+                              folderName={folderId ? undefined : folderName.get(n.folder_id)}
+                              selectMode={selectMode}
+                              selected={entryIds.every((id) => selected.has(id))}
+                              active={!!active?.id && entryIds.includes(active.id)}
+                              highlight={!!highlight && entryIds.includes(highlight)}
+                              onToggle={() => toggleEntry(entry)}
+                              onOpen={() => setActive(n)}
+                            />
+                          )
+                        })}
                       </ul>
                     </GroupSection>
                   )
@@ -360,10 +398,15 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
       <div className="reader-pane">
         <NoteReader
           note={active}
+          parts={activeEntry?.notes}
           folders={folders.data ?? []}
           onClose={() => setActive(null)}
           onSaved={replace}
-          onDelete={(n) => setConfirmIds([n.id])}
+          onDelete={(n) => {
+            const e = entries.find((x) => x.notes.some((p) => p.id === n.id))
+            setConfirmUnits(1)
+            setConfirmIds(e ? e.notes.map((p) => p.id) : [n.id])
+          }}
           onGoSettings={onGoSettings}
         />
       </div>
@@ -371,7 +414,7 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
       <FolderManager open={managing} folders={folders.data ?? []} onClose={() => setManaging(false)} onChanged={() => void folders.reload().then(notes.reload)} />
       <MoveNotesDialog
         open={moveOpen}
-        count={selected.size}
+        count={selectedUnits}
         folders={folders.data ?? []}
         busy={move.busy}
         onCancel={() => setMoveOpen(false)}
@@ -379,8 +422,12 @@ export function NotesView({ openNoteId, onOpened, onGoSettings }: { openNoteId?:
       />
       <ConfirmDialog
         open={!!confirmIds}
-        title={confirmIds && confirmIds.length > 1 ? `Xoá ${confirmIds.length} ghi chú?` : 'Xoá ghi chú?'}
-        message="Ghi chú sẽ bị xoá khỏi thư viện và kết quả tìm kiếm trên mọi thiết bị."
+        title={confirmUnits > 1 ? `Xoá ${confirmUnits} mục?` : 'Xoá ghi chú?'}
+        message={
+          confirmIds && confirmIds.length > 1
+            ? 'Mục đã chọn (gồm mọi phần của tài liệu) sẽ bị xoá khỏi thư viện và kết quả tìm kiếm trên mọi thiết bị.'
+            : 'Ghi chú sẽ bị xoá khỏi thư viện và kết quả tìm kiếm trên mọi thiết bị.'
+        }
         confirmLabel="Xoá"
         danger
         busy={del.busy}

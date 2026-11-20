@@ -31,20 +31,37 @@ async def create_note(
     body: NoteCreateIn, user_id: CurrentUserId, session: DbSession,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key", max_length=100),
 ) -> NoteOut:
-    cmd = CreateNoteCommand(content=body.content, url=str(body.url) if body.url else None,
-                            title=body.title, folder_id=body.folder_id)
-    return NoteOut.model_validate(await NotesService(session).create(user_id, cmd, idempotency_key))
+    cmd = CreateNoteCommand(
+        content=body.content,
+        url=str(body.url) if body.url else None,
+        title=body.title,
+        folder_id=body.folder_id,
+        document_id=body.document_id,
+        parts=tuple(body.parts) if body.parts is not None else None,
+    )
+    service = NotesService(session)
+    note = await service.create(user_id, cmd, idempotency_key)
+    out = NoteOut.model_validate(note)
+    if note.document_id is not None:  # response tạo mới kèm thứ tự part để client poll
+        out.part_ids = [p.id for p in await service.list_document_parts(user_id, note.document_id)]
+    return out
 
 
 @router.get("", response_model=Page[NoteOut])
 async def list_notes(
     user_id: CurrentUserId, session: DbSession,
     folder_id: uuid.UUID | None = None,
+    document_id: uuid.UUID | None = Query(
+        default=None, description="Lấy mọi part của một tài liệu, theo part_index"),
     updated_since: datetime | None = Query(default=None, description="Sync tăng dần; có kèm tombstone"),
     cursor: str | None = None,
     limit: int = Query(default=50, ge=1, le=200),
 ) -> Page[NoteOut]:
-    items, nxt = await NotesService(session).list_page(
+    service = NotesService(session)
+    if document_id is not None:
+        parts = await service.list_document_parts(user_id, document_id)
+        return Page[NoteOut](items=[NoteOut.model_validate(n) for n in parts], next_cursor=None)
+    items, nxt = await service.list_page(
         user_id, folder_id=folder_id, updated_since=updated_since, cursor=cursor, limit=limit)
     return Page[NoteOut](items=[NoteOut.model_validate(n) for n in items], next_cursor=nxt)
 
@@ -59,7 +76,7 @@ async def get_note(note_id: uuid.UUID, user_id: CurrentUserId, session: DbSessio
 async def update_note(note_id: uuid.UUID, body: NoteUpdateIn, user_id: CurrentUserId,
                       session: DbSession) -> NoteOut:
     cmd = UpdateNoteCommand(version=body.version, content=body.content, title=body.title,
-                            folder_id=body.folder_id)
+                            url=str(body.url) if body.url else None, folder_id=body.folder_id)
     return NoteOut.model_validate(await NotesService(session).update(user_id, note_id, cmd))
 
 

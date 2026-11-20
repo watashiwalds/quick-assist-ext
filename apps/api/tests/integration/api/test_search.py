@@ -49,10 +49,14 @@ async def test_grouped_contract_and_sources_ranked(client) -> None:
     body = r.json()
     assert r.status_code == 200 and 1 <= len(body["sources"]) <= 5
     src = body["sources"][0]
-    assert set(src) == {"domain", "label", "source_rank", "note_count", "notes"}
+    assert set(src) == {"domain", "label", "source_rank", "note_count", "notes",
+                        "document_id", "source_type"}
     assert src["source_rank"] == 1 and src["domain"] == "amthuc.example" and src["label"] == "amthuc.example"
+    assert src["document_id"] is None and src["source_type"] == "selection"
     note = src["notes"][0]
-    assert set(note) == {"note_id", "title", "url", "summary", "snippet", "score", "similarity"}
+    assert set(note) == {"note_id", "title", "url", "summary", "snippet", "score", "similarity",
+                         "part_index", "part_count"}
+    assert note["part_index"] == 0 and note["part_count"] == 1
     assert note["note_id"] == notes[0]["id"] and note["title"] == "Phở bò"
     assert note["url"] == "https://amthuc.example/pho" and "phở bò" in note["snippet"].lower()
     assert 0.0 <= note["similarity"] <= 1.0 and note["score"] > 0

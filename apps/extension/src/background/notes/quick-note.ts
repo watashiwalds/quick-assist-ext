@@ -12,6 +12,7 @@ import type { Note, NoteCreate } from '@/shared/api/types'
 import { config } from '@/shared/config'
 import { AppError } from '@/shared/errors'
 import type { PendingNote } from '@/shared/messaging/protocol'
+import { resolveSplitChars, splitText } from '@/shared/notes/split'
 import { failedStore, type OutboxItem, outbox } from '@/shared/storage/db'
 import { api } from '../api'
 import { hasSession } from '../auth/session'
@@ -19,7 +20,7 @@ import { broadcast } from '../broadcast'
 import { cachedFolders } from '../menus'
 import { showToast } from '../page-actions'
 import { getPrefs } from '../prefs'
-import { notesCacheAfterCreate } from './sync'
+import { notesCacheAfterCreate, syncNotes } from './sync'
 
 export const FLUSH_ALARM = 'qa.outbox.flush'
 export const MAX_ATTEMPTS = 8
@@ -41,15 +42,16 @@ export async function startQuickNote(tabId: number, sel: Selection, folderId?: s
     await showToast(tabId, { kind: 'error', message: 'Hãy đăng nhập QuickAssist (biểu tượng trên thanh công cụ) để lưu ghi chú.' })
     return null
   }
-  const truncated = raw.length > config.maxNoteChars
-  const text = raw.slice(0, config.maxNoteChars)
-  const target = folderId === undefined ? (await getPrefs()).defaultFolderId : folderId
+  const prefs = await getPrefs()
+  const parts = splitText(raw, resolveSplitChars(prefs.splitChars))
+  const target = folderId === undefined ? prefs.defaultFolderId : folderId
   const folders = await cachedFolders()
   const folder = target ? folders.find((f) => f.id === target) : undefined
 
   const id = crypto.randomUUID()
+  // Tài liệu dài = nhiều part cùng document_id; một note ≤ trần giữ đường cũ.
   const body: NoteCreate = {
-    content: text,
+    ...(parts.length > 1 ? { parts, document_id: crypto.randomUUID() } : { content: raw }),
     url: sel.url?.startsWith('http') ? sel.url : null,
     title: sel.title?.slice(0, 500) || null,
     ...(folder ? { folder_id: folder.id } : {}), // thư mục không còn trong cache → Inbox
@@ -59,10 +61,13 @@ export async function startQuickNote(tabId: number, sel: Selection, folderId?: s
   await showToast(tabId, {
     kind: 'pending',
     pendingId: id,
-    snippet: text.slice(0, 140),
+    snippet: raw.slice(0, 140),
     seconds: config.undoWindowMs / 1000,
     folderName: folder?.name ?? 'Inbox',
-    note: truncated ? `Đã cắt còn ${config.maxNoteChars.toLocaleString('vi-VN')} ký tự đầu.` : undefined,
+    note:
+      parts.length > 1
+        ? `Nội dung dài đã được lưu thành tài liệu ${parts.length} phần.`
+        : undefined,
   })
   setTimeout(() => void flushOutbox(), config.undoWindowMs + 200)
   return id
@@ -105,7 +110,10 @@ async function doFlush(): Promise<void> {
     try {
       const note: Note = await api.notes.create(item.body, item.id)
       await outbox.remove(item.id)
-      await notesCacheAfterCreate(note)
+      // Tài liệu nhiều part: response chỉ có part 0 → sync để cache đủ mọi part.
+      // Sync lỗi (mạng) không được đẩy mục đã tạo thành công trở lại outbox.
+      if (item.body.parts) await syncNotes().catch(() => undefined)
+      else await notesCacheAfterCreate(note)
       broadcast({ channel: 'qa-event', type: 'notes/changed' })
     } catch (e) {
       const err = e instanceof AppError ? e : new AppError('UNKNOWN', String(e))
@@ -127,7 +135,7 @@ async function doFlush(): Promise<void> {
 function toPending(i: OutboxItem, state: PendingNote['state']): PendingNote {
   return {
     id: i.id,
-    snippet: i.body.content.slice(0, 160),
+    snippet: (i.body.content ?? i.body.parts?.[0] ?? '').slice(0, 160),
     url: i.body.url ?? null,
     title: i.body.title ?? null,
     folderId: i.body.folder_id ?? null,

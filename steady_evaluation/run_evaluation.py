@@ -33,8 +33,8 @@ from pathlib import Path
 
 from steady_backend import BackendClient, SteadyConfig, load_env
 from steady_dataset import DatasetError, load_dataset, print_dataset_report, validate_bundle
-from steady_flows import (ingest_sources, not_ready_files, run_pagematch, run_rag,
-                          run_search)
+from steady_flows import (IngestedDocument, ingest_sources, not_ready_files, run_pagematch,
+                          run_rag, run_search)
 from steady_metrics import (METRICS_VERSION, RAW_SCHEMA_VERSION, IngestCase, PageMatchCase,
                             RagCase, SearchCase, aggregate_ingest, aggregate_pagematch,
                             aggregate_rag, aggregate_search, case_from_dict, case_to_jsonl)
@@ -161,6 +161,15 @@ def build_report_md(manifest: dict, metrics: dict, bundle_issues: list[str] | No
             f"- {ing.get('files', 0)} file, trạng thái: {ing.get('by_status', {})}"
             f" · READY {_fmt(ing.get('ready_rate'))}"
             f" · tạo mới {ing.get('created', '—')} / replay {ing.get('reused', '—')}",
+            f"- tài liệu dài: **{ing.get('documents', 0)} file → {ing.get('parts', 0)} part**"
+            f" · part READY {ing.get('parts_ready', 0)}/{ing.get('parts', 0)}"
+            f" ({_fmt(ing.get('parts_ready_rate'))})"
+            f" · file đủ part READY {ing.get('documents_all_parts_ready', 0)}"
+            f"/{ing.get('documents', 0)}",
+            f"- ký tự đã index: **{ing.get('indexed_chars', 0):,} / {ing.get('total_chars', 0):,}**"
+            f" ({_fmt(ing.get('indexed_chars_ratio'))})"
+            f" · part lớn nhất {ing.get('max_part_chars', 0):,} ký tự"
+            f" · file bị cắt: {ing.get('truncated_files', 0)}",
             f"- create p50 = **{ing.get('create_ms_p50', '—')} ms**"
             f" · chờ index p50 = **{ing.get('wait_index_ms_p50', '—')} ms**"
             f" · p95 = **{ing.get('wait_index_ms_p95', '—')} ms**",
@@ -172,23 +181,31 @@ def build_report_md(manifest: dict, metrics: dict, bundle_issues: list[str] | No
         lines += [
             "## 3. Tìm kiếm ngữ nghĩa (hybrid SQL thật, nhóm theo nguồn)",
             f"`POST /search` với `max_sources={manifest.get('max_sources', '—')}`; "
-            f"Recall@{manifest.get('top_k', 'k')}/MRR/AnswerHit tính trên "
-            f"{manifest.get('top_k', 'k')} **note** đầu sau khi phẳng nguồn → note.",
+            f"Recall@{manifest.get('top_k', 'k')}/MRR tính trên **tài liệu** "
+            f"(`document_id ?? note`), AnswerHit kiểm tra **toàn bộ part** của tài liệu gold.",
             "",
-            f"| Queries | Hoàn thành | Lỗi | Recall@{manifest.get('top_k', 'k')} | MRR "
-            f"| AnswerHit | Nguồn TB | Note TB | Rỗng | p50 (ms) | p95 (ms) | Sàn ngẫu nhiên |",
-            "|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+            f"| Queries | Hoàn thành | Lỗi | Recall@{manifest.get('top_k', 'k')} "
+            f"| Recall part | MRR | AnswerHit tài liệu | AnswerHit note | Nguồn TB | Nguồn max "
+            f"| Note TB | Rỗng | p50 (ms) | p95 (ms) | Sàn ngẫu nhiên |",
+            "|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
             f"| {s.get('queries', 0)} | {s.get('completed', '—')} | {s.get('errors', 0)} "
-            f"| {_fmt(s.get('recall_at_k'))} | {_fmt(s.get('mrr'))} "
-            f"| {_fmt(s.get('answer_hit_rate'))} | {_fmt(s.get('sources_avg'))} "
-            f"| {_fmt(s.get('notes_returned_avg'))} | {_fmt(s.get('empty_rate'))} "
-            f"| {s.get('latency_ms_p50', '—')} | {s.get('latency_ms_p95', '—')} "
-            f"| {s.get('random_floor', '—')} |",
+            f"| {_fmt(s.get('recall_at_k'))} | {_fmt(s.get('recall_part_at_k'))} "
+            f"| {_fmt(s.get('mrr'))} | {_fmt(s.get('answer_hit_rate'))} "
+            f"| {_fmt(s.get('answer_hit_note_rate'))} | {_fmt(s.get('sources_avg'))} "
+            f"| {s.get('max_sources_observed', '—')} | {_fmt(s.get('notes_returned_avg'))} "
+            f"| {_fmt(s.get('empty_rate'))} | {s.get('latency_ms_p50', '—')} "
+            f"| {s.get('latency_ms_p95', '—')} | {s.get('random_floor', '—')} |",
+            "",
+            f"- corpus: {s.get('corpus_notes', '—')} note / "
+            f"{s.get('corpus_documents', '—')} tài liệu"
+            f" · `max_sources` {'đúng' if s.get('max_sources_ok') else 'BỊ VƯỢT'}"
+            f" (ca chạm trần: {_fmt(s.get('sources_at_cap_rate'))})"
+            f" · gold vắt qua ranh giới part: {s.get('gold_spans_parts', 0)}",
             "",
         ]
         if isinstance(s.get("random_floor"), (int, float)) and s["random_floor"] >= 1.0:
             lines += [
-                f"> ⚠ `random_floor = {s['random_floor']}` (top_k ≥ số note trong corpus): "
+                f"> ⚠ `random_floor = {s['random_floor']}` (top_k ≥ số tài liệu trong corpus): "
                 "Recall@k bị chặn trần, không phản ánh chất lượng xếp hạng.",
                 "",
             ]
@@ -432,10 +449,12 @@ def recompute_metrics(run_dir: Path) -> dict:
     if groups["ingest"]:
         out["ingest"] = aggregate_ingest(groups["ingest"])
     if groups["search"]:
+        stored = old.get("search", {})
         out["search"] = aggregate_search(
             groups["search"], int(manifest.get("top_k", 5)),
-            int(manifest.get("corpus_notes")
-                or old.get("search", {}).get("corpus_notes", 0)))
+            int(manifest.get("corpus_notes") or stored.get("corpus_notes", 0)),
+            int(manifest.get("corpus_documents") or stored.get("corpus_documents", 0))
+            or None)
     if groups["rag"]:
         out["rag"] = aggregate_rag(groups["rag"])
     if groups["pagematch"]:
@@ -453,6 +472,10 @@ def _diff(expected, actual, path: str = "") -> list[str]:
     if isinstance(expected, dict) and isinstance(actual, dict):
         for key in sorted(set(expected) | set(actual)):
             if key in {"manifest", "quota", "tokens_consumed", "fatal_error"}:
+                continue
+            if key not in expected:
+                # Trường mới của phiên bản metrics hiện tại — raw/metrics cũ không có.
+                # Không tính là lệch: recompute chỉ cần tái tạo đúng những gì đã lưu.
                 continue
             diffs += _diff(expected.get(key), actual.get(key), f"{path}.{key}" if path else key)
     elif expected != actual:
@@ -503,7 +526,7 @@ def run_pipeline(cfg: SteadyConfig) -> Path:
     manifest: dict = {}
     metrics: dict = {}
     samples: list[dict] = []
-    note_id_by_file: dict[str, str] = {}
+    documents_by_file: dict[str, IngestedDocument] = {}
     note_cache: dict[str, str] = {}  # toàn văn note — dùng chung Search (AnswerHit) + RAG
     folder_id: str | None = None
     fatal_error: str | None = None
@@ -563,6 +586,8 @@ def run_pipeline(cfg: SteadyConfig) -> Path:
             "top_k": cfg.top_k,
             "max_sources": cfg.max_sources,
             "pagematch_top_k": cfg.pagematch_top_k,
+            "split_chars": cfg.split_chars,
+            "truncate_long": cfg.truncate_long,
             "modules": cfg.modules,
             "folder_mode": cfg.folder_mode,
             "folder_id": None,
@@ -591,7 +616,7 @@ def run_pipeline(cfg: SteadyConfig) -> Path:
         if needs_ingest:
             print("\n--- §3.1 Ingest (POST /notes → chờ index) ---")
             run_started_at = datetime.datetime.now(datetime.timezone.utc)
-            ingest_cases, note_id_by_file = ingest_sources(
+            ingest_cases, documents_by_file = ingest_sources(
                 client, bundle, cfg, run_id, folder_id=folder_id, emit=raw_writer.emit,
                 run_started_at=run_started_at)
             metrics["ingest"] = aggregate_ingest(ingest_cases)
@@ -604,13 +629,19 @@ def run_pipeline(cfg: SteadyConfig) -> Path:
         if "search" in cfg.modules:
             print(f"\n--- §3.2 Search (POST /search, max_sources={cfg.max_sources}, "
                   f"top_k={cfg.top_k}) ---")
-            corpus = client.count_notes(folder_id)
+            notes = client.list_notes(folder_id)
+            corpus = len(notes)
+            corpus_documents = len({
+                str(n.get("document_id")) if n.get("document_id") else str(n.get("id"))
+                for n in notes})
             manifest["corpus_notes"] = corpus
+            manifest["corpus_documents"] = corpus_documents
             write_json(run_dir / "run_manifest.json", manifest)
-            search_cases = run_search(client, bundle, note_id_by_file, cfg.top_k,
+            search_cases = run_search(client, bundle, documents_by_file, cfg.top_k,
                                       cfg.max_sources, folder_id=folder_id,
                                       emit=raw_writer.emit, note_cache=note_cache)
-            metrics["search"] = aggregate_search(search_cases, cfg.top_k, corpus)
+            metrics["search"] = aggregate_search(search_cases, cfg.top_k, corpus,
+                                                 corpus_documents)
 
         if "rag" in cfg.modules:
             print("\n--- §3.3 RAG (POST /ai/chat, SSE) ---")
@@ -644,7 +675,8 @@ def run_pipeline(cfg: SteadyConfig) -> Path:
                 metrics["tokens_consumed"] = None
 
         if cfg.cleanup_notes:
-            ids = list(dict.fromkeys(note_id_by_file.values()))
+            ids = list(dict.fromkeys(
+                pid for doc in documents_by_file.values() for pid in doc.part_ids))
             if ids:
                 try:
                     deleted = client.bulk_delete_notes(ids)
@@ -714,6 +746,11 @@ def parse_args() -> argparse.Namespace:
                         help="SearchIn.max_sources (1..20) — số NGUỒN/domain API trả")
     parser.add_argument("--pagematch-top-k", type=int, default=5,
                         help="Chỉ chấm top-k block PageMatch (backend có thể trả tới 15)")
+    parser.add_argument("--split-chars", type=int,
+                        default=int(env.get("STEADY_SPLIT_CHARS", "20000")),
+                        help="Ngưỡng chia part cho file dài (≤ MAX_NOTE_CHARS; target 90%%)")
+    parser.add_argument("--truncate-long", action="store_true",
+                        help="Baseline cũ: cắt file > trần thay vì chia part (để A/B)")
     parser.add_argument("--tag", default="", help="Hậu tố run_id")
     parser.add_argument("--folder-mode", choices=["run", "shared"], default="run",
                         help="run = thư mục riêng mỗi run (mặc định); shared = dùng Inbox")
@@ -755,6 +792,7 @@ def main() -> None:
         modules=[m.strip() for m in args.modules.split(",") if m.strip()],
         top_k=args.top_k, max_sources=args.max_sources,
         pagematch_top_k=args.pagematch_top_k,
+        split_chars=args.split_chars, truncate_long=args.truncate_long,
         model_label=args.model_label, tag=args.tag,
         folder_mode=args.folder_mode,
         fresh_notes=args.fresh_notes, cleanup_notes=args.cleanup_notes,
@@ -776,6 +814,8 @@ def main() -> None:
         sys.exit("--max-sources phải trong khoảng 1..20 (SearchIn.max_sources)")
     if cfg.top_k < 1:
         sys.exit("--top-k phải >= 1")
+    if not 1 <= cfg.split_chars <= cfg.max_note_chars:
+        sys.exit(f"--split-chars phải trong khoảng 1..{cfg.max_note_chars} (MAX_NOTE_CHARS)")
 
     if args.validate:
         bundle = load_dataset(cfg)
