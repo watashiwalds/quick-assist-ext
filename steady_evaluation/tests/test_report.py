@@ -68,6 +68,19 @@ class TestReport(unittest.TestCase):
         md = build_report_md(_manifest(["pagematch"]), {"pagematch": {}})
         self.assertNotIn("## 2. Ingest", md)
 
+    def test_pagematch_overall_and_verified_table_renders(self):
+        pm = aggregate_pagematch([
+            PageMatchCase(qid="1", source_file="f", answerable=True, gold_text="gold",
+                          items=[{"text": "gold", "score": 0.9, "verified": True}]),
+            PageMatchCase(qid="2", source_file="f", answerable=False, gold_text="no",
+                          items=[{"text": "x", "score": 0.8, "verified": True}]),
+        ], 5)
+        md = build_report_md(_manifest(["pagematch"]), {"pagematch": pm})
+        self.assertIn("Toàn bộ item trả về", md)
+        self.assertIn("`hit_all`", md)
+        self.assertIn("Nhóm `verified=true`", md)
+        self.assertIn("1.0 (1/1)", md)
+
 
 if __name__ == "__main__":
     unittest.main()

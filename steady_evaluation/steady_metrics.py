@@ -10,7 +10,7 @@ Quy ước:
   - Chất lượng: chấm theo nhãn gold trong dataset (không tự sinh nhãn).
   - Hiệu năng: độ trễ đo ở lớp HTTP thật (không phải vòng lặp in-process).
 
-METRICS_VERSION = 3 — thay đổi so với bản smoke đầu tiên:
+METRICS_VERSION = 4 — thay đổi so với bản smoke đầu tiên:
   - Search: API mới trả kết quả NHÓM THEO NGUỒN (``sources[].notes[]``) thay
     vì ``items[]`` phẳng; top-k được định nghĩa là k NOTE đầu sau khi phẳng
     theo thứ hạng nguồn rồi note trong nguồn (API_REFERENCE §9.1).
@@ -22,6 +22,11 @@ METRICS_VERSION = 3 — thay đổi so với bản smoke đầu tiên:
     = 0; lỗi AI tách khỏi chất lượng (không còn bị tính là "trả lời bừa").
   - PageMatch: tách quality/fallback, top-k, Span Coverage theo ký tự,
     Full-page F1; không còn thưởng "trả cả trang" như precision 1.0.
+  - v4 — PageMatch đo đúng trải nghiệm UI: thêm nhóm ``overall`` chấm trên
+    TOÀN BỘ item trả về (``hit_all``, ``precision_all``, ``coverage_all``,
+    ``span_precision_all``), hai biến thể top-5 (``hit5_page`` theo thứ tự
+    trang, ``hit5_score`` theo score), và nhóm ``verified`` (recall,
+    precision macro/micro, FPR). Các khóa cũ giữ nguyên nghĩa top-k.
 """
 
 from __future__ import annotations
@@ -33,7 +38,7 @@ from collections import Counter
 from dataclasses import asdict, dataclass, field, fields
 from difflib import SequenceMatcher
 
-METRICS_VERSION = 3
+METRICS_VERSION = 4
 RAW_SCHEMA_VERSION = 3
 
 # ============================================================ Chuẩn hoá văn bản
@@ -506,32 +511,32 @@ def aggregate_rag(cases: list[RagCase]) -> dict:
     }
 
 
-def _pagematch_items(case: PageMatchCase, top_k: int) -> list[dict]:
-    if case.items:
-        return case.items[:top_k]
-    return [{"text": text, "verified": verified}
-            for text, verified in zip(case.block_texts, case.verified)][:top_k]
+def _pagematch_items(case: PageMatchCase, top_k: int | None) -> list[dict]:
+    """Item của ca; ``top_k=None`` = toàn bộ item (không cắt theo thứ tự trang)."""
+    items = case.items or [
+        {"text": text, "verified": verified}
+        for text, verified in zip(case.block_texts, case.verified)
+    ]
+    return items if top_k is None else items[:top_k]
 
 
-def _score_pagematch_case(case: PageMatchCase, top_k: int) -> dict:
-    """Chấm một ca PageMatch trên top-k block; trả dict dẫn xuất (không mutate case)."""
-    items = _pagematch_items(case, top_k)
-    blocks = [normalize_text(str(item.get("text", ""))) for item in items]
-    norm_gold = normalize_text(case.gold_text)
-    out = {
-        "items": len(blocks),
+def _match_stats(norm_gold: str, blocks: list[str]) -> dict:
+    """So khớp gold với một danh sách block đã normalize.
+
+    Dùng chung cho mọi biến thể (top-k, toàn bộ item, top-5 theo score) để
+    không có hai định nghĩa "hit" khác nhau trong cùng một metric.
+    """
+    stats = {
         "hit": False,
         "exact_hit": False,
         "precision": 0.0,
-        "recall": 0.0,
-        "f1": 0.0,
         "coverage": 0.0,
         "span_precision": 0.0,
-        "span_f1": 0.0,
-        "full_page_f1": None,
+        "exact": [],
+        "relevant": [],
     }
     if not norm_gold or not blocks:
-        return out
+        return stats
 
     coverages = [_longest_common_substring_len(norm_gold, block) / len(norm_gold)
                  for block in blocks]
@@ -542,24 +547,93 @@ def _score_pagematch_case(case: PageMatchCase, top_k: int) -> dict:
     # Block liên quan nếu chứa gold hoặc phủ ≥ 50% đoạn gold (gold có thể bị chia khối).
     relevant = [exact[i] or coverages[i] >= 0.5 for i in range(len(blocks))]
     best = max([*coverages, joined_coverage])
-    hit = any(exact) or joined_coverage >= 0.8
-    precision = sum(relevant) / len(blocks)
-    recall = 1.0 if hit else 0.0
     # Precision theo ký tự: trả cả trang trong một block sẽ bị phạt mạnh.
     returned_chars = sum(len(block) for block in blocks)
     span_precision = min(1.0, len(norm_gold) / returned_chars) if returned_chars else 0.0
-    out.update({
-        "hit": hit,
+    stats.update({
+        "hit": any(exact) or joined_coverage >= 0.8,
         "exact_hit": any(exact),
-        "precision": round(precision, 4),
-        "recall": recall,
-        "f1": round(2 * precision * recall / (precision + recall), 4)
-        if (precision + recall) else 0.0,
-        "coverage": round(best, 4),
-        "span_precision": round(span_precision, 4),
-        "span_f1": round(2 * span_precision * best / (span_precision + best), 4)
-        if (span_precision + best) else 0.0,
+        "precision": sum(relevant) / len(blocks),
+        "coverage": best,
+        "span_precision": span_precision,
+        "exact": exact,
+        "relevant": relevant,
     })
+    return stats
+
+
+def _score_pagematch_case(case: PageMatchCase, top_k: int | None = 5) -> dict:
+    """Chấm một ca PageMatch; trả dict dẫn xuất (không mutate case).
+
+    ``top_k`` chỉ ảnh hưởng các khóa CŨ (``hit``/``precision``/``coverage``…).
+    Các khóa ``*_all`` và nhóm ``verified`` luôn tính trên **toàn bộ** item trả
+    về — đúng với UI, nơi mọi item được hiển thị và item ``verified`` được
+    auto-select. ``hit5_page`` giữ nghĩa metric cũ (5 item đầu theo thứ tự
+    trang); ``hit5_score`` là 5 item tốt nhất theo score.
+    """
+    all_items = _pagematch_items(case, None)
+    items = all_items if top_k is None else all_items[:top_k]
+    all_blocks = [normalize_text(str(item.get("text", ""))) for item in all_items]
+    blocks = all_blocks if top_k is None else all_blocks[:top_k]
+    norm_gold = normalize_text(case.gold_text)
+
+    stats = _match_stats(norm_gold, blocks)
+    all_stats = stats if blocks is all_blocks else _match_stats(norm_gold, all_blocks)
+
+    hit5_page = _match_stats(norm_gold, all_blocks[:5])["hit"]
+    ranked = sorted(
+        enumerate(all_items),
+        key=lambda pair: float(pair[1].get("score") or 0.0),
+        reverse=True,
+    )[:5]
+    hit5_score = _match_stats(norm_gold, [all_blocks[i] for i, _ in ranked])["hit"]
+
+    verified_idx = [i for i, item in enumerate(all_items) if item.get("verified")]
+    verified_items = len(verified_idx)
+    # Không có gold/blocks → exact/relevant rỗng; không được index.
+    if verified_idx and all_stats["relevant"]:
+        verified_relevant = sum(1 for i in verified_idx if all_stats["relevant"][i])
+        verified_hit = any(all_stats["exact"][i] for i in verified_idx)
+    else:
+        verified_relevant = 0
+        verified_hit = False
+
+    recall = 1.0 if stats["hit"] else 0.0
+    span_f1 = (round(2 * stats["span_precision"] * stats["coverage"]
+                     / (stats["span_precision"] + stats["coverage"]), 4)
+               if (stats["span_precision"] + stats["coverage"]) else 0.0)
+    out = {
+        "items": len(blocks),
+        "hit": stats["hit"],
+        "exact_hit": stats["exact_hit"],
+        "precision": round(stats["precision"], 4),
+        "recall": recall,
+        "f1": round(2 * stats["precision"] * recall
+                    / (stats["precision"] + recall), 4)
+        if (stats["precision"] + recall) else 0.0,
+        "coverage": round(stats["coverage"], 4),
+        "span_precision": round(stats["span_precision"], 4),
+        "span_f1": span_f1,
+        "full_page_f1": None,
+        # --- toàn bộ item trả về (cách UI thật sự hiển thị) ---
+        "items_all": len(all_blocks),
+        "hit_all": all_stats["hit"],
+        "exact_hit_all": all_stats["exact_hit"],
+        "precision_all": round(all_stats["precision"], 4),
+        "coverage_all": round(all_stats["coverage"], 4),
+        "span_precision_all": round(all_stats["span_precision"], 4),
+        # Giá trị chưa làm tròn — chỉ dùng để lấy trung bình ở aggregate.
+        "precision_all_raw": all_stats["precision"],
+        "coverage_all_raw": all_stats["coverage"],
+        "span_precision_all_raw": all_stats["span_precision"],
+        "hit5_page": hit5_page,
+        "hit5_score": hit5_score,
+        # --- nhóm verified (UI auto-select) ---
+        "verified_items": verified_items,
+        "verified_relevant": verified_relevant,
+        "verified_hit": verified_hit,
+        "any_verified": verified_items > 0,
+    }
 
     if case.mode == "full_page" and case.full_text and case.source_text:
         # Full-page F1: gợi ý "lưu cả trang" có tái tạo đúng nội dung nguồn không.
@@ -618,6 +692,65 @@ def aggregate_pagematch(cases: list[PageMatchCase], top_k: int = 5) -> dict:
                 len(group)),
         }
 
+    def summarize_overall_pos(group: list[PageMatchCase]) -> dict:
+        """Chấm trên TOÀN BỘ item + nhóm verified (không cắt top-k, gồm mọi ca)."""
+        scores = [_score_pagematch_case(c, top_k) for c in group]
+        n = len(group)
+        verified_scores = [s for s in scores if s["verified_items"]]
+        verified_items = sum(s["verified_items"] for s in scores)
+        verified_relevant = sum(s["verified_relevant"] for s in scores)
+        hit_all = sum(1 for s in scores if s["hit_all"])
+        hit5_page = sum(1 for s in scores if s["hit5_page"])
+        hit5_score = sum(1 for s in scores if s["hit5_score"])
+        verified_recall = sum(1 for s in scores if s["verified_hit"])
+        return {
+            "cases": n,
+            "hit_all_count": hit_all,
+            "hit_all": _rate(hit_all, n),
+            "exact_hit_all_count": sum(1 for s in scores if s["exact_hit_all"]),
+            "exact_hit_all": _rate(
+                sum(1 for s in scores if s["exact_hit_all"]), n),
+            "hit5_page_count": hit5_page,
+            "hit5_page": _rate(hit5_page, n),
+            "hit5_score_count": hit5_score,
+            "hit5_score": _rate(hit5_score, n),
+            "precision_all_avg": (
+                round(sum(s["precision_all_raw"] for s in scores) / n, 4)
+                if n else None),
+            "coverage_all_avg": (
+                round(sum(s["coverage_all_raw"] for s in scores) / n, 4)
+                if n else None),
+            "span_precision_all_avg": (
+                round(sum(s["span_precision_all_raw"] for s in scores) / n, 4)
+                if n else None),
+            "verified_recall_count": verified_recall,
+            "verified_recall": _rate(verified_recall, n),
+            "verified_cases": len(verified_scores),
+            "verified_items": verified_items,
+            "verified_relevant_items": verified_relevant,
+            # Macro: trung bình precision của các ca CÓ item verified.
+            "verified_precision_macro": (
+                round(sum(s["verified_relevant"] / s["verified_items"]
+                          for s in verified_scores) / len(verified_scores), 4)
+                if verified_scores else None),
+            # Micro: gộp mọi item verified của mọi ca.
+            "verified_precision_micro": _rate(verified_relevant, verified_items),
+        }
+
+    def summarize_overall_neg(group: list[PageMatchCase]) -> dict:
+        n = len(group)
+        fpr_any = sum(1 for c in group if _pagematch_items(c, None))
+        verified_fpr = sum(
+            1 for c in group
+            if any(bool(i.get("verified")) for i in _pagematch_items(c, None)))
+        return {
+            "cases": n,
+            "fpr_any_count": fpr_any,
+            "fpr_any": _rate(fpr_any, n),
+            "verified_fpr_count": verified_fpr,
+            "verified_fpr": _rate(verified_fpr, n),
+        }
+
     pos_quality, pos_fallback = quality(pos), fallback(pos)
     neg_quality, neg_fallback = quality(neg), fallback(neg)
 
@@ -638,6 +771,13 @@ def aggregate_pagematch(cases: list[PageMatchCase], top_k: int = 5) -> dict:
         "cases": len(cases),
         "errors": errors,
         "error_rate": _rate(errors, len(cases)),
+        # Nhóm "overall": mọi ca (kể cả full_page + fallback), mọi item trả về.
+        # Đây là chỉ số khớp trải nghiệm UI; quality/fallback bên dưới vẫn giữ
+        # nghĩa cũ để so sánh lịch sử.
+        "overall": {
+            "positive": summarize_overall_pos(pos),
+            "negative": summarize_overall_neg(neg),
+        },
         "quality": {
             # `positive`/`negative` = ca segments (metric chất lượng chính).
             "positive": summarize_pos(qseg_pos),
