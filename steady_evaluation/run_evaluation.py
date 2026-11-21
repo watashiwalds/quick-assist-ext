@@ -87,6 +87,11 @@ def _fmt(value) -> str:
     return "—" if value is None else str(value)
 
 
+def _rate_count(rate, count, denominator) -> str:
+    """``0.7632 (29/38)`` — giữ cả tỉ lệ và tử/mẫu để đối chiếu báo cáo."""
+    return f"{_fmt(rate)} ({count}/{denominator})"
+
+
 class RawWriter:
     """Ghi JSONL ngay sau mỗi case — lỗi giữa chừng không mất bằng chứng."""
 
@@ -292,6 +297,42 @@ def build_report_md(manifest: dict, metrics: dict, bundle_issues: list[str] | No
                 "",
             ]
 
+        ov = p.get("overall") or {}
+        ov_pos, ov_neg = ov.get("positive", {}), ov.get("negative", {})
+        if ov_pos or ov_neg:
+            pos_n = ov_pos.get("cases", 0)
+            neg_n = ov_neg.get("cases", 0)
+            lines += [
+                "**Toàn bộ item trả về** (mọi ca, không cắt top-k — đúng như UI hiển thị):",
+                "| Dương tính | Gold trong bất kỳ item (`hit_all`) | `hit5_page` (metric cũ) "
+                "| `hit5_score` | Precision all | Coverage all | Span Precision all |",
+                "|---:|---:|---:|---:|---:|---:|---:|",
+                f"| {pos_n} "
+                f"| {_rate_count(ov_pos.get('hit_all'), ov_pos.get('hit_all_count', 0), pos_n)} "
+                f"| {_rate_count(ov_pos.get('hit5_page'), ov_pos.get('hit5_page_count', 0), pos_n)} "
+                f"| {_rate_count(ov_pos.get('hit5_score'), ov_pos.get('hit5_score_count', 0), pos_n)} "
+                f"| {_fmt(ov_pos.get('precision_all_avg'))} "
+                f"| {_fmt(ov_pos.get('coverage_all_avg'))} "
+                f"| {_fmt(ov_pos.get('span_precision_all_avg'))} |",
+                "",
+                "**Nhóm `verified=true`** (các đoạn UI auto-select):",
+                "| Dương tính | `verified_recall` | Verified precision (macro) "
+                "| Verified precision (micro) | Âm tính | FPR bất kỳ item | `verified_fpr` |",
+                "|---:|---:|---:|---:|---:|---:|---:|",
+                f"| {pos_n} "
+                f"| {_rate_count(ov_pos.get('verified_recall'), ov_pos.get('verified_recall_count', 0), pos_n)} "
+                f"| {_fmt(ov_pos.get('verified_precision_macro'))} "
+                f"| {_fmt(ov_pos.get('verified_precision_micro'))} "
+                f"| {neg_n} "
+                f"| {_rate_count(ov_neg.get('fpr_any'), ov_neg.get('fpr_any_count', 0), neg_n)} "
+                f"| {_rate_count(ov_neg.get('verified_fpr'), ov_neg.get('verified_fpr_count', 0), neg_n)} |",
+                "",
+                "> `hit5_page` = 5 item đầu **theo thứ tự trang** (metric cũ, không phải top-5 "
+                "theo score). `hit5_score` = 5 item tốt nhất theo `score`. `hit_all`/`verified_*` "
+                "chấm trên **mọi item trả về**, gồm cả ca full-page và fallback.",
+                "",
+            ]
+
     lines += ["## 6. Mẫu câu trả lời (bằng chứng thô)"]
     if not samples:
         lines += ["(không có mẫu RAG trong run này)", ""]
@@ -316,7 +357,7 @@ def build_report_md(manifest: dict, metrics: dict, bundle_issues: list[str] | No
         "- RAG grounding kiểm tra số trên **toàn văn note nguồn** khi fetch được; nếu không, fallback snippet.",
         "",
         "## 8. Tái lập",
-        f"- metrics_version: {manifest.get('metrics_version', '—')}"
+        f"- metrics_version: {m.get('metrics_version', manifest.get('metrics_version', '—'))}"
         f" · raw_schema_version: {manifest.get('raw_schema_version', '—')}",
         f"- eval_code_sha256: `{manifest.get('eval_code_sha256', '—')}`",
         f"- command: `{manifest.get('command', '—')}`",
@@ -346,13 +387,32 @@ def _run_metrics_dirs() -> list[Path]:
     return [d for d in sorted(RUNS_DIR.iterdir()) if (d / "metrics.json").exists()]
 
 
+def _load_metrics_for_compare(run_dir: Path) -> dict | None:
+    """Ưu tiên ``metrics.recomputed.json`` (định nghĩa metric hiện tại) nếu có.
+
+    Recompute giữ nguyên mọi khóa cũ, nên bảng so sánh vẫn đọc được cả run cũ;
+    run chưa recompute dùng ``metrics.json`` và các cột mới hiển thị ``—``.
+    """
+    candidates = [run_dir / "metrics.json", run_dir / "metrics.recomputed.json"]
+    best: dict | None = None
+    for path in candidates:
+        if not path.exists():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        if best is None or data.get("metrics_version", 0) >= best.get("metrics_version", 0):
+            best = data
+    return best
+
+
 def comparison_table() -> str:
     """Gộp metrics.json → bảng so sánh, nhóm theo dataset/top_k/modules/evidence."""
     groups: dict[tuple, list[dict]] = {}
     for run_dir in _run_metrics_dirs():
-        try:
-            data = json.loads((run_dir / "metrics.json").read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
+        data = _load_metrics_for_compare(run_dir)
+        if data is None:
             continue
         man = data.get("manifest", {})
         key = (man.get("dataset_fingerprint", "?"), man.get("top_k", "?"),
@@ -366,6 +426,9 @@ def comparison_table() -> str:
         "> Chỉ so sánh trong cùng nhóm "
         "`(dataset_fingerprint, top_k, max_sources, modules, evidence_type)`.",
         "> Run smoke/khác cấu hình được tách nhóm thay vì trộn vào một bảng.",
+        "> Chỉ số PageMatch chính là `PM Hit@all`, `PM vRecall`, `PM vFPR` (chấm trên mọi "
+        "item trả về / item `verified`). `PM Hit (seg)` và `PM FPR (seg)` giữ nghĩa cũ để "
+        "đối chiếu lịch sử.",
         "",
     ]
     if not groups:
@@ -377,19 +440,22 @@ def comparison_table() -> str:
             f" · modules={','.join(modules) or '—'} · evidence={evidence}",
             "",
             "| Model combo | Run | Search n | R@k | MRR | RAG n | Token-F1 | RAG p50 (ms) "
-            "| Từ chối đúng | PM Hit | PM FPR | Tokens |",
-            "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+            "| Từ chối đúng | PM Hit@all | PM vRecall | PM vFPR | PM Hit (seg) | PM FPR (seg) "
+            "| Tokens |",
+            "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
         ]
         versions = set()
         for item in runs:
             data, man = item["data"], item["man"]
-            versions.add(man.get("metrics_version", 1))
+            versions.add(data.get("metrics_version", man.get("metrics_version", 1)))
             search = data.get("search", {})
             rag_a = data.get("rag", {}).get("answerable", {})
             rag_u = data.get("rag", {}).get("unanswerable", {})
             pm = data.get("pagematch", {})
             qpos = pm.get("quality", {}).get("positive", pm.get("positive", {}))
             qneg = pm.get("quality", {}).get("negative", pm.get("negative", {}))
+            ov_pos = pm.get("overall", {}).get("positive", {})
+            ov_neg = pm.get("overall", {}).get("negative", {})
             f1 = rag_a.get("answer_token_f1_gold_avg", rag_a.get("answer_f1_gold_avg"))
             lines.append(
                 f"| `{man.get('model_label', '?')}` | {man.get('run_id', item['run_dir'].name)} "
@@ -397,11 +463,18 @@ def comparison_table() -> str:
                 f"| {_fmt(search.get('recall_at_k'))} | {_fmt(search.get('mrr'))} "
                 f"| {rag_a.get('completed', rag_a.get('questions', '—'))} | {_fmt(f1)} "
                 f"| {_fmt(rag_a.get('total_ms_p50'))} | {_fmt(rag_u.get('refusal_rate'))} "
+                f"| {_fmt(ov_pos.get('hit_all'))} | {_fmt(ov_pos.get('verified_recall'))} "
+                f"| {_fmt(ov_neg.get('verified_fpr'))} "
                 f"| {_fmt(qpos.get('hit_rate'))} | {_fmt(qneg.get('fpr'))} "
                 f"| {data.get('tokens_consumed', '—')} |")
         lines += [""]
         if len(versions) > 1:
-            lines += [f"> ⚠ Nhóm này trộn metrics_version {sorted(versions)} — không nên so sánh trực tiếp.", ""]
+            lines += [
+                f"> ⚠ Nhóm này trộn metrics_version {sorted(versions)} — run chưa recompute "
+                "thiếu cột PageMatch mới. Chạy `--recompute` cho run đó trước khi so sánh "
+                "các cột `PM Hit@all`/`PM vRecall`/`PM vFPR`.",
+                "",
+            ]
     return "\n".join(lines)
 
 
@@ -475,7 +548,8 @@ def _diff(expected, actual, path: str = "") -> list[str]:
     diffs: list[str] = []
     if isinstance(expected, dict) and isinstance(actual, dict):
         for key in sorted(set(expected) | set(actual)):
-            if key in {"manifest", "quota", "tokens_consumed", "fatal_error"}:
+            if key in {"manifest", "quota", "tokens_consumed", "fatal_error",
+                       "metrics_version"}:
                 continue
             if key not in expected:
                 # Trường mới của phiên bản metrics hiện tại — raw/metrics cũ không có.

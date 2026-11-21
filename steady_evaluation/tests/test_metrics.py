@@ -251,6 +251,54 @@ class TestAggregatePageMatch(unittest.TestCase):
         self.assertEqual(out["fpr"], 1.0)
         self.assertEqual(out["verified_fpr"], 1.0)
 
+    def test_overall_measures_all_items_not_page_top5(self):
+        items = [{"text": f"nhiễu {i}", "score": 0.9 - i * 0.01, "verified": False}
+                 for i in range(5)]
+        items.append({"text": "đoạn gold", "score": 0.95, "verified": True})
+        case = self._case(items=items)
+        out = aggregate_pagematch([case], 5)
+        # Metric cũ chỉ thấy 5 item đầu theo thứ tự trang.
+        self.assertEqual(out["quality"]["positive"]["hit_rate"], 0.0)
+        ov = out["overall"]["positive"]
+        self.assertEqual(ov["hit_all"], 1.0)
+        self.assertEqual(ov["hit_all_count"], 1)
+        self.assertEqual(ov["hit5_page"], 0.0)
+        self.assertEqual(ov["hit5_score"], 1.0)
+        self.assertEqual(ov["verified_recall"], 1.0)
+        self.assertEqual(ov["verified_precision_macro"], 1.0)
+        self.assertEqual(ov["verified_precision_micro"], 1.0)
+        self.assertEqual(ov["precision_all_avg"], round(1 / 6, 4))
+
+    def test_overall_verified_fpr_includes_quality_and_fallback(self):
+        cases = [
+            self._case(answerable=False, items=[{"text": "x", "verified": True}]),
+            self._case(qid="2", answerable=False,
+                       items=[{"text": "y", "verified": True}],
+                       warning="VERIFY_UNAVAILABLE"),
+        ]
+        out = aggregate_pagematch(cases, 5)
+        self.assertEqual(out["quality"]["negative"]["verified_fpr"], 1.0)
+        self.assertEqual(out["fallback"]["negative"]["verified_fpr"], 1.0)
+        ov = out["overall"]["negative"]
+        self.assertEqual(ov["cases"], 2)
+        self.assertEqual(ov["verified_fpr_count"], 2)
+        self.assertEqual(ov["verified_fpr"], 1.0)
+
+    def test_verified_precision_macro_skips_cases_without_verified(self):
+        cases = [
+            self._case(qid="1", items=[
+                {"text": "đoạn gold", "verified": True},
+                {"text": "nhiễu", "verified": True},
+            ]),
+            # Ca không có item verified không được tính vào mẫu số macro.
+            self._case(qid="2", items=[{"text": "nhiễu", "verified": False}]),
+        ]
+        ov = aggregate_pagematch(cases, 5)["overall"]["positive"]
+        self.assertEqual(ov["verified_cases"], 1)
+        self.assertEqual(ov["verified_items"], 2)
+        self.assertEqual(ov["verified_precision_macro"], 0.5)
+        self.assertEqual(ov["verified_precision_micro"], 0.5)
+
 
 class TestSerialization(unittest.TestCase):
     def test_roundtrip_filters_derived_keys(self):

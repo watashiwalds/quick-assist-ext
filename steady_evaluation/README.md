@@ -134,9 +134,9 @@ Nếu lỗi giữa chừng, `raw_results.jsonl` + `metrics.json` + `report.md` v
 | Ingest | trạng thái index (READY/FAILED/SKIPPED/TIMEOUT/ERROR) theo **mọi part** của tài liệu, created/reused, `indexed_chars / source_chars`, part lớn nhất, `truncated` | create p50, **chờ index p50/p95** | phản ánh worker thật; replay idempotent có wait ≈ 0; file > `--split-chars` được chia part (Lát 3), READY chỉ khi tất cả part READY |
 | Search | Recall@k/MRR/AnswerHit@k trên **tài liệu** (`document_id ?? note`); kèm Recall@k **part chứa gold** và AnswerHit **note** để chẩn đoán | p50/p95 HTTP | API nhóm theo nguồn (`sources[].notes[]`) và trả `document_id` ở cấp nguồn; phẳng theo hạng nguồn rồi note, cắt top-k; AnswerHit tài liệu kiểm tra **toàn bộ part** của tài liệu đã lọt top-k; báo nguồn TB/max/rỗng; sàn ngẫu nhiên = k/số tài liệu |
 | RAG | Token-F1 (phụ), F1 reference (nếu có), trích dẫn hợp lệ, không trích dẫn, số ngoài ngữ cảnh, từ chối đúng | first-event p50, total p50/p95, tokens | lỗi AI tách khỏi chất lượng; citation kiểm tra chỉ số + có ít nhất 1 trích dẫn |
-| PageMatch | **quality — segments** (không warning): Hit, Exact, Precision@k, Recall@k, F1@k, Span Precision/Coverage/F1; **quality — full-page** báo riêng; **fallback** báo riêng; FPR ca âm | p50/p95 | top-k mặc định 5; span precision phạt block quá lớn; coverage = tỷ lệ chuỗi con chung dài nhất của gold trong block |
+| PageMatch | **quality — segments** (không warning): Hit, Exact, Precision@k, Recall@k, F1@k, Span Precision/Coverage/F1; **quality — full-page** báo riêng; **fallback** báo riêng; FPR ca âm; **overall** trên toàn bộ item (`hit_all`, `precision_all`, `coverage_all`, `span_precision_all`, `hit5_page`, `hit5_score`) + nhóm **verified** (`verified_recall`, `verified_precision_macro/micro`, `verified_fpr`) | p50/p95 | top-k mặc định 5 cho metric cũ; `hit_all`/`verified_*` chấm trên mọi item (khớp UI); span precision phạt block quá lớn; coverage = tỷ lệ chuỗi con chung dài nhất của gold trong block |
 
-### Những gì đã sửa so với bản smoke đầu tiên (metrics v3)
+### Những gì đã sửa so với bản smoke đầu tiên (metrics v4)
 
 - Search: theo contract `POST /search` mới — request gửi `max_sources` thay cho `top_k`,
   response đọc `sources[].notes[]` thay cho `items[]`; top-k là **note** sau khi phẳng
@@ -156,6 +156,11 @@ Nếu lỗi giữa chừng, `raw_results.jsonl` + `metrics.json` + `report.md` v
 - PageMatch: tách **quality/fallback** và **segments/full-page**, giới hạn top-k,
   Precision/Recall/F1@k, Span Precision/Coverage/F1, Full-page F1 — không còn thưởng precision 1.0
   cho "trả cả trang".
+- v4 — PageMatch: thêm nhóm **overall** chấm trên **toàn bộ item trả về** (khớp UI hiển thị
+  mọi item): `hit_all`, `hit5_page` (5 item đầu theo thứ tự trang — metric cũ),
+  `hit5_score` (top-5 theo score), `precision_all`, `coverage_all`, `span_precision_all`;
+  thêm nhóm **verified** (`verified_recall`, `verified_precision_macro/micro`, `verified_fpr`)
+  vì UI auto-select item `verified=true`. Khóa cũ giữ nguyên nghĩa top-k.
 - Dataset: fail-fast, reject câu/gold rỗng, `--validate` exit ≠ 0, ghi included/excluded.
 - Corpus: thư mục riêng mỗi run + `folder_id` cho notes/search/chat; đếm corpus đúng thư mục.
 - Độ bền: bắt lỗi từng case, ghi JSONL ngay, retry 429 cho cả SSE, timeout riêng PageMatch,

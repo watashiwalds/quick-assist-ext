@@ -11,6 +11,7 @@ from unittest import mock
 import run_evaluation
 from run_evaluation import _diff, recompute_metrics, run_pipeline
 from steady_backend import SteadyConfig, StreamResult
+from steady_metrics import METRICS_VERSION
 
 
 class FakeBackend:
@@ -123,7 +124,7 @@ class TestPipeline(unittest.TestCase):
                 self.assertTrue((run_dir / name).exists(), name)
 
             manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
-            self.assertEqual(manifest["metrics_version"], 3)
+            self.assertEqual(manifest["metrics_version"], METRICS_VERSION)
             self.assertEqual(manifest["folder_id"], "folder-1")
             self.assertEqual(manifest["max_sources"], 5)
             self.assertTrue(manifest["eval_code_sha256"])
