@@ -39,3 +39,6 @@ docs/presentation/
 # Evaluation code, only for semester reports
 /quickassist_ai_evaluation/
 # /steady_evaluation/
+
+# Presentation build workspace (local only)
+/docs/specs/presentation_build/
