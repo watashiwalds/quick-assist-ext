@@ -1,0 +1,310 @@
+{
+  "run_id": "20261121_024854_536342_gemma-4-31b-it-gemini-emb_eval-gemini-retry-01",
+  "metrics_version": 4,
+  "manifest": {
+    "run_id": "20261121_024854_536342_gemma-4-31b-it-gemini-emb_eval-gemini-retry-01",
+    "manifest_version": 3,
+    "date_utc": "2026-11-21T02:48:54.537546+00:00",
+    "metrics_version": 3,
+    "raw_schema_version": 3,
+    "eval_code_sha256": "138d97ccfbd9512405011b8b3da8eb7857ef44323dc9575b7eeed37ac8318911",
+    "command": "run_evaluation.py --model-label gemma-4-31b-it+gemini-emb --provider gemini --model gemma-4-31b-it --embedding-model gemini-embedding-001 --provider-rpm 5 --wait-index-timeout 300 --folder-mode run --fresh-notes --tag eval-gemini-retry-01 --evidence-type quality",
+    "cwd": "D:\\Ky1Nam5\\CongNghePhatTrienUDDN\\quick-assist-ext\\steady_evaluation",
+    "python": "3.13.14",
+    "git_commit": "6d09ed9c3565787ac3c88933cd40273970409efc",
+    "backend_health": {
+      "status": "ok"
+    },
+    "backend_ready": {
+      "status": "ok",
+      "db": "ok"
+    },
+    "api_base_url": "http://localhost:8000/api/v1",
+    "model_label": "gemma-4-31b-it+gemini-emb",
+    "provider": "gemini",
+    "model": "gemma-4-31b-it",
+    "embedding_model": "gemini-embedding-001",
+    "temperature": "",
+    "evaluator": "",
+    "evidence_type": "quality",
+    "dataset_version": "ef7c82ca643482ab",
+    "dataset_fingerprint": "ef7c82ca643482ab",
+    "dataset_stats": {
+      "source_files": 11,
+      "html_files": 8,
+      "text_files": 3,
+      "qa_pairs": 49,
+      "answerable": 38,
+      "unanswerable": 11,
+      "reference_answers": 0,
+      "excluded_rows": 0,
+      "plain_chars_min": 2865,
+      "plain_chars_median": 5964,
+      "plain_chars_max": 156885,
+      "files_over_chunk_size": 11
+    },
+    "dataset_issues": [],
+    "included_pairs": 49,
+    "excluded_rows": 0,
+    "top_k": 5,
+    "max_sources": 5,
+    "pagematch_top_k": 5,
+    "split_chars": 20000,
+    "truncate_long": false,
+    "modules": [
+      "search",
+      "rag",
+      "pagematch"
+    ],
+    "folder_mode": "run",
+    "folder_id": "e90382a5-231e-48c2-a3aa-9659ad54a8f9",
+    "eval_user": "steady-eval@quickassist.local",
+    "fresh_notes": true,
+    "cleanup_notes": false,
+    "allow_degraded": false,
+    "max_retries_429": 5,
+    "provider_rpm": 5.0,
+    "search_rpm": null,
+    "rag_rpm": null,
+    "pagematch_rpm": null,
+    "rpm_config": {
+      "provider_rpm": 5.0,
+      "search_rpm": null,
+      "rag_rpm": null,
+      "pagematch_rpm": null
+    },
+    "max_concurrency": 1,
+    "corpus_notes": 25,
+    "corpus_documents": 11
+  },
+  "ingest": {
+    "files": 11,
+    "by_status": {
+      "READY": 11
+    },
+    "ready_rate": 1.0,
+    "created": 11,
+    "reused": 0,
+    "errors": 0,
+    "create_ms_p50": 61.25,
+    "wait_index_ms_p50": 2024.2,
+    "wait_index_ms_p95": 180878.87,
+    "truncated_files": 0,
+    "documents": 11,
+    "document_files": 11,
+    "parts": 25,
+    "parts_ready": 25,
+    "parts_ready_rate": 1.0,
+    "documents_all_parts_ready": 11,
+    "documents_all_parts_ready_rate": 1.0,
+    "total_chars": 316032,
+    "indexed_chars": 316032,
+    "indexed_chars_ratio": 1.0,
+    "max_part_chars": 17995,
+    "oversized_parts": 0,
+    "source_chars": 316049
+  },
+  "search": {
+    "queries": 38,
+    "completed": 38,
+    "errors": 0,
+    "error_rate": 0.0,
+    "recall_at_k": 1.0,
+    "recall_part_at_k": 1.0,
+    "mrr": 0.9868,
+    "answer_hit_rate": 1.0,
+    "answer_hit_note_rate": 1.0,
+    "gold_part_missing": 0,
+    "gold_spans_parts": 0,
+    "sources_avg": 4.03,
+    "notes_returned_avg": 6.45,
+    "empty_rate": 0.0,
+    "latency_ms_p50": 595.79,
+    "latency_ms_p95": 833.44,
+    "random_floor": 0.4545,
+    "corpus_notes": 25,
+    "corpus_documents": 11,
+    "top_k": 5,
+    "max_sources": 5,
+    "max_sources_observed": 5,
+    "max_sources_ok": true,
+    "sources_at_cap_rate": 0.6053
+  },
+  "rag": {
+    "answerable": {
+      "questions": 38,
+      "completed": 15,
+      "errors": 23,
+      "error_rate": 0.6053,
+      "answer_token_f1_gold_avg": 0.2251,
+      "answer_token_f1_reference_avg": null,
+      "reference_answer_cases": 0,
+      "citation_valid_rate": 0.8,
+      "citation_presence_rate": 0.8,
+      "no_citation_rate": 0.2,
+      "number_violation_rate": 0.2,
+      "no_source_rate": 0.0,
+      "no_context_rate": 0.0,
+      "context_chars_avg": 47134.8,
+      "tokens_used_avg": 1888.4,
+      "first_event_ms_p50": 594.47,
+      "total_ms_p50": 21526.85,
+      "total_ms_p95": 40559.79
+    },
+    "unanswerable": {
+      "questions": 11,
+      "completed": 4,
+      "errors": 7,
+      "error_rate": 0.6364,
+      "refusal_rate": 0.75,
+      "false_answer_rate": 0.25,
+      "number_violation_rate": 0.0,
+      "no_source_rate": 0.0
+    }
+  },
+  "pagematch": {
+    "top_k": 5,
+    "cases": 49,
+    "errors": 36,
+    "error_rate": 0.7347,
+    "overall": {
+      "positive": {
+        "cases": 38,
+        "hit_all_count": 9,
+        "hit_all": 0.2368,
+        "exact_hit_all_count": 9,
+        "exact_hit_all": 0.2368,
+        "hit5_page_count": 5,
+        "hit5_page": 0.1316,
+        "hit5_score_count": 8,
+        "hit5_score": 0.2105,
+        "precision_all_avg": 0.0232,
+        "coverage_all_avg": 0.2368,
+        "span_precision_all_avg": 0.0151,
+        "verified_recall_count": 0,
+        "verified_recall": 0.0,
+        "verified_cases": 0,
+        "verified_items": 0,
+        "verified_relevant_items": 0,
+        "verified_precision_macro": null,
+        "verified_precision_micro": null
+      },
+      "negative": {
+        "cases": 11,
+        "fpr_any_count": 4,
+        "fpr_any": 0.3636,
+        "verified_fpr_count": 0,
+        "verified_fpr": 0.0
+      }
+    },
+    "quality": {
+      "positive": {
+        "cases": 0,
+        "hit_rate": null,
+        "exact_hit_rate": null,
+        "precision_at_k": null,
+        "recall_at_k": null,
+        "f1_at_k_avg": null,
+        "span_coverage_avg": null,
+        "span_precision_avg": null,
+        "span_f1_avg": null,
+        "full_page_cases": 0,
+        "full_page_f1_avg": null
+      },
+      "negative": {
+        "cases": 0,
+        "fpr": null,
+        "verified_fpr": null
+      },
+      "full_page": {
+        "positive": {
+          "cases": 0,
+          "hit_rate": null,
+          "exact_hit_rate": null,
+          "precision_at_k": null,
+          "recall_at_k": null,
+          "f1_at_k_avg": null,
+          "span_coverage_avg": null,
+          "span_precision_avg": null,
+          "span_f1_avg": null,
+          "full_page_cases": 0,
+          "full_page_f1_avg": null
+        },
+        "negative": {
+          "cases": 0,
+          "fpr": null,
+          "verified_fpr": null
+        }
+      },
+      "latency_ms_p50": 0.0,
+      "latency_ms_p95": 0.0
+    },
+    "fallback": {
+      "cases": 13,
+      "positive": {
+        "cases": 0,
+        "hit_rate": null,
+        "exact_hit_rate": null,
+        "precision_at_k": null,
+        "recall_at_k": null,
+        "f1_at_k_avg": null,
+        "span_coverage_avg": null,
+        "span_precision_avg": null,
+        "span_f1_avg": null,
+        "full_page_cases": 0,
+        "full_page_f1_avg": null
+      },
+      "negative": {
+        "cases": 0,
+        "fpr": null,
+        "verified_fpr": null
+      },
+      "full_page": {
+        "positive": {
+          "cases": 9,
+          "hit_rate": 0.5556,
+          "exact_hit_rate": 0.5556,
+          "precision_at_k": 0.1111,
+          "recall_at_k": 0.5556,
+          "f1_at_k_avg": 0.1852,
+          "span_coverage_avg": 0.5961,
+          "span_precision_avg": 0.1489,
+          "span_f1_avg": 0.1789,
+          "full_page_cases": 9,
+          "full_page_f1_avg": 0.8359
+        },
+        "negative": {
+          "cases": 4,
+          "fpr": 1.0,
+          "verified_fpr": 0.0
+        }
+      },
+      "latency_ms_p50": 22103.7,
+      "latency_ms_p95": 24365.7
+    },
+    "verify_unavailable_rate": 0.2653,
+    "full_page_mode_rate": 0.2653,
+    "truncated_rate": 0.0,
+    "latency_ms_p50": 0.0,
+    "latency_ms_p95": 22698.41
+  },
+  "tokens_consumed": 239470,
+  "quota": {
+    "before": {
+      "limit_tokens": 1000000,
+      "used_tokens": 168901,
+      "reserved_tokens": 0,
+      "remaining_tokens": 831099,
+      "billing_mode": "server",
+      "limit_enforced": true
+    },
+    "after": {
+      "limit_tokens": 1000000,
+      "used_tokens": 408371,
+      "reserved_tokens": 0,
+      "remaining_tokens": 591629,
+      "billing_mode": "server",
+      "limit_enforced": true
+    }
+  }
+}
