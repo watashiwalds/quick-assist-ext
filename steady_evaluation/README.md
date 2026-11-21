@@ -107,6 +107,8 @@ Cờ hữu ích:
 | `--pagematch-top-k` | Chỉ chấm top-k block PageMatch (mặc định 5) |
 | `--evidence-type auto|smoke|quality|failure` | Nhãn loại bằng chứng ghi vào report/manifest |
 | `--provider`, `--model`, `--embedding-model`, `--temperature`, `--evaluator` | Metadata tái lập (không tự đọc được từ HTTP health) |
+| `--provider-rpm` | Nhịp gọi provider chủ động (RPM) để chống 429 upstream (ví dụ 10; env `STEADY_PROVIDER_RPM`) |
+| `--search-rpm`, `--rag-rpm`, `--pagematch-rpm` | Hạn mức RPM chủ động riêng cho Search, RAG, PageMatch |
 | `--max-retries-429` | Số lần chờ `Retry-After` cho JSON **và SSE** (mặc định 5) |
 | `--pagematch-timeout` | Timeout riêng cho PageMatch (mặc định 90s) |
 

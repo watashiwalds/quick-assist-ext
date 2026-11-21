@@ -21,6 +21,7 @@ import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Callable
 
 import httpx
 
@@ -72,6 +73,11 @@ class SteadyConfig:
     wait_index_timeout_s: float = 120.0
     poll_interval_s: float = 1.0
     max_retries_429: int = 5
+    # --- pacing RPM chủ động ---
+    provider_rpm: float | None = None  # nhịp gọi provider toàn cục (ví dụ 10 RPM)
+    search_rpm: float | None = None    # nhịp riêng cho Search (POST /search)
+    rag_rpm: float | None = None       # nhịp riêng cho RAG (POST /ai/chat)
+    pagematch_rpm: float | None = None # nhịp riêng cho PageMatch (POST /ai/page-match)
     # --- phản chiếu giới hạn backend (cắt trước ở máy) ---
     max_note_chars: int = 20_000     # MAX_NOTE_CHARS
     split_chars: int = 20_000        # ngưỡng chia part (≤ max_note_chars; target 90%)
@@ -111,6 +117,59 @@ class StreamResult:
         return [data for t, data in self.events if t == event_type]
 
 
+class Pacer:
+    """Điều tiết nhịp gọi (RPM) chủ động để chống vượt rate-limit / quota upstream.
+
+    Hoạt động theo cơ chế khoảng cách tối thiểu giữa các lần gọi (interval pacing):
+    khoảng cách tối thiểu = 60.0 / rpm giây. Nếu thời gian trôi qua từ lần gọi trước
+    nhỏ hơn khoảng cách này, pacer sẽ sleep đúng phần chênh lệch trước khi cho phép gọi tiếp.
+    Khi rpm <= 0 hoặc None, pacer không làm gì (no-op).
+    """
+
+    def __init__(self, rpm: float | None = None, name: str = "",
+                 time_fn: Callable[[], float] = time.perf_counter,
+                 sleep_fn: Callable[[float], None] = time.sleep):
+        self.rpm = float(rpm) if (rpm is not None and float(rpm) > 0) else None
+        self.name = name
+        self._time_fn = time_fn
+        self._sleep_fn = sleep_fn
+        self._last_call: float | None = None
+        self.total_wait_s: float = 0.0
+        self.wait_count: int = 0
+
+    @property
+    def min_interval_s(self) -> float:
+        if self.rpm and self.rpm > 0:
+            return 60.0 / self.rpm
+        return 0.0
+
+    def acquire(self) -> float:
+        """Chờ nếu cần để giữ nhịp RPM. Trả về số giây đã chờ."""
+        if not self.rpm or self.rpm <= 0:
+            return 0.0
+        now = self._time_fn()
+        wait_s = 0.0
+        if self._last_call is not None:
+            elapsed = now - self._last_call
+            if elapsed < self.min_interval_s:
+                wait_s = self.min_interval_s - elapsed
+                if wait_s >= 0.01:
+                    print(f"[pacing] {self.name or 'request'} — chờ {wait_s:.1f}s "
+                          f"(nhịp {self.rpm:g} RPM)")
+                self._sleep_fn(wait_s)
+                now = self._time_fn()
+        self._last_call = now
+        if wait_s > 0:
+            self.total_wait_s += wait_s
+            self.wait_count += 1
+        return wait_s
+
+    def reset(self) -> None:
+        self._last_call = None
+        self.total_wait_s = 0.0
+        self.wait_count = 0
+
+
 class BackendClient:
     """Ủy quyền HTTP cho mọi chức năng: auth, folder, notes, search, chat SSE, page-match, quota."""
 
@@ -120,6 +179,31 @@ class BackendClient:
         self.access_token: str = cfg.access_token
         self.refresh_token: str = ""
         self.expires_at: float = 0.0  # epoch giây; 0 = không biết
+
+        # --- pacers chủ động ---
+        self.provider_pacer = Pacer(cfg.provider_rpm, name="provider")
+        self.search_pacer = Pacer(cfg.search_rpm, name="search")
+        self.rag_pacer = Pacer(cfg.rag_rpm, name="rag")
+        self.pagematch_pacer = Pacer(cfg.pagematch_rpm, name="pagematch")
+
+    # ---------- điều tiết nhịp (pacing) ----------
+    def pace_provider(self) -> float:
+        return self.provider_pacer.acquire()
+
+    def pace_search(self) -> float:
+        w1 = self.search_pacer.acquire()
+        w2 = self.provider_pacer.acquire()
+        return w1 + w2
+
+    def pace_rag(self) -> float:
+        w1 = self.rag_pacer.acquire()
+        w2 = self.provider_pacer.acquire()
+        return w1 + w2
+
+    def pace_pagematch(self) -> float:
+        w1 = self.pagematch_pacer.acquire()
+        w2 = self.provider_pacer.acquire()
+        return w1 + w2
 
     # ---------- vòng đời ----------
     def close(self) -> None:
@@ -424,6 +508,7 @@ class BackendClient:
         notes:[{note_id,title,url,summary,snippet,score,similarity}]}]}``.
         Flatten/top-k note do tầng flow quyết định.
         """
+        self.pace_search()
         payload: dict = {"query": query, "max_sources": max_sources}
         if folder_id:
             payload["folder_id"] = folder_id
@@ -436,6 +521,7 @@ class BackendClient:
 
     def page_match(self, query: str, html: str | None = None, text: str | None = None,
                    title: str | None = None) -> tuple[dict, float]:
+        self.pace_pagematch()
         payload = {"query": query, "title": title}
         if html is not None:
             payload["html"] = html
@@ -447,6 +533,7 @@ class BackendClient:
         return (body if isinstance(body, dict) else {}), elapsed
 
     def chat_sse(self, question: str, folder_id: str | None = None) -> StreamResult:
+        self.pace_rag()
         payload: dict = {"question": question}
         if folder_id:
             payload["folder_id"] = folder_id
