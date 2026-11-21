@@ -42,3 +42,4 @@ docs/presentation/
 
 # Presentation build workspace (local only)
 /docs/specs/presentation_build/
+/docs/specs/report_build/
