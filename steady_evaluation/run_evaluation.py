@@ -365,6 +365,10 @@ def build_report_md(manifest: dict, metrics: dict, bundle_issues: list[str] | No
         f" · fingerprint: `{manifest.get('dataset_fingerprint', '—')}`",
         f"- provider/model/embedding: `{manifest.get('provider', '—')}` / "
         f"`{manifest.get('model', '—')}` / `{manifest.get('embedding_model', '—')}`",
+        f"- provider_rpm: `{manifest.get('provider_rpm', '—')}`"
+        f" · search_rpm: `{manifest.get('search_rpm', '—')}`"
+        f" · rag_rpm: `{manifest.get('rag_rpm', '—')}`"
+        f" · pagematch_rpm: `{manifest.get('pagematch_rpm', '—')}`",
         f"- folder_id: `{manifest.get('folder_id', '—')}`"
         f" · folder_mode: `{manifest.get('folder_mode', '—')}`",
         "",
@@ -669,6 +673,17 @@ def run_pipeline(cfg: SteadyConfig) -> Path:
             "fresh_notes": cfg.fresh_notes,
             "cleanup_notes": cfg.cleanup_notes,
             "allow_degraded": cfg.allow_degraded,
+            "max_retries_429": cfg.max_retries_429,
+            "provider_rpm": cfg.provider_rpm,
+            "search_rpm": cfg.search_rpm,
+            "rag_rpm": cfg.rag_rpm,
+            "pagematch_rpm": cfg.pagematch_rpm,
+            "rpm_config": {
+                "provider_rpm": cfg.provider_rpm,
+                "search_rpm": cfg.search_rpm,
+                "rag_rpm": cfg.rag_rpm,
+                "pagematch_rpm": cfg.pagematch_rpm,
+            },
             "max_concurrency": 1,
         }
         write_json(run_dir / "run_manifest.json", manifest)
@@ -839,6 +854,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--wait-index-timeout", type=float, default=120.0)
     parser.add_argument("--pagematch-timeout", type=float, default=90.0)
     parser.add_argument("--max-retries-429", type=int, default=5)
+    parser.add_argument("--provider-rpm", type=float,
+                        default=float(env["STEADY_PROVIDER_RPM"]) if env.get("STEADY_PROVIDER_RPM") else None,
+                        help="Nhịp gọi provider (RPM) chủ động để chống vượt hạn mức (ví dụ 10)")
+    parser.add_argument("--search-rpm", type=float,
+                        default=float(env["STEADY_SEARCH_RPM"]) if env.get("STEADY_SEARCH_RPM") else None,
+                        help="Hạn mức RPM chủ động riêng cho Search (POST /search)")
+    parser.add_argument("--rag-rpm", type=float,
+                        default=float(env["STEADY_RAG_RPM"]) if env.get("STEADY_RAG_RPM") else None,
+                        help="Hạn mức RPM chủ động riêng cho RAG (POST /ai/chat)")
+    parser.add_argument("--pagematch-rpm", type=float,
+                        default=float(env["STEADY_PAGEMATCH_RPM"]) if env.get("STEADY_PAGEMATCH_RPM") else None,
+                        help="Hạn mức RPM chủ động riêng cho PageMatch (POST /ai/page-match)")
     parser.add_argument("--validate", action="store_true", help="Chỉ nạp + kiểm chứng dataset (§2)")
     parser.add_argument("--compare", action="store_true", help="Gộp bảng so sánh mọi run trong runs/")
     parser.add_argument("--recompute", nargs="?", const="latest", default=None,
@@ -874,6 +901,10 @@ def main() -> None:
         wait_index_timeout_s=args.wait_index_timeout,
         pagematch_timeout_s=args.pagematch_timeout,
         max_retries_429=args.max_retries_429,
+        provider_rpm=args.provider_rpm,
+        search_rpm=args.search_rpm,
+        rag_rpm=args.rag_rpm,
+        pagematch_rpm=args.pagematch_rpm,
         provider=args.provider, model=args.model,
         embedding_model=args.embedding_model, temperature=args.temperature,
         evaluator=args.evaluator, evidence_type=args.evidence_type,

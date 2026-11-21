@@ -1,4 +1,3 @@
 # Artifact sinh ra khi chạy đánh giá — không commit
-/runs/
 /.env
 __pycache__/
