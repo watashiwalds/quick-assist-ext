@@ -32,6 +32,10 @@
 6. **PageMatch:** segments hit **0,7895**, Precision@5 **0,2754**, Span Coverage **0,7952**;
    FPR **0,5** (6 ca âm). Chế độ full-page: hit **0,5**, Full-page F1 **0,7642**, FPR **1,0**.
    Độ trễ cao: p50 **10,8 s**, p95 **25,6 s**; **11/49 ca bị truncate** (đều là TXT).
+   → **Đính chính (M0):** các số này dùng định nghĩa cũ (5 item đầu theo thứ tự trang) và
+   tách cohort segments/full-page. Số đo lại trên toàn bộ item/`verified` ở **§8A**:
+   `hit_all` **30/38 = 0,7895**, `verified_recall` **29/38 = 0,7632**,
+   `verified_fpr` **7/11 = 0,6364**.
 7. **So với run cùng dataset/config gần nhất** (`20261119_173736`, cùng 49 cặp, cùng embedding):
    Recall/MRR **trùng khít từng chữ số** (search gần như tất định), trong khi RAG trích dẫn
    **+0,184**, PageMatch hit **+0,19** nhưng FPR **+0,167**, token tiêu thụ **+33%**.
@@ -268,6 +272,78 @@ Cùng `dataset_fingerprint ef7c82ca643482ab`, cùng `top_k=5`, `max_sources=5`, 
   `cache-prompt`/`ctx-checkpoints` đều tắt. Đây là biến số môi trường cần ghi nhớ khi so sánh.
 - Số từ chối thấp hơn một phần là do heuristic (QA-006) chứ không phải model trả lời bừa nhiều
   hơn; sau khi đối chiếu tay, chênh lệch thực chỉ còn 1 ca (QA-049).
+
+> **Đính chính (M0 — 2026-11-21):** các dòng PageMatch ở §7 và bảng trên dùng định nghĩa cũ
+> `Hit@5` = 5 item đầu **theo thứ tự trang**, không phải top-5 theo score. Đọc §8A để có số
+> đo lại trên toàn bộ item và nhóm `verified`.
+
+---
+
+## 8A. Đính chính metric PageMatch (M0 — 2026-11-21)
+
+> **Bổ sung, không xoá kết luận cũ.** Các bảng ở §7 và §8 vẫn đúng theo **định nghĩa cũ**
+> (`Hit@5` = 5 item đầu theo thứ tự trang). Mục này thay thế cách diễn giải PageMatch bằng
+> chỉ số khớp với trải nghiệm UI.
+
+### 8A.1. Vì sao phải đính chính
+
+- Metric cũ `_score_pagematch_case` lấy `items[:top_k]` — tức **5 đoạn đầu theo thứ tự trang**,
+  không phải 5 đoạn tốt nhất theo `score`. Server trả `items` theo thứ tự trang.
+- UI hiển thị **tất cả** item và auto-select các đoạn `verified=true`. Vì vậy `Hit@5` cũ
+  không đo “5 kết quả tốt nhất”, cũng không đo “toàn bộ kết quả người dùng thấy”.
+- Run này có `full_page_mode_rate` **48,98%** (24/49) nên tập ca `segments` chỉ còn 19 ca dương;
+  run Qwen3 chỉ có **18,37%** full-page nên tập `segments` là 28 ca. So trực tiếp
+  `0,7895` (19 ca) với `0,5714` (28 ca) là so **hai cohort khác nhau**.
+
+### 8A.2. Số đo lại trên cùng 38 ca dương / 11 ca âm
+
+Bảng dưới tính bằng `steady_metrics.py` phiên bản `metrics_version = 4`; cột gte lấy từ
+`metrics.recomputed.json` của run này, cột Qwen3 là số tham chiếu cùng định nghĩa trên run
+`20261121_030233`.
+
+| Chỉ số | gte-Qwen2 (run này) | Qwen3-Embed (run 030233) | Δ (Qwen3 − gte) |
+|---|---:|---:|---:|
+| Gold nằm trong **bất kỳ item** (`hit_all`) | 30/38 = **0,7895** | 29/38 = **0,7632** | **−0,0263** |
+| Gold nằm trong item **verified** (`verified_recall`) | 29/38 = **0,7632** | 26/38 = **0,6842** | **−0,0789** |
+| Verified FPR (11 ca âm) | 7/11 = **0,6364** | 5/11 = **0,4545** | **−0,1818** |
+| FPR bất kỳ item | 8/11 = 0,7273 | 6/11 = 0,5455 | −0,1818 |
+| `precision_all` | 0,1710 | 0,1626 | −0,0084 |
+| `coverage_all` | 0,8260 | 0,7964 | −0,0296 |
+| Verified precision (macro) | 0,1882 | 0,1555 | −0,0327 |
+| Verified precision (micro) | 0,1068 | 0,1015 | −0,0053 |
+| HTML — `hit_all` | 20/22 = 0,9091 | 17/22 = 0,7727 | −0,1364 |
+| TXT — `hit_all` | 10/16 = 0,6250 | 12/16 = 0,7500 | **+0,1250** |
+| Full-page rate (49 ca) | 48,98% | 18,37% | −30,61 pp |
+| `hit5_page` (metric cũ) | 25/38 = 0,6579 | 22/38 = 0,5789 | −0,0789 |
+| `hit5_score` (top-5 theo score) | 24/38 = 0,6316 | 24/38 = 0,6316 | 0 |
+| `verify_unavailable` | 2 ca | 5 ca | +3 |
+
+### 8A.3. Kết luận thay thế
+
+1. **Run này (gte) có recall cao hơn nhưng FPR cao hơn rõ.** `hit_all` **0,7895** so với
+   0,7632; `verified_recall` **0,7632** so với 0,6842; nhưng `verified_fpr` **0,6364** so với
+   0,4545 — Qwen3 lọc false positive tốt hơn.
+2. **Mức giảm thật của Qwen3 ở recall các đoạn auto-select là −0,0789**, không phải −0,2181.
+   Con số −0,2181 trong báo cáo Qwen3 (`BAO_CAO_20261121_local-qwenternary-qwen3embed.md`,
+   §0.4/§8) là do so hai cohort segments khác nhau dưới định nghĩa top-5 theo thứ tự trang.
+3. **`hit5_score` giống hệt nhau (0,6316)** → vấn đề không nằm ở xếp hạng top-5 theo score.
+4. **Verified precision thấp ở cả hai run** (macro 0,1882 / 0,1555; micro 0,1068 / 0,1015),
+   rất xa mục tiêu 0,85 trong `docs/ai/page-match-eval.md`. Đây là vấn đề định nghĩa “đúng”/
+   prompt thẩm định, không phải chỉnh ngưỡng là giải quyết được.
+5. **Hệ quả:** phải sửa metric trước khi tune (đã làm ở M0). Nếu tune trên metric cũ, UI sẽ
+   tối ưu một chỉ số không khớp với trải nghiệm thật.
+
+### 8A.4. Thay đổi kỹ thuật
+
+- `steady_metrics.py`: thêm nhóm `pagematch.overall` với `hit_all`, `hit5_page`,
+  `hit5_score`, `precision_all`, `coverage_all`, `span_precision_all`,
+  `verified_recall`, `verified_precision_macro`, `verified_precision_micro`,
+  `fpr_any`, `verified_fpr`; giữ nguyên mọi khóa cũ.
+- `metrics_version` 3 → **4**; `--recompute` vẫn khớp hoàn toàn với metrics cũ (chỉ bỏ qua
+  trường `metrics_version` khi diff).
+- `report.md` của run này đã render thêm bảng “toàn bộ item / verified”;
+  `runs/MODEL_COMPARISON.md` dùng `PM Hit@all`, `PM vRecall`, `PM vFPR` làm cột chính.
+- Không sửa `raw_results.jsonl`.
 
 ---
 

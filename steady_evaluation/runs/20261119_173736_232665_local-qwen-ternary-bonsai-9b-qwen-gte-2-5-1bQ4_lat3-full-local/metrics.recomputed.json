@@ -1,0 +1,297 @@
+{
+  "run_id": "20261119_173736_232665_local-qwen-ternary-bonsai-9b-qwen-gte-2-5-1bQ4_lat3-full-local",
+  "metrics_version": 4,
+  "manifest": {
+    "run_id": "20261119_173736_232665_local-qwen-ternary-bonsai-9b-qwen-gte-2-5-1bQ4_lat3-full-local",
+    "manifest_version": 3,
+    "date_utc": "2026-11-19T17:37:36.232904+00:00",
+    "metrics_version": 3,
+    "raw_schema_version": 3,
+    "eval_code_sha256": "0f8e5e7e93c130cb8bf9a329209b4ef39e6a5abaa98fa28a940d1888f54d45cb",
+    "command": "run_evaluation.py --model-label local-qwen_ternary_bonsai_9b-qwen_gte_2.5_1bQ4 --provider openai --model chat --embedding-model embed --tag lat3-full-local --fresh-notes --cleanup-notes",
+    "cwd": "/run/media/leedan5/Data/Uni/HK9/CNPMDN/repo/quick-assist-ext/steady_evaluation",
+    "python": "3.14.4",
+    "git_commit": "4ccd0513be3f3ebf928933cfcd35fedfd4735bc5",
+    "backend_health": {
+      "status": "ok"
+    },
+    "backend_ready": {
+      "status": "ok",
+      "db": "ok"
+    },
+    "api_base_url": "http://localhost:8000/api/v1",
+    "model_label": "local-qwen_ternary_bonsai_9b-qwen_gte_2.5_1bQ4",
+    "provider": "openai",
+    "model": "chat",
+    "embedding_model": "embed",
+    "temperature": "",
+    "evaluator": "",
+    "evidence_type": "quality",
+    "dataset_version": "ef7c82ca643482ab",
+    "dataset_fingerprint": "ef7c82ca643482ab",
+    "dataset_stats": {
+      "source_files": 11,
+      "html_files": 8,
+      "text_files": 3,
+      "qa_pairs": 49,
+      "answerable": 38,
+      "unanswerable": 11,
+      "reference_answers": 0,
+      "excluded_rows": 0,
+      "plain_chars_min": 2865,
+      "plain_chars_median": 5964,
+      "plain_chars_max": 156885,
+      "files_over_chunk_size": 11
+    },
+    "dataset_issues": [],
+    "included_pairs": 49,
+    "excluded_rows": 0,
+    "top_k": 5,
+    "max_sources": 5,
+    "pagematch_top_k": 5,
+    "split_chars": 20000,
+    "truncate_long": false,
+    "modules": [
+      "search",
+      "rag",
+      "pagematch"
+    ],
+    "folder_mode": "run",
+    "folder_id": "ea00a0a5-4962-4ffd-ab42-5ba432f5fa18",
+    "eval_user": "steady-eval@quickassist.local",
+    "fresh_notes": true,
+    "cleanup_notes": true,
+    "allow_degraded": false,
+    "max_concurrency": 1,
+    "corpus_notes": 25,
+    "corpus_documents": 11
+  },
+  "ingest": {
+    "files": 11,
+    "by_status": {
+      "READY": 11
+    },
+    "ready_rate": 1.0,
+    "created": 11,
+    "reused": 0,
+    "errors": 0,
+    "create_ms_p50": 26.26,
+    "wait_index_ms_p50": 3020.86,
+    "wait_index_ms_p95": 52350.77,
+    "truncated_files": 0,
+    "documents": 11,
+    "document_files": 11,
+    "parts": 25,
+    "parts_ready": 25,
+    "parts_ready_rate": 1.0,
+    "documents_all_parts_ready": 11,
+    "documents_all_parts_ready_rate": 1.0,
+    "total_chars": 316032,
+    "indexed_chars": 316032,
+    "indexed_chars_ratio": 1.0,
+    "max_part_chars": 17995,
+    "oversized_parts": 0,
+    "source_chars": 316049
+  },
+  "search": {
+    "queries": 38,
+    "completed": 38,
+    "errors": 0,
+    "error_rate": 0.0,
+    "recall_at_k": 0.7105,
+    "recall_part_at_k": 0.7105,
+    "mrr": 0.6798,
+    "answer_hit_rate": 0.7105,
+    "answer_hit_note_rate": 0.7105,
+    "gold_part_missing": 0,
+    "gold_spans_parts": 0,
+    "sources_avg": 3.68,
+    "notes_returned_avg": 4.08,
+    "empty_rate": 0.0,
+    "latency_ms_p50": 193.6,
+    "latency_ms_p95": 273.88,
+    "random_floor": 0.4545,
+    "corpus_notes": 25,
+    "corpus_documents": 11,
+    "top_k": 5,
+    "max_sources": 5,
+    "max_sources_observed": 5,
+    "max_sources_ok": true,
+    "sources_at_cap_rate": 0.3947
+  },
+  "rag": {
+    "answerable": {
+      "questions": 38,
+      "completed": 38,
+      "errors": 0,
+      "error_rate": 0.0,
+      "answer_token_f1_gold_avg": 0.1694,
+      "answer_token_f1_reference_avg": null,
+      "reference_answer_cases": 0,
+      "citation_valid_rate": 0.5526,
+      "citation_presence_rate": 0.5526,
+      "no_citation_rate": 0.4474,
+      "number_violation_rate": 0.0263,
+      "no_source_rate": 0.0,
+      "no_context_rate": 0.0,
+      "context_chars_avg": 25098.9,
+      "tokens_used_avg": 1393.6,
+      "first_event_ms_p50": 232.12,
+      "total_ms_p50": 3782.71,
+      "total_ms_p95": 10402.21
+    },
+    "unanswerable": {
+      "questions": 11,
+      "completed": 11,
+      "errors": 0,
+      "error_rate": 0.0,
+      "refusal_rate": 0.9091,
+      "false_answer_rate": 0.0909,
+      "number_violation_rate": 0.0,
+      "no_source_rate": 0.0
+    }
+  },
+  "pagematch": {
+    "top_k": 5,
+    "cases": 49,
+    "errors": 7,
+    "error_rate": 0.1429,
+    "overall": {
+      "positive": {
+        "cases": 38,
+        "hit_all_count": 24,
+        "hit_all": 0.6316,
+        "exact_hit_all_count": 24,
+        "exact_hit_all": 0.6316,
+        "hit5_page_count": 17,
+        "hit5_page": 0.4474,
+        "hit5_score_count": 19,
+        "hit5_score": 0.5,
+        "precision_all_avg": 0.1093,
+        "coverage_all_avg": 0.6562,
+        "span_precision_all_avg": 0.0723,
+        "verified_recall_count": 22,
+        "verified_recall": 0.5789,
+        "verified_cases": 27,
+        "verified_items": 234,
+        "verified_relevant_items": 22,
+        "verified_precision_macro": 0.14,
+        "verified_precision_micro": 0.094
+      },
+      "negative": {
+        "cases": 11,
+        "fpr_any_count": 6,
+        "fpr_any": 0.5455,
+        "verified_fpr_count": 6,
+        "verified_fpr": 0.5455
+      }
+    },
+    "quality": {
+      "positive": {
+        "cases": 15,
+        "hit_rate": 0.6,
+        "exact_hit_rate": 0.6,
+        "precision_at_k": 0.1889,
+        "recall_at_k": 0.6,
+        "f1_at_k_avg": 0.2644,
+        "span_coverage_avg": 0.6416,
+        "span_precision_avg": 0.1215,
+        "span_f1_avg": 0.1914,
+        "full_page_cases": 0,
+        "full_page_f1_avg": null
+      },
+      "negative": {
+        "cases": 6,
+        "fpr": 0.3333,
+        "verified_fpr": 0.3333
+      },
+      "full_page": {
+        "positive": {
+          "cases": 14,
+          "hit_rate": 0.5,
+          "exact_hit_rate": 0.5,
+          "precision_at_k": 0.1,
+          "recall_at_k": 0.5,
+          "f1_at_k_avg": 0.1666,
+          "span_coverage_avg": 0.566,
+          "span_precision_avg": 0.1061,
+          "span_f1_avg": 0.1513,
+          "full_page_cases": 14,
+          "full_page_f1_avg": 0.8589
+        },
+        "negative": {
+          "cases": 4,
+          "fpr": 1.0,
+          "verified_fpr": 1.0
+        }
+      },
+      "latency_ms_p50": 13634.88,
+      "latency_ms_p95": 35530.37
+    },
+    "fallback": {
+      "cases": 3,
+      "positive": {
+        "cases": 2,
+        "hit_rate": 0.5,
+        "exact_hit_rate": 0.5,
+        "precision_at_k": 0.125,
+        "recall_at_k": 0.5,
+        "f1_at_k_avg": 0.2,
+        "span_coverage_avg": 0.5,
+        "span_precision_avg": 0.1202,
+        "span_f1_avg": 0.1938,
+        "full_page_cases": 0,
+        "full_page_f1_avg": null
+      },
+      "negative": {
+        "cases": 0,
+        "fpr": null,
+        "verified_fpr": null
+      },
+      "full_page": {
+        "positive": {
+          "cases": 1,
+          "hit_rate": 0.0,
+          "exact_hit_rate": 0.0,
+          "precision_at_k": 0.0,
+          "recall_at_k": 0.0,
+          "f1_at_k_avg": 0.0,
+          "span_coverage_avg": 0.1181,
+          "span_precision_avg": 0.1707,
+          "span_f1_avg": 0.1396,
+          "full_page_cases": 1,
+          "full_page_f1_avg": 0.7206
+        },
+        "negative": {
+          "cases": 0,
+          "fpr": null,
+          "verified_fpr": null
+        }
+      },
+      "latency_ms_p50": 16438.08,
+      "latency_ms_p95": 23157.2
+    },
+    "verify_unavailable_rate": 0.0612,
+    "full_page_mode_rate": 0.3878,
+    "truncated_rate": 0.0816,
+    "latency_ms_p50": 11637.93,
+    "latency_ms_p95": 27960.3
+  },
+  "tokens_consumed": 442183,
+  "quota": {
+    "before": {
+      "limit_tokens": 1000000,
+      "used_tokens": 543409,
+      "reserved_tokens": 0,
+      "remaining_tokens": 456591,
+      "billing_mode": "byok"
+    },
+    "after": {
+      "limit_tokens": 1000000,
+      "used_tokens": 985592,
+      "reserved_tokens": 0,
+      "remaining_tokens": 14408,
+      "billing_mode": "byok"
+    }
+  }
+}

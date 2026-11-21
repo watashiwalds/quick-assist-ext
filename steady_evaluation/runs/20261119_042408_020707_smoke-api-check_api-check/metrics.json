@@ -1,0 +1,243 @@
+{
+  "run_id": "20261119_042408_020707_smoke-api-check_api-check",
+  "metrics_version": 3,
+  "manifest": {
+    "run_id": "20261119_042408_020707_smoke-api-check_api-check",
+    "manifest_version": 3,
+    "date_utc": "2026-11-19T04:24:08.020923+00:00",
+    "metrics_version": 3,
+    "raw_schema_version": 3,
+    "eval_code_sha256": "945ddf823850a913366505e7215da8207e74bf9ef49ca7224a861fb9b078ed1e",
+    "command": "run_evaluation.py --dataset-dir /tmp/opencode/steady_one_source --modules search,rag,pagematch --model-label smoke-api-check --tag api-check --fresh-notes --cleanup-notes",
+    "cwd": "/run/media/leedan5/Data/Uni/HK9/CNPMDN/repo/quick-assist-ext/steady_evaluation",
+    "python": "3.14.4",
+    "git_commit": "c091f69f3f4fb5fb90f51620d542e403d5838fc9",
+    "backend_health": {
+      "status": "ok"
+    },
+    "backend_ready": {
+      "status": "ok",
+      "db": "ok"
+    },
+    "api_base_url": "http://localhost:8000/api/v1",
+    "model_label": "smoke-api-check",
+    "provider": "",
+    "model": "",
+    "embedding_model": "",
+    "temperature": "",
+    "evaluator": "",
+    "evidence_type": "smoke",
+    "dataset_version": "4e6fa6ea3cfebd2c",
+    "dataset_fingerprint": "4e6fa6ea3cfebd2c",
+    "dataset_stats": {
+      "source_files": 1,
+      "html_files": 1,
+      "text_files": 0,
+      "qa_pairs": 3,
+      "answerable": 1,
+      "unanswerable": 2,
+      "reference_answers": 0,
+      "excluded_rows": 0,
+      "plain_chars_min": 3433,
+      "plain_chars_median": 3433,
+      "plain_chars_max": 3433,
+      "files_over_chunk_size": 1
+    },
+    "dataset_issues": [],
+    "included_pairs": 3,
+    "excluded_rows": 0,
+    "top_k": 5,
+    "max_sources": 5,
+    "pagematch_top_k": 5,
+    "modules": [
+      "search",
+      "rag",
+      "pagematch"
+    ],
+    "folder_mode": "run",
+    "folder_id": "74b8a27d-a67e-44c0-ad68-e90ddf8a5fe0",
+    "eval_user": "steady-eval@quickassist.local",
+    "fresh_notes": true,
+    "cleanup_notes": true,
+    "allow_degraded": false,
+    "max_concurrency": 1,
+    "corpus_notes": 1
+  },
+  "ingest": {
+    "files": 1,
+    "by_status": {
+      "READY": 1
+    },
+    "ready_rate": 1.0,
+    "created": 1,
+    "reused": 0,
+    "errors": 0,
+    "create_ms_p50": 60.68,
+    "wait_index_ms_p50": 3015.96,
+    "wait_index_ms_p95": 3015.96,
+    "truncated_files": 0
+  },
+  "search": {
+    "queries": 1,
+    "completed": 1,
+    "errors": 0,
+    "error_rate": 0.0,
+    "recall_at_k": 1.0,
+    "mrr": 1.0,
+    "answer_hit_rate": 1.0,
+    "sources_avg": 1.0,
+    "notes_returned_avg": 1.0,
+    "empty_rate": 0.0,
+    "latency_ms_p50": 273.93,
+    "latency_ms_p95": 273.93,
+    "random_floor": 1.0,
+    "corpus_notes": 1,
+    "top_k": 5,
+    "max_sources": 5
+  },
+  "rag": {
+    "answerable": {
+      "questions": 1,
+      "completed": 1,
+      "errors": 0,
+      "error_rate": 0.0,
+      "answer_token_f1_gold_avg": 0.4918,
+      "answer_token_f1_reference_avg": null,
+      "reference_answer_cases": 0,
+      "citation_valid_rate": 1.0,
+      "citation_presence_rate": 1.0,
+      "no_citation_rate": 0.0,
+      "number_violation_rate": 0.0,
+      "no_source_rate": 0.0,
+      "no_context_rate": 0.0,
+      "context_chars_avg": 3492.0,
+      "tokens_used_avg": 681.0,
+      "first_event_ms_p50": 297.28,
+      "total_ms_p50": 2270.04,
+      "total_ms_p95": 2270.04
+    },
+    "unanswerable": {
+      "questions": 2,
+      "completed": 2,
+      "errors": 0,
+      "error_rate": 0.0,
+      "refusal_rate": 1.0,
+      "false_answer_rate": 0.0,
+      "number_violation_rate": 0.0,
+      "no_source_rate": 0.0
+    }
+  },
+  "pagematch": {
+    "top_k": 5,
+    "cases": 3,
+    "errors": 0,
+    "error_rate": 0.0,
+    "quality": {
+      "positive": {
+        "cases": 1,
+        "hit_rate": 1.0,
+        "exact_hit_rate": 1.0,
+        "precision_at_k": 0.2,
+        "recall_at_k": 1.0,
+        "f1_at_k_avg": 0.3333,
+        "span_coverage_avg": 1.0,
+        "span_precision_avg": 0.2417,
+        "span_f1_avg": 0.3893,
+        "full_page_cases": 0,
+        "full_page_f1_avg": null
+      },
+      "negative": {
+        "cases": 2,
+        "fpr": 1.0,
+        "verified_fpr": 1.0
+      },
+      "full_page": {
+        "positive": {
+          "cases": 0,
+          "hit_rate": null,
+          "exact_hit_rate": null,
+          "precision_at_k": null,
+          "recall_at_k": null,
+          "f1_at_k_avg": null,
+          "span_coverage_avg": null,
+          "span_precision_avg": null,
+          "span_f1_avg": null,
+          "full_page_cases": 0,
+          "full_page_f1_avg": null
+        },
+        "negative": {
+          "cases": 0,
+          "fpr": null,
+          "verified_fpr": null
+        }
+      },
+      "latency_ms_p50": 12248.45,
+      "latency_ms_p95": 15322.4
+    },
+    "fallback": {
+      "cases": 0,
+      "positive": {
+        "cases": 0,
+        "hit_rate": null,
+        "exact_hit_rate": null,
+        "precision_at_k": null,
+        "recall_at_k": null,
+        "f1_at_k_avg": null,
+        "span_coverage_avg": null,
+        "span_precision_avg": null,
+        "span_f1_avg": null,
+        "full_page_cases": 0,
+        "full_page_f1_avg": null
+      },
+      "negative": {
+        "cases": 0,
+        "fpr": null,
+        "verified_fpr": null
+      },
+      "full_page": {
+        "positive": {
+          "cases": 0,
+          "hit_rate": null,
+          "exact_hit_rate": null,
+          "precision_at_k": null,
+          "recall_at_k": null,
+          "f1_at_k_avg": null,
+          "span_coverage_avg": null,
+          "span_precision_avg": null,
+          "span_f1_avg": null,
+          "full_page_cases": 0,
+          "full_page_f1_avg": null
+        },
+        "negative": {
+          "cases": 0,
+          "fpr": null,
+          "verified_fpr": null
+        }
+      },
+      "latency_ms_p50": 0.0,
+      "latency_ms_p95": 0.0
+    },
+    "verify_unavailable_rate": 0.0,
+    "full_page_mode_rate": 0.0,
+    "truncated_rate": 0.0,
+    "latency_ms_p50": 12248.45,
+    "latency_ms_p95": 15322.4
+  },
+  "quota": {
+    "before": {
+      "limit_tokens": 200000,
+      "used_tokens": 114778,
+      "reserved_tokens": 0,
+      "remaining_tokens": 85222,
+      "billing_mode": "byok"
+    },
+    "after": {
+      "limit_tokens": 200000,
+      "used_tokens": 123506,
+      "reserved_tokens": 0,
+      "remaining_tokens": 76494,
+      "billing_mode": "byok"
+    }
+  },
+  "tokens_consumed": 8728
+}
