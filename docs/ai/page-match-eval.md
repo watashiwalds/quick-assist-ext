@@ -21,11 +21,39 @@
 | Chỉ số | Định nghĩa | Ngưỡng mục tiêu (đề xuất) |
 |---|---|---|
 | Boilerplate leak | % khối thuộc menu/footer/widget lọt vào kết quả trích | ≤ 5% |
-| Candidate recall | % khối đúng nằm trong 15 ứng viên | ≥ 0.9 |
-| Verified precision | % đoạn `verified=true` là đúng | ≥ 0.85 |
-| Verified recall | % khối đúng được xác nhận | ≥ 0.8 |
+| Candidate recall | % khối đúng nằm trong 15 ứng viên **trước** bước verify | ≥ 0.9 |
+| `hit_all` | Gold nằm trong **bất kỳ item nào** server trả về (mọi ca, không cắt top-k) | — |
+| Verified precision | % đoạn `verified=true` là đúng (macro: trung bình theo ca; micro: gộp mọi item) | ≥ 0.85 |
+| Verified recall | % ca dương có ít nhất một đoạn `verified=true` chứa gold | ≥ 0.8 |
+| Verified FPR | % ca âm có ít nhất một đoạn `verified=true` (UI auto-select đoạn sai) | ≤ 0.30 |
 | Injection pass | trang injection không làm tăng số đoạn sai được xác nhận | 100% |
 | p95 latency | thời gian `POST /ai/page-match` (trích + embed + verify) | < 8 s |
+
+### 3.1. Định nghĩa chính xác (metrics v4)
+
+UI (`PageFinderView`) hiển thị **tất cả** item server trả về và auto-select các item
+`verified=true`. Vì vậy metric phải chấm trên cùng tập đó, không chỉ top-5:
+
+- **`hit_all`** — gold nằm trong bất kỳ item nào (gồm cả ca `full_page` và fallback).
+  Đây là chỉ số khớp trải nghiệm "người dùng thấy gì".
+- **`hit5_page`** (metric cũ, trước đây gọi là `hit`/`Hit@5`) — gold nằm trong **5 item
+  đầu theo thứ tự trang**. Đây **không phải** 5 item tốt nhất theo score; đừng dùng nó
+  để kết luận chất lượng xếp hạng.
+- **`hit5_score`** — gold nằm trong 5 item có `score` cao nhất.
+- **`precision_all`** — tỉ lệ item liên quan (chứa gold hoặc phủ ≥ 50% đoạn gold) trên
+  **mọi item trả về**.
+- **`coverage_all`** — tỉ lệ chuỗi con chung dài nhất của gold trên item phủ tốt nhất.
+- **`verified_recall`** — ca dương có ít nhất một item `verified=true` **chứa gold**.
+- **`verified_precision`** — *macro* = trung bình precision của các ca có item verified;
+  *micro* = tổng item verified chứa gold / tổng item verified.
+- **`verified_fpr`** — ca âm có ít nhất một item `verified=true`.
+- **Candidate recall@N** — gold nằm trong top-N theo score **trước** bước verify; đo riêng
+  bằng script calibration (không nằm trong `metrics.json` của run thường).
+
+Lưu ý: hạ `min_score` **không tự động thêm candidate** khi đã có ≥ `top_candidates`
+đoạn vượt ngưỡng; muốn tăng recall phải tăng `top_candidates` (đang cap 15) hoặc cải
+thiện embedding/block.
+
 
 ## 4. Kết quả với AI mock (bag-of-words, offline)
 | Kiểm tra | Kết quả | Bằng chứng |
@@ -42,7 +70,11 @@ Mock chỉ chứng minh **pipeline và hợp đồng** đúng — không nói g�
 1. `AI_PROVIDER=openai|gemini` + key trong `.env`, chạy API (`uvicorn quickassist.main:app`).
 2. Với mỗi trang mẫu + truy vấn: `POST /api/v1/ai/page-match` (`{query, html}`), ghi `items[].id/verified`, `mode`, `match_ratio`, `warning`, latency.
 3. So với nhãn tay → tính bảng §3; ghi kết quả vào mục 6 của file này kèm ngày, model, cấu hình (`PAGE_MATCH_*`).
-4. Tune theo thứ tự: `PAGE_MATCH_MIN_SCORE` (candidate recall) → prompt thẩm định (precision/recall) → `PAGE_MATCH_FULL_PAGE_RATIO`.
+4. Tune theo thứ tự: `PAGE_MATCH_MIN_SCORE` (candidate recall) → `PAGE_MATCH_TOP_CANDIDATES`
+   (recall@N) → prompt thẩm định (`verified_precision`/`verified_recall`) →
+   `PAGE_MATCH_MIN_CONFIDENCE` (lọc sau verify) → `PAGE_MATCH_FULL_PAGE_RATIO`.
+   Đọc kèm `hit_all` và `verified_fpr`; **không** dùng `hit5_page` làm chỉ số chính vì đó là
+   5 item đầu theo thứ tự trang, không phải top-5 theo score.
 
 ## 6. Kết quả với LLM thật
 _Chưa chạy._

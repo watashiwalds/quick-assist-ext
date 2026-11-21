@@ -26,7 +26,7 @@
 | 5 | HTTPS | Caddy (Let's Encrypt) + HSTS; API chỉ lộ `/api/*`; DB không mở cổng | `infra/docker-compose.prod.yml`, `Caddyfile` |
 | 6 | Header bảo mật | `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, CSP `default-src 'none'`, `Cache-Control: no-store` | ✅ `test_security_headers_and_request_id` |
 | 7 | Không lộ lỗi nội bộ | lỗi không bắt → 500 `INTERNAL_ERROR` + request_id, không stacktrace; 422 không phản hồi lại giá trị đầu vào | ✅ `test_account::test_failure_mid_transaction_rolls_back`, `test_auth_google::test_exchange_validates_pkce_shape` |
-| 8 | Cấu hình prod an toàn | từ chối khởi động nếu JWT_SECRET yếu (< 32) / mặc định, ENABLE_DEV_LOGIN bật, CORS sai | ✅ `test_prod_config_guard` |
+| 8 | Cấu hình prod an toàn | từ chối khởi động nếu JWT_SECRET yếu (< 32) / mặc định, ENABLE_DEV_LOGIN bật, DEV_UNLIMITED bật, CORS sai | ✅ `test_prod_config_guard`, `test_prod_config_rejects_dev_unlimited` |
 | 9 | Log không chứa bí mật | che theo tên khoá (đệ quy) + theo mẫu (Bearer, JWT, `sk-…`) kể cả trong message/exception | ✅ `test_logging.py` |
 | 10 | Container | user không phải root, filesystem read-only, `no-new-privileges` | `apps/api/Dockerfile`, compose prod |
 | 11 | OAuth | PKCE + state (client) + nonce, iss/aud/exp/email_verified, redirect_uri whitelist; refresh xoay vòng, tái sử dụng → thu hồi mọi phiên | ✅ `test_google_oidc.py`, `test_auth_google.py` |

@@ -40,19 +40,29 @@ class QuotaRepository:
             select(QuotaLedger).where(QuotaLedger.request_id == request_id)
         )).scalar_one_or_none()
 
-    async def try_reserve(self, user_id: uuid.UUID, tokens: int) -> bool:
-        """Giữ chỗ nếu còn đủ hạn mức. Trả False nếu không đủ."""
-        row = (await self.s.execute(
-            update(QuotaAccount)
-            .where(
-                QuotaAccount.user_id == user_id,
+    async def _reserve(self, user_id: uuid.UUID, tokens: int, *, enforce_limit: bool) -> bool:
+        stmt = update(QuotaAccount).where(QuotaAccount.user_id == user_id)
+        if enforce_limit:
+            stmt = stmt.where(
                 QuotaAccount.used_tokens + QuotaAccount.reserved_tokens + tokens
                 <= QuotaAccount.limit_tokens,
             )
-            .values(reserved_tokens=QuotaAccount.reserved_tokens + tokens)
+        row = (await self.s.execute(
+            stmt.values(reserved_tokens=QuotaAccount.reserved_tokens + tokens)
             .returning(QuotaAccount.user_id)
         )).scalar_one_or_none()
         return row is not None
+
+    async def try_reserve(self, user_id: uuid.UUID, tokens: int) -> bool:
+        """Giữ chỗ nếu còn đủ hạn mức. Trả False nếu không đủ."""
+        return await self._reserve(user_id, tokens, enforce_limit=True)
+
+    async def reserve_unbounded(self, user_id: uuid.UUID, tokens: int) -> bool:
+        """Giữ chỗ KHÔNG kiểm tra hạn mức (dev unlimited) — vẫn một câu UPDATE nguyên tử.
+
+        Chỉ QuotaService gọi khi DEV_UNLIMITED=true; used_tokens vẫn được cộng khi commit.
+        """
+        return await self._reserve(user_id, tokens, enforce_limit=False)
 
     def add_ledger(self, entry: QuotaLedger) -> None:
         self.s.add(entry)

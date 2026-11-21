@@ -29,7 +29,7 @@ UX: nút phụ **"Dán nội dung…"** trong tab "Tìm trong trang" → textare
 
 ### Extension (`apps/extension`)
 6. `src/shared/messaging/protocol.ts` — `pageMatch/run` req thêm `text?: string`; `PageMatchRun` → `tabId?`, `url: string | null`.
-7. `src/background/page-match.ts` — `runPageMatch({ query, text? })`: khi có `text` → bỏ capture/tabId, gọi API với `{query, text, url: null}`.
+7. `src/background/page-match.ts` — `runPageMatch({ query, text? })`: khi có `text` → bỏ capture/tabId, gọi API với `{query, text, url, title}`. Ban đầu MVP gửi `url: null` cứng; từ ADR-0018 nguồn dán có thể kèm **nguồn tham chiếu** (tab đang mở hoặc URL người dùng nhập — RPC `pageMatch/source` + chip sửa/bỏ trong PageFinder) để ghi chú tham gia gom nhóm theo trang.
 8. `src/shared/api/` — cập nhật type request `pageMatch`.
 9. `src/ui/features/page-finder/PageFinderView.tsx` — nút "Dán nội dung…" cạnh "Quét trang" → chế độ textarea (counter ký tự, cho phép dán dài, backend tự truncate + banner) → "Quét nội dung"; khi `result.tabId == null`: ẩn "Xem tất cả trên trang", nút "Xem trên trang" disabled + tooltip *"Nội dung dán không có trang gốc để xem"*, đổi copy "Lưu cả trang" → "Lưu toàn bộ nội dung", banner "Trang rất dài" → "Nội dung rất dài"; lưu với `url: result.url ?? null`.
 10. Tests: `tests/page-match.test.ts` (nguồn text không đụng `chrome.scripting`), `tests/ui/page-finder.test.tsx` (luồng dán + lưu không URL).

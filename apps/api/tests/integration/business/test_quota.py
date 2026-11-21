@@ -98,6 +98,30 @@ async def test_exceeded_raises_and_leaves_no_ledger(client, monkeypatch) -> None
     assert st.used_tokens == st.reserved_tokens == 0
 
 
+async def test_dev_unlimited_allows_over_limit_and_keeps_counting(client, monkeypatch) -> None:
+    """DEV_UNLIMITED: vẫn reserve/commit vào ledger nhưng không chặn khi vượt limit."""
+    from quickassist.infrastructure.config import get_settings
+
+    s = get_settings()
+    monkeypatch.setattr(s, "quota_default_tokens", 10)
+    monkeypatch.setattr(s, "dev_unlimited", True)
+    uid = await _user(client, "dev-unlimited@x.vn")
+
+    async with QuotaService.open() as q:
+        first = await q.reserve(uid, "summary", 50, "dev-over-1")
+        await q.commit(first, 50)
+        second = await q.reserve(uid, "summary", 50, "dev-over-2")
+        await q.commit(second, 50)
+
+    st = await _status(uid)
+    assert st.limit_enforced is False
+    assert (st.used_tokens, st.reserved_tokens, st.remaining) == (100, 0, 0)
+
+    h = await login(client, "dev-unlimited@x.vn")
+    body = (await client.get("/me/quota", headers=h)).json()
+    assert body["used_tokens"] == 100 and body["limit_enforced"] is False
+
+
 async def test_stale_reservations_are_released(client) -> None:
     from sqlalchemy import text
 
@@ -153,7 +177,8 @@ async def test_quota_endpoint(client) -> None:
     h = await login(client)
     r = (await client.get("/me/quota", headers=h)).json()
     assert r == {"limit_tokens": 1_000_000, "used_tokens": 0, "reserved_tokens": 0,
-                 "remaining_tokens": 1_000_000, "billing_mode": "server"}
+                 "remaining_tokens": 1_000_000, "billing_mode": "server",
+                 "limit_enforced": True}
 
 
 async def test_reset_demo_quota_clears_usage_and_open_reservations(client) -> None:
@@ -167,7 +192,8 @@ async def test_reset_demo_quota_clears_usage_and_open_reservations(client) -> No
     r = await client.post("/me/quota/reset", headers=h)
     assert r.status_code == 200, r.text
     assert r.json() == {"limit_tokens": 1_000_000, "used_tokens": 0, "reserved_tokens": 0,
-                        "remaining_tokens": 1_000_000, "billing_mode": "server"}
+                        "remaining_tokens": 1_000_000, "billing_mode": "server",
+                        "limit_enforced": True}
 
     # Giữ chỗ mở từ trước khi tạo lại không được trừ âm số dư khi chốt sau đó.
     async with QuotaService.open() as q:

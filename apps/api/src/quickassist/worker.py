@@ -55,7 +55,10 @@ async def housekeeping(stop: asyncio.Event, every_seconds: float = 300) -> None:
 
 
 async def main() -> None:
-    configure_logging(get_settings().log_level)
+    settings = get_settings()
+    if settings.dev_unlimited and settings.app_env == "prod":
+        raise RuntimeError("DEV_UNLIMITED phải tắt khi APP_ENV=prod")
+    configure_logging(settings.log_level)
     load_job_handlers()
     try:
         await _repair_once()  # repair lúc khởi động — catch-all để lỗi không làm sập worker

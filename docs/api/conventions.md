@@ -75,3 +75,5 @@ Vì sao `POST /notes` trả **201** chứ không phải 202 như SDS: bản ghi 
 | 8 | Logout cần access token? | **Không** — body `{refresh_token}` | Logout phải chạy được cả khi access token đã hết hạn |
 
 Giới hạn tần suất mặc định (biến môi trường): `RATE_LIMIT_SEARCH_PER_MINUTE=30`, `RATE_LIMIT_AI_PER_MINUTE=10`, `RATE_LIMIT_WRITE_PER_MINUTE=120`.
+
+`DEV_UNLIMITED=true` (chỉ dev/test) bỏ cả 402 lẫn 429 nhưng **vẫn ghi** token đã dùng; `APP_ENV=prod` từ chối khởi động nếu bật (ADR-0019).

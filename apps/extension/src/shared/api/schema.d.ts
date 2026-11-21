@@ -899,6 +899,11 @@ export interface components {
              * @enum {string}
              */
             billing_mode: "server" | "byok";
+            /**
+             * Limit Enforced
+             * @default true
+             */
+            limit_enforced: boolean;
             /** Limit Tokens */
             limit_tokens: number;
             /** Remaining Tokens */

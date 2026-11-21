@@ -54,4 +54,36 @@ describe('groupChatSources', () => {
   it('rỗng → không nhóm', () => {
     expect(groupChatSources([])).toEqual([])
   })
+
+  it('ADR-0018: notes cùng domain khác URL → pages nhiều nhóm; không URL → "Không rõ trang" cuối', () => {
+    const groups = groupChatSources([
+      source({ index: 1, note_id: 'n1', url: 'https://a.example/bai-1?utm=x' }),
+      source({ index: 2, note_id: 'n2', url: 'https://a.example/bai-2' }),
+      source({ index: 3, note_id: 'n1', url: 'https://a.example/bai-1' }),
+      source({ index: 4, note_id: 'n4', url: null }),
+    ])
+    expect(groups).toHaveLength(1)
+    const pages = groups[0]!.pages
+    expect(pages.map((p) => p.label)).toEqual(['a.example/bai-1', 'a.example/bai-2', 'Không rõ trang'])
+    expect(pages[0]!.items.map((s) => s.index)).toEqual([1, 3])
+    expect(pages.at(-1)!.items.map((s) => s.index)).toEqual([4])
+  })
+
+  it('ADR-0018: mọi note cùng URL → đúng 1 nhóm trang (UI ẩn header)', () => {
+    const groups = groupChatSources([
+      source({ index: 1, note_id: 'n1', url: 'https://a.example/bai-1' }),
+      source({ index: 2, note_id: 'n2', url: 'https://a.example/bai-1#top' }),
+    ])
+    expect(groups[0]!.pages).toHaveLength(1)
+  })
+
+  it('ADR-0018: hội thoại cũ không url → 1 nhóm "Không rõ trang", không crash', () => {
+    const groups = groupChatSources([
+      source({ index: 1, note_id: 'n1', url: null }),
+      source({ index: 2, note_id: 'n2', url: null }),
+    ])
+    expect(groups[0]!.pages).toHaveLength(1)
+    expect(groups[0]!.pages[0]!.label).toBe('Không rõ trang')
+    expect(groups[0]!.pages[0]!.url).toBeNull()
+  })
 })

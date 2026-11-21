@@ -157,6 +157,8 @@ A quota exhaustion is a different condition and returns **402**, never 429 (see 
   not a transient condition).
 - `QuotaOut.billing_mode` is `server` when the server pays for AI, `byok` when the user's own key
   is used (see section 6).
+- `QuotaOut.limit_enforced=false` in dev (`DEV_UNLIMITED=true`): usage is still recorded, but the
+  server does not return `402` and rate limiting is off. Prod refuses to start with this flag.
 
 ### 1.7 Pagination
 
@@ -489,7 +491,8 @@ returns the counters.
   "used_tokens": 14320,
   "reserved_tokens": 0,
   "remaining_tokens": 985680,
-  "billing_mode": "server"
+  "billing_mode": "server",
+  "limit_enforced": true
 }
 ```
 
@@ -500,6 +503,7 @@ returns the counters.
 | `reserved_tokens` | integer | in-flight reservations |
 | `remaining_tokens` | integer | `max(0, limit - used - reserved)` |
 | `billing_mode` | string | `server` or `byok` |
+| `limit_enforced` | boolean | `false` = dev unlimited (still records usage, never blocks) |
 
 **Errors** — `401` as above.
 
@@ -1627,8 +1631,9 @@ Operational prerequisites for a realistic run:
 
 ### A.3 `QuotaOut` and `FolderOut`
 
-`QuotaOut`: `limit_tokens`, `used_tokens`, `reserved_tokens`, `remaining_tokens` (integers) and
-`billing_mode` (`server`/`byok`) — all required.
+`QuotaOut`: `limit_tokens`, `used_tokens`, `reserved_tokens`, `remaining_tokens` (integers),
+`billing_mode` (`server`/`byok`) — all required — and `limit_enforced` (boolean, default `true`;
+`false` only in dev unlimited mode).
 
 `FolderOut`: `id` (uuid), `name` (string), `is_default` (boolean), `created_at`, `updated_at`
 (date-time) — all required.

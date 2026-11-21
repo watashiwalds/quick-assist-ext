@@ -857,12 +857,12 @@ sequenceDiagram
 
 - **Công nghệ:** PostgreSQL (`quota_accounts`, `quota_ledger`), UPDATE có điều kiện (nguyên tử, không race), AnyIO `CancelScope(shield=True)`, tiến trình worker định kỳ.
 - **Kích hoạt:** Mọi dịch vụ gọi AI (Summary, Search, RAG, PageMatch, Indexing) trước mỗi lệnh gọi; worker chạy dọn dẹp mỗi 5 phút.
-- **Chức năng:** Không bao giờ vượt hạn mức kể cả khi nhiều request song song; chỉ trừ token thực tế; hoàn quota khi lỗi hoặc bị huỷ; tự hoàn giữ chỗ bị treo khi tiến trình chết giữa chừng.
+- **Chức năng:** Không bao giờ vượt hạn mức kể cả khi nhiều request song song; chỉ trừ token thực tế; hoàn quota khi lỗi hoặc bị huỷ; tự hoàn giữ chỗ bị treo khi tiến trình chết giữa chừng. Ngoại lệ dev: `DEV_UNLIMITED=true` bỏ điều kiện hạn mức nhưng vẫn ghi ledger/`used_tokens`; `APP_ENV=prod` từ chối khởi động nếu bật (ADR-0019).
 - **Luồng hoạt động:**
   - **Phần 1:** AIFeatureService gọi `leased()` tới QuotaService; QuotaService đảm bảo có tài khoản quota và tra `request_id` trong ledger.
   - Nhánh điều kiện [request_id đã có]: trả `QuotaLease (is_new = false)`, caller tự quyết định (vd summary trả `409`).
-  - Nhánh điều kiện [request_id mới]: QuotaService gọi `try_reserve()` (UPDATE có điều kiện).
-    - [không đủ hạn mức]: ROLLBACK; trả `QuotaExceeded` (ánh xạ `402`).
+  - Nhánh điều kiện [request_id mới]: QuotaService gọi `try_reserve()` (UPDATE có điều kiện); khi `DEV_UNLIMITED=true` gọi `reserve_unbounded()` (cùng UPDATE nhưng bỏ điều kiện hạn mức).
+    - [không đủ hạn mức, chỉ khi enforce]: ROLLBACK; trả `QuotaExceeded` (ánh xạ `402`).
     - [đủ hạn mức]: ghi ledger `RESERVED` và COMMIT; AIFeatureService gọi AI.
       - [AI thành công]: `commit()`: ledger sang `COMMITTED`, trừ token thực tế, trả phần dư.
       - [lỗi bất kỳ hoặc bị huỷ]: `release()` trong vùng shield: ledger sang `RELEASED`, hoàn toàn bộ giữ chỗ.

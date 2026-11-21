@@ -76,6 +76,10 @@ export function SettingsView({
   const localMode = session.authMode === 'local'
   // BYOK: user tự trả tiền AI qua key riêng → được đặt lại số liệu (ADR-0016 D6).
   const byok = quota.data?.billing_mode === 'byok'
+  // DEV_UNLIMITED: quota vẫn đếm nhưng backend không chặn; UI không được báo "hết hạn mức".
+  const unlimited = quota.data?.limit_enforced === false
+  const usedTotal = quota.data ? quota.data.used_tokens + quota.data.reserved_tokens : 0
+  const overLimit = !!quota.data && usedTotal > quota.data.limit_tokens
   const version = appVersion()
   const displayName = u?.display_name ?? (localMode ? 'Tự host' : 'Tài khoản Google')
   const active = (key: Section) => (section === key ? ' is-active' : '')
@@ -317,31 +321,55 @@ export function SettingsView({
               {quota.data && (
                 <>
                   <ProgressBar
-                    value={quota.data.used_tokens + quota.data.reserved_tokens}
-                    max={quota.data.limit_tokens}
-                    label={byok ? 'Đã dùng (key của bạn)' : 'Đã dùng hạn mức AI'}
+                    value={usedTotal}
+                    max={unlimited ? Math.max(quota.data.limit_tokens, usedTotal) : quota.data.limit_tokens}
+                    label={
+                      unlimited
+                        ? 'Đã dùng (dev không giới hạn)'
+                        : byok
+                          ? 'Đã dùng (key của bạn)'
+                          : 'Đã dùng hạn mức AI'
+                    }
                   />
-                  <div className="settings-quota-meta">
-                    <span>
-                      {byok ? 'Đã dùng (key của bạn)' : 'Đã dùng'} <strong>{fmt(quota.data.used_tokens)}</strong> /{' '}
-                      {fmt(quota.data.limit_tokens)} token
-                    </span>
-                    <span>
-                      Còn lại <strong>{fmt(quota.data.remaining_tokens)}</strong>
-                    </span>
-                  </div>
-                  {byok && (
+                  {unlimited ? (
+                    <div className="settings-quota-meta">
+                      <span>
+                        Đã dùng <strong>{fmt(quota.data.used_tokens)}</strong> token · ngưỡng{' '}
+                        {fmt(quota.data.limit_tokens)} (không chặn)
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="settings-quota-meta">
+                      <span>
+                        {byok ? 'Đã dùng (key của bạn)' : 'Đã dùng'} <strong>{fmt(quota.data.used_tokens)}</strong> /{' '}
+                        {fmt(quota.data.limit_tokens)} token
+                      </span>
+                      <span>
+                        Còn lại <strong>{fmt(quota.data.remaining_tokens)}</strong>
+                      </span>
+                    </div>
+                  )}
+                  {unlimited ? (
+                    <p className="settings-hint">
+                      Dev mode: quota vẫn được ghi nhận nhưng không giới hạn; rate limit theo user cũng đã tắt.
+                    </p>
+                  ) : byok ? (
                     <p className="settings-hint">
                       Bạn đang dùng key AI riêng (BYOK): lời gọi AI vẫn tính vào hạn mức của server. Bạn có thể
                       bấm “Đặt lại số liệu” bất cứ lúc nào để tiếp tục.
                     </p>
-                  )}
-                  {!byok && (
+                  ) : (
                     <p className="settings-hint">
                       Hạn mức được đặt lại bởi quản trị viên hoặc khi bạn dùng khoá AI riêng.
                     </p>
                   )}
-                  {quota.data.remaining_tokens === 0 && (
+                  {unlimited && (
+                    <Banner tone={overLimit ? 'warn' : 'info'}>
+                      Dev mode: vẫn đếm token nhưng không khoá tính năng AI.
+                      {overLimit ? ` Đã vượt ngưỡng ${fmt(quota.data.limit_tokens)} token.` : ''}
+                    </Banner>
+                  )}
+                  {!unlimited && quota.data.remaining_tokens === 0 && (
                     <Banner tone="warn">
                       Đã hết hạn mức: ghi chú mới vẫn được lưu nhưng chưa tìm kiếm ngữ nghĩa/tóm tắt được.
                       {byok ? ' Bấm “Đặt lại số liệu” để tiếp tục.' : ''}

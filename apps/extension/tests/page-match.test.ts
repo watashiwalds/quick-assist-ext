@@ -12,7 +12,7 @@ import { installChrome } from './helpers/chrome'
 const { chrome, sent } = installChrome()
 const pageMatchStream = vi.fn()
 vi.mock('../src/background/api', () => ({ api: { ai: { pageMatchStream: (...a: unknown[]) => pageMatchStream(...a) } } }))
-const { runPageMatch, highlightInTab, inspectPage, cancelPageMatch } = await import('../src/background/page-match')
+const { runPageMatch, highlightInTab, inspectPage, cancelPageMatch, getActiveTabSource } = await import('../src/background/page-match')
 
 /** Response giả cho http.stream: một mảnh SSE chứa toàn bộ event rồi kết thúc. */
 function sse(events: Array<[string, unknown]>) {
@@ -197,11 +197,36 @@ describe('background page-match', () => {
     const r = await runPageMatch({ query: 'đất đai', text: 'Đoạn một.\n\nĐoạn hai.', scanAll: true })
     expect(chrome.scripting.executeScript).not.toHaveBeenCalled()
     expect(pageMatchStream).toHaveBeenCalledWith(
-      { query: 'đất đai', text: 'Đoạn một.\n\nĐoạn hai.', url: null, scan_all: true },
+      { query: 'đất đai', text: 'Đoạn một.\n\nĐoạn hai.', url: null, title: null, scan_all: true },
       expect.any(AbortSignal),
     )
     expect(r.tabId).toBeUndefined()
     expect(r).toMatchObject({ url: null, title: null, mode: 'segments' })
+  })
+
+  it('nguồn dán có nguồn tham chiếu (ADR-0018) → gửi url/title, trả lại trong kết quả', async () => {
+    pageMatchStream.mockResolvedValueOnce(sse([['done', done()]]))
+    const r = await runPageMatch({ query: 'đất đai', text: 'Nội dung dán', url: 'https://vnexpress.net/bai?utm=x', title: 'Bài báo' })
+    expect(pageMatchStream).toHaveBeenCalledWith(
+      { query: 'đất đai', text: 'Nội dung dán', url: 'https://vnexpress.net/bai?utm=x', title: 'Bài báo', scan_all: false },
+      expect.any(AbortSignal),
+    )
+    expect(r.tabId).toBeUndefined()
+    expect(r).toMatchObject({ url: 'https://vnexpress.net/bai?utm=x', title: 'Bài báo' })
+  })
+
+  it('getActiveTabSource: tab http(s) → url/title; chrome://, file://, không URL → null', async () => {
+    const tabs = chrome.tabs.query as ReturnType<typeof vi.fn>
+    tabs.mockResolvedValueOnce([{ id: 7, url: 'https://a.vn/bai', title: 'Bài' }])
+    await expect(getActiveTabSource()).resolves.toEqual({ url: 'https://a.vn/bai', title: 'Bài' })
+    tabs.mockResolvedValueOnce([{ id: 7, url: 'chrome://extensions', title: 'Extensions' }])
+    await expect(getActiveTabSource()).resolves.toBeNull()
+    tabs.mockResolvedValueOnce([{ id: 7, url: 'file:///C:/a.pdf', title: 'PDF' }])
+    await expect(getActiveTabSource()).resolves.toBeNull()
+    tabs.mockResolvedValueOnce([{ id: 7 }])
+    await expect(getActiveTabSource()).resolves.toBeNull()
+    tabs.mockResolvedValueOnce([])
+    await expect(getActiveTabSource()).resolves.toBeNull()
   })
 
   it('nguồn dán rỗng → PAGE_NO_CONTENT, không gọi API', async () => {

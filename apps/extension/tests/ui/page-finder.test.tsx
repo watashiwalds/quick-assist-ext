@@ -115,6 +115,7 @@ describe('PageFinderView', () => {
   it('dán nội dung → quét bằng text, khoá "Xem trên trang", banner "Nội dung rất dài", lưu không URL', async () => {
     const text = 'Nghị quyết 12/2023 về đất đai.\n\nNghị quyết 14/2023 thu hồi đất.'
     rpc.mockImplementation(async (type: string) => {
+      if (type === 'pageMatch/source') return null
       if (type === 'pageMatch/run') return run({ tabId: undefined, url: null, title: null, truncated: true })
       if (type === 'notes/create') return note
       throw new Error(type)
@@ -129,7 +130,7 @@ describe('PageFinderView', () => {
     expect(screen.queryByRole('button', { name: 'Xem tất cả trên trang' })).toBeNull()
     const viewButtons = screen.getAllByRole('button', { name: 'Xem trên trang' }) as HTMLButtonElement[]
     expect(viewButtons.every((b) => b.disabled)).toBe(true)
-    expect(viewButtons[0]!.title).toBe('Nội dung dán không có trang gốc để xem')
+    expect(viewButtons[0]!.title).toBe('Nội dung dán không có trang gốc để xem; nguồn tham chiếu chỉ để mở lại bài')
     expect(screen.getByText(/Nội dung rất dài/)).toBeTruthy()
     expect(screen.queryByText(/Trang rất dài/)).toBeNull()
 
@@ -145,9 +146,12 @@ describe('PageFinderView', () => {
 
   it('nguồn dán full_page → banner "toàn bộ nội dung" + nút "Lưu toàn bộ"', async () => {
     const full = 'Đoạn A về đất đai.\n\nĐoạn B về đất đai.'
-    rpc.mockResolvedValueOnce(
-      run({ tabId: undefined, url: null, title: null, mode: 'full_page', match_ratio: 0.92, full_text: full, total_chars: full.length }),
-    )
+    rpc.mockImplementation(async (type: string) => {
+      if (type === 'pageMatch/source') return null
+      if (type === 'pageMatch/run')
+        return run({ tabId: undefined, url: null, title: null, mode: 'full_page', match_ratio: 0.92, full_text: full, total_chars: full.length })
+      return note
+    })
     view()
     fireEvent.click(screen.getByRole('button', { name: 'Dán thủ công' }))
     fireEvent.change(screen.getByLabelText(/Bạn cần tìm gì/), { target: { value: 'đất đai' } })
@@ -402,5 +406,110 @@ describe('PageFinderView', () => {
     await screen.findByText('Nghị quyết 12/2023 về đất đai')
     expect(request).toHaveBeenCalledWith({ origins: ['http://*/*', 'https://*/*'] })
     expect(rpc.mock.calls.filter((c) => c[0] === 'pageMatch/run')).toHaveLength(2)
+  })
+})
+
+describe('Nguồn tham chiếu khi dán (ADR-0018)', () => {
+  const tabSource = { url: 'https://vnexpress.net/bai-viet', title: 'Bài báo kinh tế' }
+  const mockPasteFlow = () => {
+    rpc.mockImplementation(async (type: string) => {
+      if (type === 'pageMatch/source') return tabSource
+      if (type === 'pageMatch/run') return run({ tabId: undefined, url: null, title: null })
+      if (type === 'notes/create') return note
+      throw new Error(type)
+    })
+  }
+  const enterPaste = async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Dán thủ công' }))
+    await screen.findByText('Bài báo kinh tế')
+  }
+  const fillAndScan = async () => {
+    fireEvent.change(screen.getByLabelText(/Bạn cần tìm gì/), { target: { value: 'đất đai' } })
+    fireEvent.change(screen.getByLabelText('Nội dung để quét'), { target: { value: 'Nội dung dán.' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Quét nội dung' }))
+    await screen.findByText('Nghị quyết 12/2023 về đất đai')
+  }
+
+  it('vào chế độ dán → lấy tab hiện tại, chip hiện tiêu đề + URL', async () => {
+    mockPasteFlow()
+    view()
+    fireEvent.click(screen.getByRole('button', { name: 'Dán thủ công' }))
+    await screen.findByText('Bài báo kinh tế')
+    expect(rpc).toHaveBeenCalledWith('pageMatch/source')
+    expect(screen.getByText('vnexpress.net/bai-viet')).toBeTruthy()
+  })
+
+  it('quét + lưu → pageMatch/run và notes/create nhận nguồn tham chiếu; kết quả có link mở trang', async () => {
+    mockPasteFlow()
+    view()
+    await enterPaste()
+    await fillAndScan()
+    expect(rpc).toHaveBeenCalledWith(
+      'pageMatch/run',
+      expect.objectContaining({ query: 'đất đai', text: 'Nội dung dán.', url: tabSource.url, title: tabSource.title }),
+    )
+    expect(screen.getByText(/Nguồn tham chiếu:/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu lựa chọn' }))
+    await screen.findByText('Đã lưu 2 đoạn thành ghi chú')
+    expect(rpc).toHaveBeenCalledWith('notes/create', expect.objectContaining({ url: tabSource.url }))
+  })
+
+  it('bỏ chip → quét/lưu không kèm URL', async () => {
+    mockPasteFlow()
+    view()
+    await enterPaste()
+    fireEvent.click(screen.getByRole('button', { name: 'Bỏ' }))
+    await screen.findByText('Chưa gắn nguồn.')
+    await fillAndScan()
+    const runBody = rpc.mock.calls.find((c) => c[0] === 'pageMatch/run')![1] as Record<string, unknown>
+    expect(runBody.url).toBeUndefined()
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu lựa chọn' }))
+    await screen.findByText('Đã lưu 2 đoạn thành ghi chú')
+    expect(rpc).toHaveBeenCalledWith('notes/create', expect.objectContaining({ url: null }))
+  })
+
+  it('nhập URL tay → dùng URL đó khi quét và lưu', async () => {
+    mockPasteFlow()
+    view()
+    await enterPaste()
+    fireEvent.click(screen.getByRole('button', { name: 'Nhập URL' }))
+    fireEvent.change(screen.getByLabelText('URL nguồn tham chiếu'), { target: { value: 'https://tuoitre.vn/bai-khac' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Dùng URL' }))
+    await screen.findAllByText('tuoitre.vn/bai-khac') // title span + url anchor cùng nhãn (title rỗng)
+    await fillAndScan()
+    expect(rpc).toHaveBeenCalledWith(
+      'pageMatch/run',
+      expect.objectContaining({ query: 'đất đai', url: 'https://tuoitre.vn/bai-khac', title: undefined }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu lựa chọn' }))
+    await screen.findByText('Đã lưu 2 đoạn thành ghi chú')
+    expect(rpc).toHaveBeenCalledWith('notes/create', expect.objectContaining({ url: 'https://tuoitre.vn/bai-khac' }))
+  })
+
+  it('URL không hợp lệ → báo lỗi inline, nguồn cũ không bị ghi đè', async () => {
+    mockPasteFlow()
+    view()
+    await enterPaste()
+    fireEvent.click(screen.getByRole('button', { name: 'Nhập URL' }))
+    fireEvent.change(screen.getByLabelText('URL nguồn tham chiếu'), { target: { value: 'khong-phai-url' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Dùng URL' }))
+    await screen.findByText(/URL phải bắt đầu bằng/)
+    expect(screen.getByText('Bài báo kinh tế')).toBeTruthy()
+  })
+
+  it('rpc lỗi khi lấy tab → chip "Chưa gắn nguồn", vẫn quét/lưu được', async () => {
+    rpc.mockImplementation(async (type: string) => {
+      if (type === 'pageMatch/source') throw new AppError('PAGE_ACCESS_DENIED', 'x', 0)
+      if (type === 'pageMatch/run') return run({ tabId: undefined, url: null, title: null })
+      if (type === 'notes/create') return note
+      throw new Error(type)
+    })
+    view()
+    fireEvent.click(screen.getByRole('button', { name: 'Dán thủ công' }))
+    await screen.findByText('Chưa gắn nguồn.')
+    await fillAndScan()
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu lựa chọn' }))
+    await screen.findByText('Đã lưu 2 đoạn thành ghi chú')
+    expect(rpc).toHaveBeenCalledWith('notes/create', expect.objectContaining({ url: null }))
   })
 })

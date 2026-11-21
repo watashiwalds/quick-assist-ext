@@ -1321,6 +1321,11 @@
             "title": "Billing Mode",
             "type": "string"
           },
+          "limit_enforced": {
+            "default": true,
+            "title": "Limit Enforced",
+            "type": "boolean"
+          },
           "limit_tokens": {
             "title": "Limit Tokens",
             "type": "integer"

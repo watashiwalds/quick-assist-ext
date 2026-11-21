@@ -191,6 +191,8 @@ Kiểm tra:
 - `curl http://localhost:8000/api/v1/health/ready` → `{"status":"ok"...}` (kiểm cả kết nối DB).
 
 Mặc định `AI_PROVIDER=mock` (không gọi OpenAI, không tốn tiền) và `ENABLE_DEV_LOGIN=true` (đăng nhập thử không cần Google).
+`DEV_UNLIMITED=true` (mặc định trong `.env.example`) vẫn ghi nhận quota nhưng không chặn AI và tắt rate limit;
+đặt `false` khi cần kiểm tra luồng `402`/`429` như prod. `APP_ENV=prod` từ chối khởi động nếu bật cờ này.
 Muốn dùng OpenAI thật: sửa `infra/.env` → `AI_PROVIDER=openai`, `OPENAI_API_KEY=sk-...`, rồi `up` lại.
 
 Dừng: `Ctrl+C`, hoặc `docker compose -f infra/docker-compose.yml down` (thêm `-v` để xoá cả dữ liệu DB).
@@ -211,8 +213,8 @@ python -m venv .venv
 .venv\Scripts\activate                       # bash: source .venv/bin/activate
 pip install -e ".[dev]"
 $env:DATABASE_URL="postgresql+asyncpg://postgres:postgres@localhost:5432/quickassist"
-$env:APP_ENV="dev"; $env:ENABLE_DEV_LOGIN="true"; $env:AI_PROVIDER="mock"
-# bash: export DATABASE_URL=... APP_ENV=dev ENABLE_DEV_LOGIN=true AI_PROVIDER=mock
+$env:APP_ENV="dev"; $env:ENABLE_DEV_LOGIN="true"; $env:AI_PROVIDER="mock"; $env:DEV_UNLIMITED="true"
+# bash: export DATABASE_URL=... APP_ENV=dev ENABLE_DEV_LOGIN=true AI_PROVIDER=mock DEV_UNLIMITED=true
 alembic upgrade head
 ```
 

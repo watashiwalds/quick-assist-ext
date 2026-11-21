@@ -225,16 +225,18 @@ describe('thư viện (C03)', () => {
       throw new Error(type)
     })
     wrap(<NotesView onGoSettings={() => undefined} />)
-    await screen.findByRole('link', { name: /Tài liệu dài/ })
-    expect(screen.getAllByRole('link', { name: /Tài liệu dài/ })).toHaveLength(1) // MỘT card cho cả tài liệu
+    // Card tài liệu: link nằm trong <li aria-label="Tài liệu dài"> (link "Mở trang nguồn" của nhóm nằm ngoài).
+    const cardLink = () => within(screen.getByRole('listitem', { name: 'Tài liệu dài' })).getByRole('link')
+    await screen.findByRole('listitem', { name: 'Tài liệu dài' })
+    expect(screen.getAllByRole('link', { name: /Tài liệu dài/ })).toHaveLength(2) // card + link "Mở trang nguồn" của nhóm
     expect(screen.getByText('Tài liệu 2 phần')).toBeTruthy()
     expect(screen.getByRole('region', { name: 'Tài liệu Tài liệu dài' })).toBeTruthy()
 
     // Lọc theo nội dung part cuối vẫn giữ nguyên card tài liệu (không mất part 0).
     fireEvent.change(screen.getByLabelText('Tìm kiếm hoặc lọc ghi chú'), { target: { value: 'phần cuối' } })
-    expect(screen.getAllByRole('link', { name: /Tài liệu dài/ })).toHaveLength(1)
+    expect(cardLink()).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('link', { name: /Tài liệu dài/ }))
+    fireEvent.click(cardLink())
     await screen.findByText('Phần 1/2')
     const reader = screen.getByRole('article', { name: 'Tài liệu dài' })
     expect(within(reader).getByText('Phần 2/2')).toBeTruthy()
@@ -262,8 +264,8 @@ describe('thư viện (C03)', () => {
       throw new Error(type)
     })
     wrap(<NotesView onGoSettings={() => undefined} />)
-    await screen.findByRole('link', { name: /Tài liệu dài/ })
-    fireEvent.click(screen.getByRole('link', { name: /Tài liệu dài/ }))
+    await screen.findByRole('listitem', { name: 'Tài liệu dài' })
+    fireEvent.click(within(screen.getByRole('listitem', { name: 'Tài liệu dài' })).getByRole('link'))
     fireEvent.click((await screen.findAllByRole('button', { name: 'Sửa phần' }))[1]!)
     fireEvent.change(screen.getByLabelText('Nội dung'), { target: { value: 'phần cuối đã sửa' } })
     fireEvent.click(screen.getByRole('button', { name: 'Lưu' }))
@@ -295,22 +297,23 @@ describe('thư viện (C03)', () => {
     expect(screen.getByText('Tiêu đề n2')).toBeTruthy()
   })
 
-  it('nhóm theo nguồn + summary-first: nhóm có aria-expanded, tóm tắt hiện trước nội dung', async () => {
+  it('nhóm theo nguồn + summary-first: nhóm có aria-expanded, tóm tắt hiện trước nội dung; toggle Trang/Trang web', async () => {
     rpc.mockImplementation(async (type: string) => {
       if (type === 'folders/list') return FOLDERS
       if (type === 'notes/list')
         return [
           note('n1', { domain: 'a.vn', summary_text: 'Tóm tắt n1' }),
           note('n2', { domain: 'a.vn', content: 'Nội dung gốc n2' }),
-          note('n3', { domain: 'b.vn' }),
+          note('n3', { domain: 'b.vn', url: 'https://b.vn/y' }),
           note('n4', { domain: null, url: null, title: 'Không nguồn' }),
         ]
       if (type === 'outbox/list') return []
       throw new Error(type)
     })
     wrap(<NotesView onGoSettings={() => undefined} />)
-    const groupA = await screen.findByRole('region', { name: 'Nguồn a.vn' })
-    const toggle = screen.getByRole('button', { name: /a\.vn.*2 ghi chú/ })
+    // Mặc định gom theo TRANG (ADR-0018): n1/n2 cùng URL → một nhóm trang.
+    const groupA = await screen.findByRole('region', { name: 'Trang a.vn/x' })
+    const toggle = screen.getByRole('button', { name: /a\.vn\/x.*2 ghi chú/ })
     expect(toggle.tagName).toBe('BUTTON')
     toggle.focus()
     expect(document.activeElement).toBe(toggle)
@@ -318,12 +321,20 @@ describe('thư viện (C03)', () => {
     expect(groupA.textContent).toContain('Tóm tắt n1')
     expect(groupA.textContent).toContain('Tóm tắt từ ghi chú')
     // "Không rõ nguồn" luôn cuối danh sách nhóm
-    const regions = screen.getAllByRole('region', { name: /^Nguồn / })
-    expect(regions.at(-1)!.getAttribute('aria-label')).toBe('Nguồn Không rõ nguồn')
+    const regions = () => screen.getAllByRole('region', { name: /^(Nguồn|Trang) / })
+    expect(regions().at(-1)!.getAttribute('aria-label')).toBe('Nguồn Không rõ nguồn')
     // đóng nhóm → ẩn danh sách note, aria-expanded=false
     fireEvent.click(toggle)
     expect(toggle.getAttribute('aria-expanded')).toBe('false')
     expect(screen.queryByRole('heading', { name: 'Tiêu đề n1' })).toBeNull()
+
+    // Đổi sang "Trang web" → gom lại theo domain như trước (n1/n2/n3 theo domain).
+    fireEvent.click(screen.getByRole('button', { name: 'Trang web' }))
+    await screen.findByRole('region', { name: 'Nguồn a.vn' })
+    expect(screen.getByRole('region', { name: 'Nguồn b.vn' })).toBeTruthy()
+    expect(regions().at(-1)!.getAttribute('aria-label')).toBe('Nguồn Không rõ nguồn')
+    // Nhãn nhóm domain giữ uppercase qua class, nhãn trang không (is-page).
+    expect(screen.getByRole('region', { name: 'Nguồn a.vn' }).querySelector('.source-group-label')!.className).not.toContain('is-page')
   })
 
   it('bulk move: chỉ chuyển note đã chọn, dialog chọn thư mục đích rồi reload', async () => {
@@ -354,17 +365,18 @@ describe('thư viện (C03)', () => {
     expect(screen.getByText('Đã chuyển 2 ghi chú')).toBeTruthy()
   })
 
-  it('"Chọn cả nhóm" chọn đúng các note trong nhóm, không tự chuyển', async () => {
+  it('"Chọn cả nhóm" chọn đúng các note trong nhóm (gom theo trang), không tự chuyển', async () => {
     rpc.mockImplementation(async (type: string) => {
       if (type === 'folders/list') return FOLDERS
-      if (type === 'notes/list') return [note('n1'), note('n2'), note('n3', { domain: 'b.vn' })]
+      if (type === 'notes/list') return [note('n1'), note('n2'), note('n3', { domain: 'b.vn', url: 'https://b.vn/y' })]
       if (type === 'outbox/list') return []
       throw new Error(type)
     })
     wrap(<NotesView onGoSettings={() => undefined} />)
     await screen.findByText('Tiêu đề n1')
     fireEvent.click(screen.getByRole('button', { name: 'Chọn' }))
-    fireEvent.click(within(screen.getByRole('region', { name: 'Nguồn a.vn' })).getByRole('button', { name: 'Chọn cả nhóm' }))
+    // Mặc định gom theo TRANG: n1/n2 cùng URL a.vn/x là một nhóm, n3 ở trang khác.
+    fireEvent.click(within(screen.getByRole('region', { name: 'Trang a.vn/x' })).getByRole('button', { name: 'Chọn cả nhóm' }))
     expect((screen.getByLabelText('Chọn “Tiêu đề n1”') as HTMLInputElement).checked).toBe(true)
     expect((screen.getByLabelText('Chọn “Tiêu đề n2”') as HTMLInputElement).checked).toBe(true)
     expect((screen.getByLabelText('Chọn “Tiêu đề n3”') as HTMLInputElement).checked).toBe(false)
@@ -568,6 +580,25 @@ describe('cài đặt (A08)', () => {
     expect(screen.queryByRole('button', { name: 'Tạo lại hạn mức' })).toBeNull()
   })
 
+  it('dev không giới hạn: vẫn hiện token đã dùng, không banner hết hạn mức', async () => {
+    rpc.mockImplementation(async (type: string) => {
+      if (type === 'quota/get') return {
+        billing_mode: 'server', limit_tokens: 1000, used_tokens: 1200, reserved_tokens: 0,
+        remaining_tokens: 0, limit_enforced: false,
+      }
+      if (type === 'prefs/get') return { defaultFolderId: null }
+      if (type === 'folders/list') return FOLDERS
+      throw new Error(type)
+    })
+    wrap(<SettingsView session={session} />)
+    expect(await screen.findByText(/Dev mode: vẫn đếm token/)).toBeTruthy()
+    expect(screen.getByText(/1\.200/)).toBeTruthy()
+    expect(screen.queryByText(/Đã hết hạn mức/)).toBeNull()
+    const bar = screen.getByRole('progressbar')
+    expect(bar.getAttribute('aria-valuenow')).toBe('1200')
+    expect(bar.getAttribute('aria-valuemax')).toBe('1200')
+  })
+
   it('BYOK còn hạn mức: không banner, vẫn có nút Đặt lại số liệu', async () => {
     rpc.mockImplementation(async (type: string) => {
       if (type === 'quota/get') return { billing_mode: 'byok', limit_tokens: 1000, used_tokens: 950, reserved_tokens: 0, remaining_tokens: 50 }
@@ -650,5 +681,104 @@ describe('tóm tắt vùng chọn (SUM-03)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Lưu thành ghi chú' }))
     await waitFor(() => expect(onDone).toHaveBeenCalled())
     expect(rpc).toHaveBeenCalledWith('summary/saveSelection', expect.objectContaining({ summary: '- ý chính', folderId: 'f1', text: 'Đoạn văn dài' }))
+  })
+})
+
+describe('SearchResults — nhóm con theo trang (ADR-0018)', () => {
+  const snote = (id: string, url: string | null, over: Record<string, unknown> = {}) => ({
+    note_id: id,
+    title: `Phở ${id}`,
+    url,
+    summary: null,
+    snippet: 'hầm xương 8 tiếng',
+    score: 0.03,
+    similarity: 0.62,
+    part_count: 1,
+    part_index: 0,
+    ...over,
+  })
+  const source = (notes: ReturnType<typeof snote>[], over: Record<string, unknown> = {}) => ({
+    domain: 'pho.vn',
+    label: 'pho.vn',
+    source_rank: 1,
+    note_count: notes.length,
+    document_id: null,
+    source_type: 'selection',
+    notes,
+    ...over,
+  })
+
+  it('4 note cùng domain, 2 URL → 2 nhóm con theo trang, không rõ trang cuối', async () => {
+    const { SearchResults } = await import('../../src/ui/features/search/SearchResults')
+    wrap(
+      <SearchResults
+        sources={[source([snote('n1', 'https://pho.vn/a'), snote('n2', 'https://pho.vn/b'), snote('n3', 'https://pho.vn/a?utm=x'), snote('n4', null)])]}
+        onOpenNote={() => undefined}
+      />,
+    )
+    // Ban đầu chỉ 3 note đầu được tải — n4 (Không rõ trang) nằm sau "Xem thêm".
+    expect(await screen.findByRole('region', { name: 'Trang pho.vn/a' })).toBeTruthy()
+    expect(screen.getByRole('region', { name: 'Trang pho.vn/b' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Xem thêm 1 ghi chú' }))
+    expect(await screen.findByRole('region', { name: 'Trang Không rõ trang' })).toBeTruthy()
+    // n3 cùng trang với n1 (chỉ khác query); n4 không URL vào "Không rõ trang"
+    const pageA = screen.getByRole('region', { name: 'Trang pho.vn/a' })
+    expect(within(pageA).getByText('Phở n1')).toBeTruthy()
+    expect(within(pageA).getByText('Phở n3')).toBeTruthy()
+    const unknown = screen.getByRole('region', { name: 'Trang Không rõ trang' })
+    expect(within(unknown).getByText('Phở n4')).toBeTruthy()
+  })
+
+  it('mọi note cùng URL → không hiện header trang (giữ nguyên danh sách)', async () => {
+    const { SearchResults } = await import('../../src/ui/features/search/SearchResults')
+    wrap(
+      <SearchResults
+        sources={[source([snote('n1', 'https://pho.vn/a'), snote('n2', 'https://pho.vn/a')])]}
+        onOpenNote={() => undefined}
+      />,
+    )
+    await screen.findByText('Phở n1')
+    expect(screen.queryByRole('region', { name: /^Trang / })).toBeNull()
+  })
+
+  it('hai document khác nhau cùng domain → không trùng React key, đủ 2 nhóm nguồn', async () => {
+    const { SearchResults } = await import('../../src/ui/features/search/SearchResults')
+    wrap(
+      <SearchResults
+        sources={[
+          source([snote('n1', 'https://pho.vn/a')], { document_id: 'doc1' }),
+          source([snote('n2', 'https://pho.vn/b')], { document_id: 'doc2' }),
+        ]}
+        onOpenNote={() => undefined}
+      />,
+    )
+    await screen.findByText('Phở n1')
+    expect(screen.getByText('Phở n2')).toBeTruthy() // nhóm không bị nuốt vì trùng key
+  })
+
+  it('"Xem thêm" ở cấp domain vẫn hoạt động; mở rộng tính lại nhóm trang', async () => {
+    const { SearchResults } = await import('../../src/ui/features/search/SearchResults')
+    wrap(
+      <SearchResults
+        sources={[
+          source(
+            [
+              snote('n1', 'https://pho.vn/a'),
+              snote('n2', 'https://pho.vn/a'),
+              snote('n3', 'https://pho.vn/a'),
+              snote('n4', 'https://pho.vn/b'), // note thứ 4 ban đầu ẩn, URL khác → nhóm mới sau khi mở
+            ],
+            { note_count: 12 },
+          ),
+        ]}
+        onOpenNote={() => undefined}
+      />,
+    )
+    await screen.findByText('Phở n1')
+    expect(screen.queryByRole('region', { name: 'Trang pho.vn/b' })).toBeNull() // chưa tải n4
+    fireEvent.click(screen.getByRole('button', { name: 'Xem thêm 1 ghi chú' }))
+    expect(await screen.findByText('Phở n4')).toBeTruthy()
+    expect(screen.getByRole('region', { name: 'Trang pho.vn/b' })).toBeTruthy()
+    expect(screen.getByText(/và 8 ghi chú khác trong nguồn này/)).toBeTruthy()
   })
 })

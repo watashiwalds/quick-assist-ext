@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Folder, Note } from '@/shared/api/types'
 import { rpc } from '@/shared/messaging/client'
+import { sourceLabel } from '@/shared/source'
 import { Button, EmptyState, Icon, StatusBadge, useToast } from '../../components'
 import { toSerialized, userMessage } from '@/shared/errors'
 import { formatDate } from '../../lib/hooks'
@@ -178,8 +179,8 @@ export function NoteReader({
                 {note.url && (
                   <>
                     <span className="meta-dot" aria-hidden />
-                    <a href={note.url} target="_blank" rel="noreferrer noopener">
-                      {note.domain ?? 'nguồn'}
+                    <a href={note.url} target="_blank" rel="noreferrer noopener" title={note.url}>
+                      {sourceLabel(note.url) ?? note.domain ?? 'nguồn'}
                     </a>
                   </>
                 )}

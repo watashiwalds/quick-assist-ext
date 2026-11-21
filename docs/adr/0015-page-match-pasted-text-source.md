@@ -16,7 +16,8 @@ Hai cách tiếp cận đã cân nhắc:
 
 ## Quyết định
 1. **Mở rộng contract `POST /ai/page-match`**: thêm `text: str | None` song song `html: str | None`; schema bắt buộc
-   **đúng một trong hai** (`model_validator`). `url`/`title` vẫn chỉ để log/metadata; nguồn dán gửi `url = null`.
+   **đúng một trong hai** (`model_validator`). `url`/`title` vẫn chỉ để log/metadata; nguồn dán **có thể** gửi
+   `url`/`title` làm **nguồn tham chiếu** (ADR-0018) hoặc bỏ trống.
 2. **Service rẽ nhánh theo nguồn**, không đổi pipeline phía sau:
    - `html` → Trafilatura trong process pool (nguyên trạng ADR-0013).
    - `text` → `split_paragraphs()` thuần Python (dòng trống `\n\n`; không có dòng trống thì tách theo câu) →
@@ -27,12 +28,14 @@ Hai cách tiếp cận đã cân nhắc:
    Giữ nguyên tắc quyền tối thiểu H01 và không cần `clipboardRead`.
 4. **UX dùng chung luồng kết quả**: nút phụ "Dán nội dung…" trong tab "Tìm trong trang" → textarea → "Quét nội dung".
    Khi nguồn là dán: ẩn "Xem tất cả trên trang", nút "Xem trên trang" bị khoá kèm tooltip *"Nội dung dán không có
-   trang gốc để xem"*, banner dài đổi thành "Nội dung rất dài", "Lưu cả trang" → "Lưu toàn bộ nội dung".
+   trang gốc để xem; nguồn tham chiếu chỉ để mở lại bài"*, banner dài đổi thành "Nội dung rất dài", "Lưu cả trang" →
+   "Lưu toàn bộ nội dung". Chip **nguồn tham chiếu** (ADR-0018) cho biết URL/tiêu đề tab đang mở và cho sửa/bỏ/nhập tay.
 5. **Cap dùng chung `PAGE_MATCH_MAX_CHARS` = 50 000** ký tự nội dung; phần vượt bị cắt theo biên khối và trả
    `truncated = true` (banner đã có). Nội dung dán không bị 413 theo `PAGE_MATCH_MAX_HTML_BYTES` — giới hạn đó
    chỉ dành cho HTML không tin cậy.
 6. **Lưu kết quả không đổi contract**: `POST /notes` đã nhận `url: string | null`; ghi chú từ nguồn dán có
-   title = truy vấn, `url = null`. Không migration, không bảng mới.
+   title = truy vấn và `url` = nguồn tham chiếu người dùng chọn (tab đang mở hoặc nhập tay — ADR-0018),
+   có thể `null` nếu người dùng bỏ chip. Không migration, không bảng mới.
 7. **Nội dung dán vẫn là dữ liệu không tin cậy** khi đưa vào prompt thẩm định: giữ nguyên wrapper/giới hạn của
    `page_match/prompts.py`; log chỉ metadata (nguồn, số khối/ký tự, mode, latency), không log nội dung.
 
@@ -55,5 +58,10 @@ Hai cách tiếp cận đã cân nhắc:
 - (−) Contract `html` trở thành optional — client cũ vẫn hợp lệ, nhưng tài liệu/OpenAPI phải nêu rõ "đúng một nguồn";
   request thiếu cả hai hoặc có cả hai trả 422 `VALIDATION_ERROR`.
 - (−) Nguồn dán không highlight được trên trang; UI phải giải thích rõ thay vì để nút im lặng thất bại.
+- (−) Nguồn tham chiếu (ADR-0018) **có thể sai** — tab đang mở không chắc là nơi copy nội dung; UI bắt buộc
+  cho sửa/bỏ/nhập tay và dùng nhãn "nguồn tham chiếu", không khẳng định nguồn gốc văn bản.
 - (−) Text dán rất lớn vẫn đi qua bước tách đoạn trước khi cap; chi phí CPU tuyến tính theo kích thước input,
   chấp nhận được ở quy mô hiện tại (cap nội dung 50 000 ký tự giới hạn chi phí AI).
+
+> **Cập nhật 20/11/2026 (ADR-0018):** nguồn dán ban đầu luôn gửi `url = null`; giờ có thể kèm nguồn tham
+> chiếu (tab đang mở hoặc URL nhập tay) để ghi chú tham gia gom nhóm theo trang. Chi tiết: `docs/adr/0018`.

@@ -60,6 +60,14 @@ class TestRecompute(unittest.TestCase):
             actual = recompute_metrics(run_dir)
             self.assertEqual(_diff(expected, actual), [])
 
+    def test_metrics_version_bump_is_not_a_diff(self):
+        # Recompute luôn chạy bằng code hiện tại; metrics cũ giữ version cũ.
+        expected = {"metrics_version": METRICS_VERSION - 1,
+                    "pagematch": {"quality": {"positive": {"hit_rate": 0.5}}}}
+        actual = {"metrics_version": METRICS_VERSION,
+                  "pagematch": {"quality": {"positive": {"hit_rate": 0.5}}}}
+        self.assertEqual(_diff(expected, actual), [])
+
     def test_old_raw_is_tolerated(self):
         with tempfile.TemporaryDirectory() as tmp:
             run_dir = Path(tmp)

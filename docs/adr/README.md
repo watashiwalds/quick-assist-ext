@@ -21,6 +21,8 @@ Theo khung "System Design Trade-offs": luôn nêu ≥ 2 phương án, chọn 1, 
 | [0015](0015-page-match-pasted-text-source.md) | AutoChunk: nội dung dán là nguồn hạng nhất song song HTML trang | Chấp nhận |
 | [0016](0016-per-user-ai-provider-byok.md) | Nhà cung cấp AI theo từng người dùng (BYOK) + chế độ tự host một người | Chấp nhận |
 | [0017](0017-page-match-sse-progress.md) | AutoChunk: SSE cho tiến độ quét trang (progress/batch/verify, huỷ, quota) | Chấp nhận |
+| [0018](0018-detailed-source-attribution.md) | Nguồn chi tiết theo raw URL (bỏ query/hash); domain vẫn là đơn vị truy xuất; nguồn dán có nguồn tham chiếu | Chấp nhận |
+| [0019](0019-dev-unlimited-quota.md) | `DEV_UNLIMITED`: dev vẫn đếm quota nhưng không chặn AI, tắt rate limit; prod fail-fast | Chấp nhận |
 
 > Số **0014** được dành cho kế hoạch UI Evolution (`upgrade-plan/ui-evolution/`) và chưa ban hành tại thời điểm này.
 

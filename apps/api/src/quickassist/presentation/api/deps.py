@@ -56,7 +56,10 @@ def rate_limit(bucket: str, setting: str) -> Callable[..., Awaitable[None]]:
     """
 
     async def _dep(user_id: CurrentUserId) -> None:
-        decision = limiter.check(f"{bucket}:{user_id}", limit=getattr(get_settings(), setting),
+        settings = get_settings()
+        if settings.dev_unlimited:  # dev: tắt rate limit cùng lúc với bỏ chặn quota
+            return
+        decision = limiter.check(f"{bucket}:{user_id}", limit=getattr(settings, setting),
                                  window_seconds=60)
         if not decision.allowed:
             raise RateLimited(retry_after=decision.retry_after)

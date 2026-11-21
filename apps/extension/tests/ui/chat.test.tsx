@@ -154,6 +154,29 @@ describe('ChatView', () => {
     expect(onOpenNote).toHaveBeenCalledTimes(2)
   })
 
+  it('ADR-0018: chi tiết nguồn tách nhóm con theo trang khi cùng domain có URL khác nhau', async () => {
+    await ask('phở?')
+    act(() => {
+      emit({
+        type: 'sources',
+        sources: [
+          { index: 1, source_index: 1, source_domain: 'amthuc.example', note_id: 'n1', chunk_id: 'c1', title: 'Phở bò', url: 'https://amthuc.example/pho', snippet: 'hầm xương' },
+          { index: 2, source_index: 1, source_domain: 'amthuc.example', note_id: 'n2', chunk_id: 'c2', title: 'Bún bò', url: 'https://amthuc.example/bun-bo', snippet: 'sả hành' },
+          { index: 3, source_index: 1, source_domain: 'amthuc.example', note_id: 'n1', chunk_id: 'c3', title: 'Phở bò', url: 'https://amthuc.example/pho?utm=x', snippet: 'phần khác' },
+        ],
+      })
+      emit({ type: 'done', tokensUsed: 1 })
+    })
+    // Chip vẫn gọn theo domain, không dính nhãn trang (D8).
+    expect(screen.getByText('Nguồn (1)')).toBeTruthy()
+    fireEvent.click(screen.getByText('Chi tiết nguồn'))
+    // Domain head đếm thêm số trang.
+    expect(screen.getByText('2 ghi chú · 2 trang')).toBeTruthy()
+    const pageA = screen.getByRole('region', { name: 'Trang amthuc.example/pho' })
+    expect(within(pageA).getAllByText('Phở bò').length).toBe(2) // url chỉ khác query → cùng trang
+    expect(within(screen.getByRole('region', { name: 'Trang amthuc.example/bun-bo' })).getByText('Bún bò')).toBeTruthy()
+  })
+
   it('đếm ghi chú của nhóm theo note khác nhau (chip cũ nhiều chunk/note không phình số)', async () => {
     await ask('phở?')
     act(() => {
