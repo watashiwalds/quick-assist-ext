@@ -1,0 +1,62 @@
+{
+  "run_id": "20261119_042408_020707_smoke-api-check_api-check",
+  "manifest_version": 3,
+  "date_utc": "2026-11-19T04:24:08.020923+00:00",
+  "metrics_version": 3,
+  "raw_schema_version": 3,
+  "eval_code_sha256": "945ddf823850a913366505e7215da8207e74bf9ef49ca7224a861fb9b078ed1e",
+  "command": "run_evaluation.py --dataset-dir /tmp/opencode/steady_one_source --modules search,rag,pagematch --model-label smoke-api-check --tag api-check --fresh-notes --cleanup-notes",
+  "cwd": "/run/media/leedan5/Data/Uni/HK9/CNPMDN/repo/quick-assist-ext/steady_evaluation",
+  "python": "3.14.4",
+  "git_commit": "c091f69f3f4fb5fb90f51620d542e403d5838fc9",
+  "backend_health": {
+    "status": "ok"
+  },
+  "backend_ready": {
+    "status": "ok",
+    "db": "ok"
+  },
+  "api_base_url": "http://localhost:8000/api/v1",
+  "model_label": "smoke-api-check",
+  "provider": "",
+  "model": "",
+  "embedding_model": "",
+  "temperature": "",
+  "evaluator": "",
+  "evidence_type": "smoke",
+  "dataset_version": "4e6fa6ea3cfebd2c",
+  "dataset_fingerprint": "4e6fa6ea3cfebd2c",
+  "dataset_stats": {
+    "source_files": 1,
+    "html_files": 1,
+    "text_files": 0,
+    "qa_pairs": 3,
+    "answerable": 1,
+    "unanswerable": 2,
+    "reference_answers": 0,
+    "excluded_rows": 0,
+    "plain_chars_min": 3433,
+    "plain_chars_median": 3433,
+    "plain_chars_max": 3433,
+    "files_over_chunk_size": 1
+  },
+  "dataset_issues": [],
+  "included_pairs": 3,
+  "excluded_rows": 0,
+  "top_k": 5,
+  "max_sources": 5,
+  "pagematch_top_k": 5,
+  "modules": [
+    "search",
+    "rag",
+    "pagematch"
+  ],
+  "folder_mode": "run",
+  "folder_id": "74b8a27d-a67e-44c0-ad68-e90ddf8a5fe0",
+  "eval_user": "steady-eval@quickassist.local",
+  "fresh_notes": true,
+  "cleanup_notes": true,
+  "allow_degraded": false,
+  "max_concurrency": 1,
+  "corpus_notes": 1
+}

@@ -1,0 +1,62 @@
+{
+  "run_id": "20261119_045729_886201_local-qwen-ternary-bonsai-9b-qwen-gte-2-5-1bQ4_full-local",
+  "manifest_version": 3,
+  "date_utc": "2026-11-19T04:57:29.886527+00:00",
+  "metrics_version": 3,
+  "raw_schema_version": 3,
+  "eval_code_sha256": "59ae54a5085c6e098b9b96370d157b73924ee321b27f1fec92a38b8913b2627e",
+  "command": "run_evaluation.py --model-label local-qwen_ternary_bonsai_9b-qwen_gte_2.5_1bQ4 --provider openai --model chat --embedding-model embed --tag full-local --fresh-notes --cleanup-notes",
+  "cwd": "/run/media/leedan5/Data/Uni/HK9/CNPMDN/repo/quick-assist-ext/steady_evaluation",
+  "python": "3.14.4",
+  "git_commit": "b656d2388a10180d09dfd9022f4e6e5b23dafdf4",
+  "backend_health": {
+    "status": "ok"
+  },
+  "backend_ready": {
+    "status": "ok",
+    "db": "ok"
+  },
+  "api_base_url": "http://localhost:8000/api/v1",
+  "model_label": "local-qwen_ternary_bonsai_9b-qwen_gte_2.5_1bQ4",
+  "provider": "openai",
+  "model": "chat",
+  "embedding_model": "embed",
+  "temperature": "",
+  "evaluator": "",
+  "evidence_type": "quality",
+  "dataset_version": "ef7c82ca643482ab",
+  "dataset_fingerprint": "ef7c82ca643482ab",
+  "dataset_stats": {
+    "source_files": 11,
+    "html_files": 8,
+    "text_files": 3,
+    "qa_pairs": 49,
+    "answerable": 38,
+    "unanswerable": 11,
+    "reference_answers": 0,
+    "excluded_rows": 0,
+    "plain_chars_min": 2865,
+    "plain_chars_median": 5964,
+    "plain_chars_max": 156885,
+    "files_over_chunk_size": 11
+  },
+  "dataset_issues": [],
+  "included_pairs": 49,
+  "excluded_rows": 0,
+  "top_k": 5,
+  "max_sources": 5,
+  "pagematch_top_k": 5,
+  "modules": [
+    "search",
+    "rag",
+    "pagematch"
+  ],
+  "folder_mode": "run",
+  "folder_id": "06373908-ed0e-4aa7-ae63-6bae7d4d5d09",
+  "eval_user": "steady-eval@quickassist.local",
+  "fresh_notes": true,
+  "cleanup_notes": true,
+  "allow_degraded": false,
+  "max_concurrency": 1,
+  "corpus_notes": 11
+}

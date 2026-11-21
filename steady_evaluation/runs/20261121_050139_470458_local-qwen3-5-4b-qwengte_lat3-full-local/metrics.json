@@ -1,0 +1,299 @@
+{
+  "run_id": "20261121_050139_470458_local-qwen3-5-4b-qwengte_lat3-full-local",
+  "metrics_version": 4,
+  "manifest": {
+    "run_id": "20261121_050139_470458_local-qwen3-5-4b-qwengte_lat3-full-local",
+    "manifest_version": 3,
+    "date_utc": "2026-11-21T05:01:39.470700+00:00",
+    "metrics_version": 4,
+    "raw_schema_version": 3,
+    "eval_code_sha256": "6808d78d446fb98372b42529fa0a82d139955a144531da27af7d61fdbfa71b3b",
+    "command": "run_evaluation.py --model-label local-qwen3.5_4b-qwengte --provider openai --model chat --embedding-model gte-Qwen2-1.5B-instruct-Q4_K_M --tag lat3-full-local --fresh-notes --cleanup-notes",
+    "cwd": "/run/media/leedan5/Data/Uni/HK9/CNPMDN/repo/quick-assist-ext/steady_evaluation",
+    "python": "3.14.4",
+    "git_commit": "46f543515e2c60fbf2d383ab509eb9373ad1d37e",
+    "backend_health": {
+      "status": "ok"
+    },
+    "backend_ready": {
+      "status": "ok",
+      "db": "ok"
+    },
+    "api_base_url": "http://localhost:8000/api/v1",
+    "model_label": "local-qwen3.5_4b-qwengte",
+    "provider": "openai",
+    "model": "chat",
+    "embedding_model": "gte-Qwen2-1.5B-instruct-Q4_K_M",
+    "temperature": "",
+    "evaluator": "",
+    "evidence_type": "quality",
+    "dataset_version": "ef7c82ca643482ab",
+    "dataset_fingerprint": "ef7c82ca643482ab",
+    "dataset_stats": {
+      "source_files": 11,
+      "html_files": 8,
+      "text_files": 3,
+      "qa_pairs": 49,
+      "answerable": 38,
+      "unanswerable": 11,
+      "reference_answers": 0,
+      "excluded_rows": 0,
+      "plain_chars_min": 2865,
+      "plain_chars_median": 5964,
+      "plain_chars_max": 156885,
+      "files_over_chunk_size": 11
+    },
+    "dataset_issues": [],
+    "included_pairs": 49,
+    "excluded_rows": 0,
+    "top_k": 5,
+    "max_sources": 5,
+    "pagematch_top_k": 5,
+    "split_chars": 20000,
+    "truncate_long": false,
+    "modules": [
+      "search",
+      "rag",
+      "pagematch"
+    ],
+    "folder_mode": "run",
+    "folder_id": "a11bf531-db1d-4326-b9be-c74e26620ae9",
+    "eval_user": "steady-eval@quickassist.local",
+    "fresh_notes": true,
+    "cleanup_notes": true,
+    "allow_degraded": false,
+    "max_concurrency": 1,
+    "corpus_notes": 25,
+    "corpus_documents": 11
+  },
+  "ingest": {
+    "files": 11,
+    "by_status": {
+      "READY": 11
+    },
+    "ready_rate": 1.0,
+    "created": 11,
+    "reused": 0,
+    "errors": 0,
+    "create_ms_p50": 27.15,
+    "wait_index_ms_p50": 3019.69,
+    "wait_index_ms_p95": 53363.06,
+    "truncated_files": 0,
+    "documents": 11,
+    "document_files": 11,
+    "parts": 25,
+    "parts_ready": 25,
+    "parts_ready_rate": 1.0,
+    "documents_all_parts_ready": 11,
+    "documents_all_parts_ready_rate": 1.0,
+    "total_chars": 316032,
+    "indexed_chars": 316032,
+    "indexed_chars_ratio": 1.0,
+    "max_part_chars": 17995,
+    "oversized_parts": 0,
+    "source_chars": 316049
+  },
+  "search": {
+    "queries": 38,
+    "completed": 38,
+    "errors": 0,
+    "error_rate": 0.0,
+    "recall_at_k": 0.7105,
+    "recall_part_at_k": 0.7105,
+    "mrr": 0.6798,
+    "answer_hit_rate": 0.7105,
+    "answer_hit_note_rate": 0.7105,
+    "gold_part_missing": 0,
+    "gold_spans_parts": 0,
+    "sources_avg": 3.68,
+    "notes_returned_avg": 4.08,
+    "empty_rate": 0.0,
+    "latency_ms_p50": 204.58,
+    "latency_ms_p95": 276.86,
+    "random_floor": 0.4545,
+    "corpus_notes": 25,
+    "corpus_documents": 11,
+    "top_k": 5,
+    "max_sources": 5,
+    "max_sources_observed": 5,
+    "max_sources_ok": true,
+    "sources_at_cap_rate": 0.3947
+  },
+  "rag": {
+    "answerable": {
+      "questions": 38,
+      "completed": 38,
+      "errors": 0,
+      "error_rate": 0.0,
+      "answer_token_f1_gold_avg": 0.1493,
+      "answer_token_f1_reference_avg": null,
+      "reference_answer_cases": 0,
+      "citation_valid_rate": 0.7895,
+      "citation_presence_rate": 0.7895,
+      "no_citation_rate": 0.2105,
+      "number_violation_rate": 0.0526,
+      "no_source_rate": 0.0,
+      "no_context_rate": 0.0,
+      "context_chars_avg": 25098.9,
+      "tokens_used_avg": 1434.1,
+      "first_event_ms_p50": 217.31,
+      "total_ms_p50": 4341.97,
+      "total_ms_p95": 7957.4
+    },
+    "unanswerable": {
+      "questions": 11,
+      "completed": 11,
+      "errors": 0,
+      "error_rate": 0.0,
+      "refusal_rate": 0.8182,
+      "false_answer_rate": 0.1818,
+      "number_violation_rate": 0.1818,
+      "no_source_rate": 0.0
+    }
+  },
+  "pagematch": {
+    "top_k": 5,
+    "cases": 49,
+    "errors": 0,
+    "error_rate": 0.0,
+    "overall": {
+      "positive": {
+        "cases": 38,
+        "hit_all_count": 26,
+        "hit_all": 0.6842,
+        "exact_hit_all_count": 26,
+        "exact_hit_all": 0.6842,
+        "hit5_page_count": 22,
+        "hit5_page": 0.5789,
+        "hit5_score_count": 24,
+        "hit5_score": 0.6316,
+        "precision_all_avg": 0.2217,
+        "coverage_all_avg": 0.7252,
+        "span_precision_all_avg": 0.1332,
+        "verified_recall_count": 25,
+        "verified_recall": 0.6579,
+        "verified_cases": 34,
+        "verified_items": 189,
+        "verified_relevant_items": 26,
+        "verified_precision_macro": 0.2445,
+        "verified_precision_micro": 0.1376
+      },
+      "negative": {
+        "cases": 11,
+        "fpr_any_count": 7,
+        "fpr_any": 0.6364,
+        "verified_fpr_count": 6,
+        "verified_fpr": 0.5455
+      }
+    },
+    "quality": {
+      "positive": {
+        "cases": 29,
+        "hit_rate": 0.5862,
+        "exact_hit_rate": 0.5862,
+        "precision_at_k": 0.2598,
+        "recall_at_k": 0.5862,
+        "f1_at_k_avg": 0.3322,
+        "span_coverage_avg": 0.6255,
+        "span_precision_avg": 0.1592,
+        "span_f1_avg": 0.1892,
+        "full_page_cases": 0,
+        "full_page_f1_avg": null
+      },
+      "negative": {
+        "cases": 8,
+        "fpr": 0.5,
+        "verified_fpr": 0.5
+      },
+      "full_page": {
+        "positive": {
+          "cases": 8,
+          "hit_rate": 0.5,
+          "exact_hit_rate": 0.5,
+          "precision_at_k": 0.125,
+          "recall_at_k": 0.5,
+          "f1_at_k_avg": 0.1666,
+          "span_coverage_avg": 0.6398,
+          "span_precision_avg": 0.108,
+          "span_f1_avg": 0.1481,
+          "full_page_cases": 8,
+          "full_page_f1_avg": 0.7642
+        },
+        "negative": {
+          "cases": 2,
+          "fpr": 1.0,
+          "verified_fpr": 1.0
+        }
+      },
+      "latency_ms_p50": 10456.12,
+      "latency_ms_p95": 21483.63
+    },
+    "fallback": {
+      "cases": 2,
+      "positive": {
+        "cases": 0,
+        "hit_rate": null,
+        "exact_hit_rate": null,
+        "precision_at_k": null,
+        "recall_at_k": null,
+        "f1_at_k_avg": null,
+        "span_coverage_avg": null,
+        "span_precision_avg": null,
+        "span_f1_avg": null,
+        "full_page_cases": 0,
+        "full_page_f1_avg": null
+      },
+      "negative": {
+        "cases": 0,
+        "fpr": null,
+        "verified_fpr": null
+      },
+      "full_page": {
+        "positive": {
+          "cases": 1,
+          "hit_rate": 1.0,
+          "exact_hit_rate": 1.0,
+          "precision_at_k": 0.2,
+          "recall_at_k": 1.0,
+          "f1_at_k_avg": 0.3333,
+          "span_coverage_avg": 1.0,
+          "span_precision_avg": 0.1186,
+          "span_f1_avg": 0.2121,
+          "full_page_cases": 1,
+          "full_page_f1_avg": 0.8192
+        },
+        "negative": {
+          "cases": 1,
+          "fpr": 1.0,
+          "verified_fpr": 0.0
+        }
+      },
+      "latency_ms_p50": 5414.84,
+      "latency_ms_p95": 10889.1
+    },
+    "verify_unavailable_rate": 0.0408,
+    "full_page_mode_rate": 0.2449,
+    "truncated_rate": 0.2245,
+    "latency_ms_p50": 10456.12,
+    "latency_ms_p95": 21483.63
+  },
+  "quota": {
+    "before": {
+      "limit_tokens": 1000000,
+      "used_tokens": 1712768,
+      "reserved_tokens": 0,
+      "remaining_tokens": 0,
+      "billing_mode": "byok",
+      "limit_enforced": false
+    },
+    "after": {
+      "limit_tokens": 1000000,
+      "used_tokens": 2299559,
+      "reserved_tokens": 0,
+      "remaining_tokens": 0,
+      "billing_mode": "byok",
+      "limit_enforced": false
+    }
+  },
+  "tokens_consumed": 586791
+}
